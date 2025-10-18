@@ -21,11 +21,13 @@ type Config struct {
 func (c *Config) String() string {
 	var b strings.Builder
 
-	// TODO: improve this
-	b.WriteString("Nodes: ")
+	b.WriteString("Config:")
+	b.WriteString("\nNodes: ")
+	nodeStrings := make([]string, 0)
 	for _, node := range c.Nodes {
-		b.WriteString(node.ID + ", ")
+		nodeStrings = append(nodeStrings, node.String())
 	}
+	b.WriteString(strings.Join(nodeStrings, ", "))
 	b.WriteString("\nClients: ")
 	b.WriteString(strings.Join(c.Clients, ", "))
 	b.WriteString("\nDBDir: ")
@@ -33,8 +35,8 @@ func (c *Config) String() string {
 	b.WriteString("\nInitBalance: ")
 	b.WriteString(strconv.Itoa(c.InitBalance))
 	b.WriteString("\n")
-	return b.String()
 
+	return b.String()
 }
 
 // ParseConfig parses the config from a yaml file
