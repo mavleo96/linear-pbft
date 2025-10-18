@@ -4,6 +4,9 @@ package pb;
 
 option go_package = "github.com/mavleo96/bft-mavleo96/pb";
 
+service LinearPBFT {
+}
+
 message Transaction {
     string type = 1; 
     string sender = 2;

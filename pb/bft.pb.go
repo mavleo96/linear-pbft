@@ -98,7 +98,9 @@ const file_bft_proto_rawDesc = "" +
 	"\x04type\x18\x01 \x01(\tR\x04type\x12\x16\n" +
 	"\x06sender\x18\x02 \x01(\tR\x06sender\x12\x1a\n" +
 	"\breceiver\x18\x03 \x01(\tR\breceiver\x12\x16\n" +
-	"\x06amount\x18\x04 \x01(\x03R\x06amountB%Z#github.com/mavleo96/bft-mavleo96/pbb\x06proto3"
+	"\x06amount\x18\x04 \x01(\x03R\x06amount2\f\n" +
+	"\n" +
+	"LinearPBFTB%Z#github.com/mavleo96/bft-mavleo96/pbb\x06proto3"
 
 var (
 	file_bft_proto_rawDescOnce sync.Once
@@ -137,7 +139,7 @@ func file_bft_proto_init() {
 			NumEnums:      0,
 			NumMessages:   1,
 			NumExtensions: 0,
-			NumServices:   0,
+			NumServices:   1,
 		},
 		GoTypes:           file_bft_proto_goTypes,
 		DependencyIndexes: file_bft_proto_depIdxs,
