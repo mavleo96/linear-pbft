@@ -1,0 +1,38 @@
+nodes:
+  n1:
+    id: "n1"
+    address: "localhost:5001"
+  n2:
+    id: "n2"
+    address: "localhost:5002"
+  n3:
+    id: "n3"
+    address: "localhost:5003"
+  n4:
+    id: "n4"
+    address: "localhost:5004"
+  n5:
+    id: "n5"
+    address: "localhost:5005"
+  n6:
+    id: "n6"
+    address: "localhost:5006"
+  n7:
+    id: "n7"
+    address: "localhost:5007"
+
+db_dir: ./data
+
+clients:
+- A
+- B
+- C
+- D
+- E
+- F
+- G
+- H
+- I
+- J
+
+init_balance: 10
