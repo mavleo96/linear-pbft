@@ -1,0 +1,12 @@
+syntax="proto3";
+
+package pb;
+
+option go_package = "github.com/mavleo96/bft-mavleo96/pb";
+
+message Transaction {
+    string type = 1; 
+    string sender = 2;
+    string receiver = 3;
+    int64 amount = 4;
+}
