@@ -4,6 +4,7 @@ go 1.25.1
 
 require (
 	github.com/sirupsen/logrus v1.9.3
+	go.etcd.io/bbolt v1.4.3
 	google.golang.org/grpc v1.76.0
 	google.golang.org/protobuf v1.36.10
 	gopkg.in/yaml.v3 v3.0.1
