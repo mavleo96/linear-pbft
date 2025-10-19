@@ -2,9 +2,19 @@ syntax="proto3";
 
 package pb;
 
+import "google/protobuf/empty.proto";
+
 option go_package = "github.com/mavleo96/bft-mavleo96/pb";
 
 service LinearPBFT {
+    rpc TransferRequest (TransactionRequest) returns (google.protobuf.Empty);
+}
+
+message TransactionRequest {
+    Transaction transaction = 1;
+    int64 timestamp = 2;
+    string sender = 3;
+    bytes signature = 4;
 }
 
 message Transaction {
