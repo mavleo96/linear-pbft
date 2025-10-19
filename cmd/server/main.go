@@ -10,6 +10,7 @@ import (
 	"github.com/mavleo96/bft-mavleo96/internal/config"
 	"github.com/mavleo96/bft-mavleo96/internal/database"
 	"github.com/mavleo96/bft-mavleo96/internal/linearpbft"
+	"github.com/mavleo96/bft-mavleo96/internal/security"
 	"github.com/mavleo96/bft-mavleo96/pb"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
@@ -27,6 +28,19 @@ func main() {
 	cfg, err := config.ParseConfig(*configPath)
 	if err != nil {
 		log.Fatal(err)
+	}
+	for nodeID, node := range cfg.Nodes {
+		node.PublicKey, err = security.ReadPublicKey(filepath.Join("./keys", "node", nodeID+".pub.pem"))
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+	clientPublicKeys := make(map[string][]byte)
+	for _, clientID := range cfg.Clients {
+		clientPublicKeys[clientID], err = security.ReadPublicKey(filepath.Join("./keys", "client", clientID+".pub.pem"))
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 
 	// Find self node configuration

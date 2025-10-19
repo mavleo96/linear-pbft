@@ -5,12 +5,14 @@ import (
 	"context"
 	"flag"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
 
 	"github.com/mavleo96/bft-mavleo96/internal/client"
 	"github.com/mavleo96/bft-mavleo96/internal/config"
+	"github.com/mavleo96/bft-mavleo96/internal/security"
 	"github.com/mavleo96/bft-mavleo96/internal/utils"
 	"github.com/mavleo96/bft-mavleo96/pb"
 	log "github.com/sirupsen/logrus"
@@ -24,6 +26,12 @@ func main() {
 	cfg, err := config.ParseConfig("./configs/config.yaml")
 	if err != nil {
 		log.Fatal(err)
+	}
+	for nodeID, node := range cfg.Nodes {
+		node.PublicKey, err = security.ReadPublicKey(filepath.Join("./keys", "node", nodeID+".pub.pem"))
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 	log.Info("Config parsed")
 	// log.Info(cfg.String())
