@@ -61,11 +61,11 @@ func processTransaction(t *pb.Transaction, clientID string, privateKey []byte, p
 		Timestamp:   timestamp,
 		Sender:      clientID,
 	}
-	signature := security.Sign(utils.TransactionRequestString(TransactionRequest), privateKey)
+	signature := security.Sign(utils.MessageString(TransactionRequest), privateKey)
 	TransactionRequest.Signature = signature
 
 	// Verify the signature (dummy for now)
-	ok := security.Verify(utils.TransactionRequestString(TransactionRequest), publicKey, TransactionRequest.Signature)
-	log.Infof("%s <- %s: %t", clientID, utils.TransactionString(t), ok)
+	ok := security.Verify(utils.MessageString(TransactionRequest), publicKey, TransactionRequest.Signature)
+	log.Infof("%s <- %s: %t", clientID, utils.MessageString(t), ok)
 	return nil
 }
