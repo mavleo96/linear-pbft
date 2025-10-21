@@ -1,4 +1,4 @@
-package client
+package clientapp
 
 import (
 	"encoding/csv"
@@ -34,7 +34,7 @@ func (a *Attack) String() string {
 	}
 	nodeStrings := make([]string, 0)
 	for _, n := range a.AttackNodes {
-		nodeStrings = append(nodeStrings, n.String())
+		nodeStrings = append(nodeStrings, n.ID)
 	}
 	return fmt.Sprintf("%s(%s)", a.Type, strings.Join(nodeStrings, ", "))
 }
