@@ -35,7 +35,7 @@ for NODE_ID in $(yq e '.nodes[].id' "$CONFIG_FILE"); do
 done
 
 # Generate client keys
-for CLIENT_ID in $(yq e '.clients[]' "$CONFIG_FILE"); do
+for CLIENT_ID in $(yq e '.clients[].id' "$CONFIG_FILE"); do
     generate_ed25519_key "${CLIENT_ID}" "$CLIENT_KEY_DIR"
     echo "Generated key for client ${CLIENT_ID}"
 done

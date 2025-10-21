@@ -21,18 +21,37 @@ nodes:
     id: "n7"
     address: "localhost:5007"
 
-db_dir: ./data
-
 clients:
-- A
-- B
-- C
-- D
-- E
-- F
-- G
-- H
-- I
-- J
+  A:
+    id: "A"
+    address: "localhost:6001"
+  B:
+    id: "B"
+    address: "localhost:6002"
+  C:
+    id: "C"
+    address: "localhost:6003"
+  D:
+    id: "D"
+    address: "localhost:6004"
+  E:
+    id: "E"
+    address: "localhost:6005"
+  F:
+    id: "F"
+    address: "localhost:6006"
+  G:
+    id: "G"
+    address: "localhost:6007"
+  H:
+    id: "H"
+    address: "localhost:6008"
+  I:
+    id: "I"
+    address: "localhost:6009"
+  J:
+    id: "J"
+    address: "localhost:6010"
 
-init_balance: 10
+db_dir: ./data
+init_balance: 69

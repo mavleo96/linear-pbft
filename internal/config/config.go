@@ -2,41 +2,28 @@ package config
 
 import (
 	"os"
-	"strconv"
-	"strings"
 
-	"github.com/mavleo96/bft-mavleo96/internal/models"
 	"gopkg.in/yaml.v3"
 )
 
 // Config holds the configuration for the distributed system
 type Config struct {
-	Nodes       map[string]*models.Node `yaml:"nodes"`
-	Clients     []string                `yaml:"clients"`
+	Nodes       map[string]*NodeEntry   `yaml:"nodes"`
+	Clients     map[string]*ClientEntry `yaml:"clients"`
 	DBDir       string                  `yaml:"db_dir"`
 	InitBalance int                     `yaml:"init_balance"`
 }
 
-// String returns a formatted, human-readable representation of the Config.
-func (c *Config) String() string {
-	var b strings.Builder
+// NodeEntry represents a node entry in the config
+type NodeEntry struct {
+	ID      string `yaml:"id"`
+	Address string `yaml:"address"`
+}
 
-	b.WriteString("Config:")
-	b.WriteString("\nNodes: ")
-	nodeStrings := make([]string, 0)
-	for _, node := range c.Nodes {
-		nodeStrings = append(nodeStrings, node.String())
-	}
-	b.WriteString(strings.Join(nodeStrings, ", "))
-	b.WriteString("\nClients: ")
-	b.WriteString(strings.Join(c.Clients, ", "))
-	b.WriteString("\nDBDir: ")
-	b.WriteString(c.DBDir)
-	b.WriteString("\nInitBalance: ")
-	b.WriteString(strconv.Itoa(c.InitBalance))
-	b.WriteString("\n")
-
-	return b.String()
+// ClientEntry represents a client entry in the config
+type ClientEntry struct {
+	ID      string `yaml:"id"`
+	Address string `yaml:"address"`
 }
 
 // ParseConfig parses the config from a yaml file
