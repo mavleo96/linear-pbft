@@ -5,16 +5,13 @@ import (
 	"context"
 	"flag"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
-	"sync"
 
-	"github.com/mavleo96/bft-mavleo96/internal/client"
+	"github.com/mavleo96/bft-mavleo96/internal/clientapp"
 	"github.com/mavleo96/bft-mavleo96/internal/config"
-	"github.com/mavleo96/bft-mavleo96/internal/security"
+	"github.com/mavleo96/bft-mavleo96/internal/models"
 	"github.com/mavleo96/bft-mavleo96/internal/utils"
-	"github.com/mavleo96/bft-mavleo96/pb"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -27,63 +24,45 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	for nodeID, node := range cfg.Nodes {
-		node.PublicKey, err = security.ReadPublicKey(filepath.Join("./keys", "node", nodeID+".pub.pem"))
-		if err != nil {
-			log.Fatal(err)
-		}
-	}
 	log.Info("Config parsed")
-	// log.Info(cfg.String())
 
-	// Create gRPC clients for each node
-	nodeClientMap := make(map[string]pb.LinearPBFTClient)
-	for nodeID, node := range cfg.Nodes {
-		conn, err := utils.Connect(node)
-		if err != nil {
-			log.Fatal(err)
-		}
-		defer conn.Close()
-		nodeClient := pb.NewLinearPBFTClient(conn)
-		nodeClientMap[nodeID] = nodeClient
-	}
-	log.Info("gRPC clients created")
-
-	// Read CSV file
-	records, err := client.ReadCSV(*filePath)
+	// Create map of node structs
+	// Note: this object is shared by clients
+	nodeMap, err := models.GetNodeMap(cfg.Nodes)
 	if err != nil {
 		log.Fatal(err)
 	}
+	log.Info("Node map created")
 
-	// Parse test sets
+	// Create map of client structs
+	clientMap, err := models.GetClientMap(cfg.Clients)
+	if err != nil {
+		log.Fatal(err)
+	}
+	log.Info("Client map created")
+
+	// Read CSV file and parse transactions
 	// The entire csv file is loaded into memory and transactions are queued by
 	// each set number for each client.
-	testSets, err := client.ParseRecords(records, cfg.Clients, cfg.Nodes)
+	records, err := clientapp.ReadCSV(*filePath)
+	if err != nil {
+		log.Fatal(err)
+	}
+	testSets, err := clientapp.ParseRecords(records, utils.Keys(cfg.Clients), nodeMap)
 	if err != nil {
 		log.Fatal(err)
 	}
 	log.Info("Test sets parsed")
-	// for _, testSet := range testSets {
-	// 	log.Info(testSet)
-	// }
 
-	// Client routines
-	// Each client has its own goroutine and channel. The channel is used by main routine and client routine to communicate.
-	// - main routine sends test set to client routine
-	// - client routine send nil to main routine when test set is done
-	wg := sync.WaitGroup{}
-	clientChannels := make(map[string]chan *client.TestSet)
-	for _, clientID := range cfg.Clients {
-		clientChannels[clientID] = make(chan *client.TestSet)
-	}
+	// Create context and channels for client routines
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	for _, clientID := range cfg.Clients {
-		wg.Add(1)
-		go func(ctx context.Context, id string) {
-			defer wg.Done()
-			client.ClientRoutine(ctx, id, clientChannels[id], nodeClientMap)
-		}(ctx, clientID)
+	clientSignalChs := make(map[string]chan *clientapp.TestSet)
+	for _, c := range clientMap {
+		clientSignalChs[c.ID], err = clientapp.CreateClientAppServer(ctx, c, nodeMap)
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 	log.Info("Client routines created")
 
@@ -132,14 +111,14 @@ interactionLoop:
 			testSet := testSets[nextTestSet]
 
 			// Reconfigure nodes
-			client.ReconfigureNodes(testSet.Live, testSet.Byzantine, testSet.Attack)
+			clientapp.ReconfigureNodes(testSet.Live, testSet.Byzantine, testSet.Attack)
 
 			// Send test set to clients
-			for _, clientID := range cfg.Clients {
-				clientChannels[clientID] <- testSet
+			for clientID := range cfg.Clients {
+				clientSignalChs[clientID] <- testSet
 			}
-			for _, clientID := range cfg.Clients {
-				<-clientChannels[clientID]
+			for clientID := range cfg.Clients {
+				<-clientSignalChs[clientID]
 			}
 			continue interactionLoop
 		case "print log":
@@ -162,6 +141,5 @@ interactionLoop:
 	}
 
 	cancel()
-	wg.Wait()
 	log.Info("Client main routine exiting...")
 }

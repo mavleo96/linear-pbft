@@ -4,13 +4,14 @@ import (
 	"flag"
 	"net"
 	"path/filepath"
-	"strings"
 	"sync"
 
 	"github.com/mavleo96/bft-mavleo96/internal/config"
 	"github.com/mavleo96/bft-mavleo96/internal/database"
 	"github.com/mavleo96/bft-mavleo96/internal/linearpbft"
+	"github.com/mavleo96/bft-mavleo96/internal/models"
 	"github.com/mavleo96/bft-mavleo96/internal/security"
+	"github.com/mavleo96/bft-mavleo96/internal/utils"
 	"github.com/mavleo96/bft-mavleo96/pb"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
@@ -29,22 +30,18 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	for nodeID, node := range cfg.Nodes {
-		node.PublicKey, err = security.ReadPublicKey(filepath.Join("./keys", "node", nodeID+".pub.pem"))
-		if err != nil {
-			log.Fatal(err)
-		}
+	nodeMap, err := models.GetNodeMap(cfg.Nodes)
+	if err != nil {
+		log.Fatal(err)
 	}
-	clientPublicKeys := make(map[string][]byte)
-	for _, clientID := range cfg.Clients {
-		clientPublicKeys[clientID], err = security.ReadPublicKey(filepath.Join("./keys", "client", clientID+".pub.pem"))
-		if err != nil {
-			log.Fatal(err)
-		}
+
+	clientMap, err := models.GetClientMap(cfg.Clients)
+	if err != nil {
+		log.Fatal(err)
 	}
 
 	// Find self node configuration
-	selfNode, ok := cfg.Nodes[*id]
+	selfNode, ok := nodeMap[*id]
 	if !ok {
 		log.Fatal("Node ID not found in config")
 	}
@@ -53,13 +50,18 @@ func main() {
 	// Create database
 	bankDB := &database.Database{}
 	dbPath := filepath.Join(cfg.DBDir, *id+".db")
-	log.Infof("Initializing database at %s with clients %s", dbPath, strings.Join(cfg.Clients, ", "))
-	err = bankDB.InitDB(dbPath, cfg.Clients, cfg.InitBalance)
+	log.Infof("Initializing database")
+	err = bankDB.InitDB(dbPath, utils.Keys(cfg.Clients), cfg.InitBalance)
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer bankDB.Close()
 	log.Infof("Database initialized at %s", dbPath)
+
+	privateKey, err := security.ReadPrivateKey(filepath.Join("./keys", "node", *id+".pem"))
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	// Create gRPC server
 	lis, err := net.Listen("tcp", selfNode.Address)
@@ -68,10 +70,13 @@ func main() {
 	}
 	grpcServer := grpc.NewServer()
 
-	// Register LinearPBFT server
-	pb.RegisterLinearPBFTServer(grpcServer, &linearpbft.LinearPBFTServer{
-		Node: selfNode,
-		DB:   bankDB,
+	// Register LinearPBFTNode server
+	pb.RegisterLinearPBFTNodeServer(grpcServer, &linearpbft.LinearPBFTNode{
+		Node:       selfNode,
+		DB:         bankDB,
+		PrivateKey: privateKey,
+		Peers:      nodeMap,
+		Clients:    clientMap,
 	})
 
 	// Start gRPC server and paxos server timeout routine
