@@ -22,5 +22,8 @@ func transactionRequestString(t *pb.TransactionRequest) string {
 }
 
 func transactionString(t *pb.Transaction) string {
+	if t.Type == "read" {
+		return fmt.Sprintf("(%s)", t.Sender)
+	}
 	return fmt.Sprintf("(%s, %s, %d)", t.Sender, t.Receiver, t.Amount)
 }
