@@ -22,6 +22,90 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+type TransactionResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ViewNumber    int64                  `protobuf:"varint,1,opt,name=viewNumber,proto3" json:"viewNumber,omitempty"`
+	Timestamp     int64                  `protobuf:"varint,2,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
+	Sender        string                 `protobuf:"bytes,3,opt,name=sender,proto3" json:"sender,omitempty"`
+	NodeID        string                 `protobuf:"bytes,4,opt,name=nodeID,proto3" json:"nodeID,omitempty"`
+	Result        int64                  `protobuf:"varint,5,opt,name=result,proto3" json:"result,omitempty"`
+	Signature     []byte                 `protobuf:"bytes,6,opt,name=signature,proto3" json:"signature,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TransactionResponse) Reset() {
+	*x = TransactionResponse{}
+	mi := &file_bft_proto_msgTypes[0]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TransactionResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TransactionResponse) ProtoMessage() {}
+
+func (x *TransactionResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_bft_proto_msgTypes[0]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TransactionResponse.ProtoReflect.Descriptor instead.
+func (*TransactionResponse) Descriptor() ([]byte, []int) {
+	return file_bft_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *TransactionResponse) GetViewNumber() int64 {
+	if x != nil {
+		return x.ViewNumber
+	}
+	return 0
+}
+
+func (x *TransactionResponse) GetTimestamp() int64 {
+	if x != nil {
+		return x.Timestamp
+	}
+	return 0
+}
+
+func (x *TransactionResponse) GetSender() string {
+	if x != nil {
+		return x.Sender
+	}
+	return ""
+}
+
+func (x *TransactionResponse) GetNodeID() string {
+	if x != nil {
+		return x.NodeID
+	}
+	return ""
+}
+
+func (x *TransactionResponse) GetResult() int64 {
+	if x != nil {
+		return x.Result
+	}
+	return 0
+}
+
+func (x *TransactionResponse) GetSignature() []byte {
+	if x != nil {
+		return x.Signature
+	}
+	return nil
+}
+
 type TransactionRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Transaction   *Transaction           `protobuf:"bytes,1,opt,name=transaction,proto3" json:"transaction,omitempty"`
@@ -34,7 +118,7 @@ type TransactionRequest struct {
 
 func (x *TransactionRequest) Reset() {
 	*x = TransactionRequest{}
-	mi := &file_bft_proto_msgTypes[0]
+	mi := &file_bft_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -46,7 +130,7 @@ func (x *TransactionRequest) String() string {
 func (*TransactionRequest) ProtoMessage() {}
 
 func (x *TransactionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_bft_proto_msgTypes[0]
+	mi := &file_bft_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -59,7 +143,7 @@ func (x *TransactionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TransactionRequest.ProtoReflect.Descriptor instead.
 func (*TransactionRequest) Descriptor() ([]byte, []int) {
-	return file_bft_proto_rawDescGZIP(), []int{0}
+	return file_bft_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *TransactionRequest) GetTransaction() *Transaction {
@@ -102,7 +186,7 @@ type Transaction struct {
 
 func (x *Transaction) Reset() {
 	*x = Transaction{}
-	mi := &file_bft_proto_msgTypes[1]
+	mi := &file_bft_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -114,7 +198,7 @@ func (x *Transaction) String() string {
 func (*Transaction) ProtoMessage() {}
 
 func (x *Transaction) ProtoReflect() protoreflect.Message {
-	mi := &file_bft_proto_msgTypes[1]
+	mi := &file_bft_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -127,7 +211,7 @@ func (x *Transaction) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Transaction.ProtoReflect.Descriptor instead.
 func (*Transaction) Descriptor() ([]byte, []int) {
-	return file_bft_proto_rawDescGZIP(), []int{1}
+	return file_bft_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *Transaction) GetType() string {
@@ -162,7 +246,16 @@ var File_bft_proto protoreflect.FileDescriptor
 
 const file_bft_proto_rawDesc = "" +
 	"\n" +
-	"\tbft.proto\x12\x02pb\x1a\x1bgoogle/protobuf/empty.proto\"\x9b\x01\n" +
+	"\tbft.proto\x12\x02pb\x1a\x1bgoogle/protobuf/empty.proto\"\xb9\x01\n" +
+	"\x13TransactionResponse\x12\x1e\n" +
+	"\n" +
+	"viewNumber\x18\x01 \x01(\x03R\n" +
+	"viewNumber\x12\x1c\n" +
+	"\ttimestamp\x18\x02 \x01(\x03R\ttimestamp\x12\x16\n" +
+	"\x06sender\x18\x03 \x01(\tR\x06sender\x12\x16\n" +
+	"\x06nodeID\x18\x04 \x01(\tR\x06nodeID\x12\x16\n" +
+	"\x06result\x18\x05 \x01(\x03R\x06result\x12\x1c\n" +
+	"\tsignature\x18\x06 \x01(\fR\tsignature\"\x9b\x01\n" +
 	"\x12TransactionRequest\x121\n" +
 	"\vtransaction\x18\x01 \x01(\v2\x0f.pb.TransactionR\vtransaction\x12\x1c\n" +
 	"\ttimestamp\x18\x02 \x01(\x03R\ttimestamp\x12\x16\n" +
@@ -172,10 +265,12 @@ const file_bft_proto_rawDesc = "" +
 	"\x04type\x18\x01 \x01(\tR\x04type\x12\x16\n" +
 	"\x06sender\x18\x02 \x01(\tR\x06sender\x12\x1a\n" +
 	"\breceiver\x18\x03 \x01(\tR\breceiver\x12\x16\n" +
-	"\x06amount\x18\x04 \x01(\x03R\x06amount2O\n" +
-	"\n" +
-	"LinearPBFT\x12A\n" +
-	"\x0fTransferRequest\x12\x16.pb.TransactionRequest\x1a\x16.google.protobuf.EmptyB%Z#github.com/mavleo96/bft-mavleo96/pbb\x06proto3"
+	"\x06amount\x18\x04 \x01(\x03R\x06amount2\x8f\x01\n" +
+	"\x0eLinearPBFTNode\x12A\n" +
+	"\x0fTransferRequest\x12\x16.pb.TransactionRequest\x1a\x16.google.protobuf.Empty\x12:\n" +
+	"\bReadOnly\x12\x16.pb.TransactionRequest\x1a\x16.google.protobuf.Empty2V\n" +
+	"\x13LinearPBFTClientApp\x12?\n" +
+	"\fReceiveReply\x12\x17.pb.TransactionResponse\x1a\x16.google.protobuf.EmptyB%Z#github.com/mavleo96/bft-mavleo96/pbb\x06proto3"
 
 var (
 	file_bft_proto_rawDescOnce sync.Once
@@ -189,18 +284,23 @@ func file_bft_proto_rawDescGZIP() []byte {
 	return file_bft_proto_rawDescData
 }
 
-var file_bft_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_bft_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
 var file_bft_proto_goTypes = []any{
-	(*TransactionRequest)(nil), // 0: pb.TransactionRequest
-	(*Transaction)(nil),        // 1: pb.Transaction
-	(*emptypb.Empty)(nil),      // 2: google.protobuf.Empty
+	(*TransactionResponse)(nil), // 0: pb.TransactionResponse
+	(*TransactionRequest)(nil),  // 1: pb.TransactionRequest
+	(*Transaction)(nil),         // 2: pb.Transaction
+	(*emptypb.Empty)(nil),       // 3: google.protobuf.Empty
 }
 var file_bft_proto_depIdxs = []int32{
-	1, // 0: pb.TransactionRequest.transaction:type_name -> pb.Transaction
-	0, // 1: pb.LinearPBFT.TransferRequest:input_type -> pb.TransactionRequest
-	2, // 2: pb.LinearPBFT.TransferRequest:output_type -> google.protobuf.Empty
-	2, // [2:3] is the sub-list for method output_type
-	1, // [1:2] is the sub-list for method input_type
+	2, // 0: pb.TransactionRequest.transaction:type_name -> pb.Transaction
+	1, // 1: pb.LinearPBFTNode.TransferRequest:input_type -> pb.TransactionRequest
+	1, // 2: pb.LinearPBFTNode.ReadOnly:input_type -> pb.TransactionRequest
+	0, // 3: pb.LinearPBFTClientApp.ReceiveReply:input_type -> pb.TransactionResponse
+	3, // 4: pb.LinearPBFTNode.TransferRequest:output_type -> google.protobuf.Empty
+	3, // 5: pb.LinearPBFTNode.ReadOnly:output_type -> google.protobuf.Empty
+	3, // 6: pb.LinearPBFTClientApp.ReceiveReply:output_type -> google.protobuf.Empty
+	4, // [4:7] is the sub-list for method output_type
+	1, // [1:4] is the sub-list for method input_type
 	1, // [1:1] is the sub-list for extension type_name
 	1, // [1:1] is the sub-list for extension extendee
 	0, // [0:1] is the sub-list for field type_name
@@ -217,9 +317,9 @@ func file_bft_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_bft_proto_rawDesc), len(file_bft_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   2,
+			NumMessages:   3,
 			NumExtensions: 0,
-			NumServices:   1,
+			NumServices:   2,
 		},
 		GoTypes:           file_bft_proto_goTypes,
 		DependencyIndexes: file_bft_proto_depIdxs,

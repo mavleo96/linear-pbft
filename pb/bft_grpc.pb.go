@@ -20,89 +20,216 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	LinearPBFT_TransferRequest_FullMethodName = "/pb.LinearPBFT/TransferRequest"
+	LinearPBFTNode_TransferRequest_FullMethodName = "/pb.LinearPBFTNode/TransferRequest"
+	LinearPBFTNode_ReadOnly_FullMethodName        = "/pb.LinearPBFTNode/ReadOnly"
 )
 
-// LinearPBFTClient is the client API for LinearPBFT service.
+// LinearPBFTNodeClient is the client API for LinearPBFTNode service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
-type LinearPBFTClient interface {
+type LinearPBFTNodeClient interface {
 	TransferRequest(ctx context.Context, in *TransactionRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	ReadOnly(ctx context.Context, in *TransactionRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
-type linearPBFTClient struct {
+type linearPBFTNodeClient struct {
 	cc grpc.ClientConnInterface
 }
 
-func NewLinearPBFTClient(cc grpc.ClientConnInterface) LinearPBFTClient {
-	return &linearPBFTClient{cc}
+func NewLinearPBFTNodeClient(cc grpc.ClientConnInterface) LinearPBFTNodeClient {
+	return &linearPBFTNodeClient{cc}
 }
 
-func (c *linearPBFTClient) TransferRequest(ctx context.Context, in *TransactionRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *linearPBFTNodeClient) TransferRequest(ctx context.Context, in *TransactionRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, LinearPBFT_TransferRequest_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, LinearPBFTNode_TransferRequest_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// LinearPBFTServer is the server API for LinearPBFT service.
-// All implementations must embed UnimplementedLinearPBFTServer
+func (c *linearPBFTNodeClient) ReadOnly(ctx context.Context, in *TransactionRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, LinearPBFTNode_ReadOnly_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// LinearPBFTNodeServer is the server API for LinearPBFTNode service.
+// All implementations must embed UnimplementedLinearPBFTNodeServer
 // for forward compatibility
-type LinearPBFTServer interface {
+type LinearPBFTNodeServer interface {
 	TransferRequest(context.Context, *TransactionRequest) (*emptypb.Empty, error)
-	mustEmbedUnimplementedLinearPBFTServer()
+	ReadOnly(context.Context, *TransactionRequest) (*emptypb.Empty, error)
+	mustEmbedUnimplementedLinearPBFTNodeServer()
 }
 
-// UnimplementedLinearPBFTServer must be embedded to have forward compatible implementations.
-type UnimplementedLinearPBFTServer struct {
+// UnimplementedLinearPBFTNodeServer must be embedded to have forward compatible implementations.
+type UnimplementedLinearPBFTNodeServer struct {
 }
 
-func (UnimplementedLinearPBFTServer) TransferRequest(context.Context, *TransactionRequest) (*emptypb.Empty, error) {
+func (UnimplementedLinearPBFTNodeServer) TransferRequest(context.Context, *TransactionRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method TransferRequest not implemented")
 }
-func (UnimplementedLinearPBFTServer) mustEmbedUnimplementedLinearPBFTServer() {}
+func (UnimplementedLinearPBFTNodeServer) ReadOnly(context.Context, *TransactionRequest) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ReadOnly not implemented")
+}
+func (UnimplementedLinearPBFTNodeServer) mustEmbedUnimplementedLinearPBFTNodeServer() {}
 
-// UnsafeLinearPBFTServer may be embedded to opt out of forward compatibility for this service.
-// Use of this interface is not recommended, as added methods to LinearPBFTServer will
+// UnsafeLinearPBFTNodeServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to LinearPBFTNodeServer will
 // result in compilation errors.
-type UnsafeLinearPBFTServer interface {
-	mustEmbedUnimplementedLinearPBFTServer()
+type UnsafeLinearPBFTNodeServer interface {
+	mustEmbedUnimplementedLinearPBFTNodeServer()
 }
 
-func RegisterLinearPBFTServer(s grpc.ServiceRegistrar, srv LinearPBFTServer) {
-	s.RegisterService(&LinearPBFT_ServiceDesc, srv)
+func RegisterLinearPBFTNodeServer(s grpc.ServiceRegistrar, srv LinearPBFTNodeServer) {
+	s.RegisterService(&LinearPBFTNode_ServiceDesc, srv)
 }
 
-func _LinearPBFT_TransferRequest_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _LinearPBFTNode_TransferRequest_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(TransactionRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(LinearPBFTServer).TransferRequest(ctx, in)
+		return srv.(LinearPBFTNodeServer).TransferRequest(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: LinearPBFT_TransferRequest_FullMethodName,
+		FullMethod: LinearPBFTNode_TransferRequest_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(LinearPBFTServer).TransferRequest(ctx, req.(*TransactionRequest))
+		return srv.(LinearPBFTNodeServer).TransferRequest(ctx, req.(*TransactionRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-// LinearPBFT_ServiceDesc is the grpc.ServiceDesc for LinearPBFT service.
+func _LinearPBFTNode_ReadOnly_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(TransactionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LinearPBFTNodeServer).ReadOnly(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LinearPBFTNode_ReadOnly_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LinearPBFTNodeServer).ReadOnly(ctx, req.(*TransactionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// LinearPBFTNode_ServiceDesc is the grpc.ServiceDesc for LinearPBFTNode service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
-var LinearPBFT_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "pb.LinearPBFT",
-	HandlerType: (*LinearPBFTServer)(nil),
+var LinearPBFTNode_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "pb.LinearPBFTNode",
+	HandlerType: (*LinearPBFTNodeServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
 			MethodName: "TransferRequest",
-			Handler:    _LinearPBFT_TransferRequest_Handler,
+			Handler:    _LinearPBFTNode_TransferRequest_Handler,
+		},
+		{
+			MethodName: "ReadOnly",
+			Handler:    _LinearPBFTNode_ReadOnly_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "bft.proto",
+}
+
+const (
+	LinearPBFTClientApp_ReceiveReply_FullMethodName = "/pb.LinearPBFTClientApp/ReceiveReply"
+)
+
+// LinearPBFTClientAppClient is the client API for LinearPBFTClientApp service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type LinearPBFTClientAppClient interface {
+	ReceiveReply(ctx context.Context, in *TransactionResponse, opts ...grpc.CallOption) (*emptypb.Empty, error)
+}
+
+type linearPBFTClientAppClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewLinearPBFTClientAppClient(cc grpc.ClientConnInterface) LinearPBFTClientAppClient {
+	return &linearPBFTClientAppClient{cc}
+}
+
+func (c *linearPBFTClientAppClient) ReceiveReply(ctx context.Context, in *TransactionResponse, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, LinearPBFTClientApp_ReceiveReply_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// LinearPBFTClientAppServer is the server API for LinearPBFTClientApp service.
+// All implementations must embed UnimplementedLinearPBFTClientAppServer
+// for forward compatibility
+type LinearPBFTClientAppServer interface {
+	ReceiveReply(context.Context, *TransactionResponse) (*emptypb.Empty, error)
+	mustEmbedUnimplementedLinearPBFTClientAppServer()
+}
+
+// UnimplementedLinearPBFTClientAppServer must be embedded to have forward compatible implementations.
+type UnimplementedLinearPBFTClientAppServer struct {
+}
+
+func (UnimplementedLinearPBFTClientAppServer) ReceiveReply(context.Context, *TransactionResponse) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ReceiveReply not implemented")
+}
+func (UnimplementedLinearPBFTClientAppServer) mustEmbedUnimplementedLinearPBFTClientAppServer() {}
+
+// UnsafeLinearPBFTClientAppServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to LinearPBFTClientAppServer will
+// result in compilation errors.
+type UnsafeLinearPBFTClientAppServer interface {
+	mustEmbedUnimplementedLinearPBFTClientAppServer()
+}
+
+func RegisterLinearPBFTClientAppServer(s grpc.ServiceRegistrar, srv LinearPBFTClientAppServer) {
+	s.RegisterService(&LinearPBFTClientApp_ServiceDesc, srv)
+}
+
+func _LinearPBFTClientApp_ReceiveReply_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(TransactionResponse)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LinearPBFTClientAppServer).ReceiveReply(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LinearPBFTClientApp_ReceiveReply_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LinearPBFTClientAppServer).ReceiveReply(ctx, req.(*TransactionResponse))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// LinearPBFTClientApp_ServiceDesc is the grpc.ServiceDesc for LinearPBFTClientApp service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var LinearPBFTClientApp_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "pb.LinearPBFTClientApp",
+	HandlerType: (*LinearPBFTClientAppServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "ReceiveReply",
+			Handler:    _LinearPBFTClientApp_ReceiveReply_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

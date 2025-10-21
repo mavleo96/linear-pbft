@@ -6,8 +6,22 @@ import "google/protobuf/empty.proto";
 
 option go_package = "github.com/mavleo96/bft-mavleo96/pb";
 
-service LinearPBFT {
+service LinearPBFTNode {
     rpc TransferRequest (TransactionRequest) returns (google.protobuf.Empty);
+    rpc ReadOnly (TransactionRequest) returns (google.protobuf.Empty);
+}
+
+service LinearPBFTClientApp {
+    rpc ReceiveReply (TransactionResponse) returns (google.protobuf.Empty);
+}
+
+message TransactionResponse {
+    int64 viewNumber = 1;
+    int64 timestamp = 2;
+    string sender = 3;
+    string nodeID = 4;
+    int64 result = 5;
+    bytes signature = 6;
 }
 
 message TransactionRequest {
