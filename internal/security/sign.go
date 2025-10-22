@@ -1,5 +1,7 @@
 package security
 
+// TODO: maybe rename this to crypto
+
 import (
 	"crypto/ed25519"
 )
