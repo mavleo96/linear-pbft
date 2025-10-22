@@ -98,13 +98,15 @@ func (s *ClientAppServer) ClientSendRoutine(ctx context.Context) {
 					Timestamp:   timestamp,
 					Sender:      s.ID,
 				}
-				signature := security.Sign(utils.MessageString(request), s.PrivateKey)
-				request.Signature = signature
-				result, err := processTransaction(request, s.ID, &leaderNode, s.Nodes, s.ResultCh)
+				signedRequest := &pb.SignedTransactionRequest{
+					Request:   request,
+					Signature: security.Sign(request.String(), s.PrivateKey),
+				}
+				result, err := processTransaction(signedRequest, s.ID, &leaderNode, s.Nodes, s.ResultCh)
 				if err != nil {
 					log.Fatal(err)
 				}
-				log.Infof("%s: %s -> %d", s.ID, utils.MessageString(request.Transaction), result)
+				log.Infof("%s: %s -> %d", s.ID, utils.TransactionRequestString(request), result)
 			}
 			// Signal main routine that the set is done
 			s.SignalCh <- nil
@@ -120,7 +122,7 @@ func (s *ClientAppServer) ClientSendRoutine(ctx context.Context) {
 
 func (s *ClientAppServer) ReceiveReply(ctx context.Context, resp *pb.TransactionResponse) (*emptypb.Empty, error) {
 	// Verify signature and ignore replies with invalid signature
-	ok := security.Verify(utils.MessageString(resp), s.Nodes[resp.NodeID].PublicKey, resp.Signature)
+	ok := security.Verify(resp.String(), s.Nodes[resp.NodeID].PublicKey, resp.Signature)
 	if !ok {
 		log.Warnf("Invalid signature for reply from node %s", resp.NodeID)
 		return &emptypb.Empty{}, nil
