@@ -7,8 +7,10 @@ import "google/protobuf/empty.proto";
 option go_package = "github.com/mavleo96/bft-mavleo96/pb";
 
 service LinearPBFTNode {
-    rpc TransferRequest (TransactionRequest) returns (google.protobuf.Empty);
+    rpc TransferRequest (SignedTransactionRequest) returns (google.protobuf.Empty);
     rpc ReadOnly (TransactionRequest) returns (google.protobuf.Empty);
+
+    rpc PrePrepare (SignedPrePrepareMessage) returns (SignedPrepareMessage);
 }
 
 service LinearPBFTClientApp {
@@ -24,16 +26,54 @@ message TransactionResponse {
     bytes signature = 6;
 }
 
+
+// ---------- TransactionRequest ----------
+
 message TransactionRequest {
     Transaction transaction = 1;
     int64 timestamp = 2;
     string sender = 3;
-    bytes signature = 4;
 }
+
+message SignedTransactionRequest {
+    TransactionRequest request = 1;
+    bytes signature = 2;
+}
+
+// -------------- Transaction --------------
 
 message Transaction {
     string type = 1; 
     string sender = 2;
     string receiver = 3;
     int64 amount = 4;
+}
+
+// -------------- PrePrepare --------------
+
+message PrePrepareMessage {
+    int64 viewNumber = 1;
+    int64 sequenceNum = 2;
+    bytes digest = 3;
+}
+
+message SignedPrePrepareMessage {
+    PrePrepareMessage message = 1;
+    bytes signature = 2;
+    TransactionRequest request = 3;
+}
+
+
+// -------------- Prepare --------------
+
+message PrepareMessage {
+    int64 viewNumber = 1;
+    int64 sequenceNum = 2;
+    bytes digest = 3;
+    string nodeID = 4;
+}
+
+message SignedPrepareMessage {
+    PrepareMessage message = 1;
+    bytes signature = 2;
 }

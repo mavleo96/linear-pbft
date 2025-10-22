@@ -111,7 +111,6 @@ type TransactionRequest struct {
 	Transaction   *Transaction           `protobuf:"bytes,1,opt,name=transaction,proto3" json:"transaction,omitempty"`
 	Timestamp     int64                  `protobuf:"varint,2,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
 	Sender        string                 `protobuf:"bytes,3,opt,name=sender,proto3" json:"sender,omitempty"`
-	Signature     []byte                 `protobuf:"bytes,4,opt,name=signature,proto3" json:"signature,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -167,7 +166,52 @@ func (x *TransactionRequest) GetSender() string {
 	return ""
 }
 
-func (x *TransactionRequest) GetSignature() []byte {
+type SignedTransactionRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Request       *TransactionRequest    `protobuf:"bytes,1,opt,name=request,proto3" json:"request,omitempty"`
+	Signature     []byte                 `protobuf:"bytes,2,opt,name=signature,proto3" json:"signature,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SignedTransactionRequest) Reset() {
+	*x = SignedTransactionRequest{}
+	mi := &file_bft_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SignedTransactionRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SignedTransactionRequest) ProtoMessage() {}
+
+func (x *SignedTransactionRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_bft_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SignedTransactionRequest.ProtoReflect.Descriptor instead.
+func (*SignedTransactionRequest) Descriptor() ([]byte, []int) {
+	return file_bft_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *SignedTransactionRequest) GetRequest() *TransactionRequest {
+	if x != nil {
+		return x.Request
+	}
+	return nil
+}
+
+func (x *SignedTransactionRequest) GetSignature() []byte {
 	if x != nil {
 		return x.Signature
 	}
@@ -186,7 +230,7 @@ type Transaction struct {
 
 func (x *Transaction) Reset() {
 	*x = Transaction{}
-	mi := &file_bft_proto_msgTypes[2]
+	mi := &file_bft_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -198,7 +242,7 @@ func (x *Transaction) String() string {
 func (*Transaction) ProtoMessage() {}
 
 func (x *Transaction) ProtoReflect() protoreflect.Message {
-	mi := &file_bft_proto_msgTypes[2]
+	mi := &file_bft_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -211,7 +255,7 @@ func (x *Transaction) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Transaction.ProtoReflect.Descriptor instead.
 func (*Transaction) Descriptor() ([]byte, []int) {
-	return file_bft_proto_rawDescGZIP(), []int{2}
+	return file_bft_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *Transaction) GetType() string {
@@ -242,6 +286,246 @@ func (x *Transaction) GetAmount() int64 {
 	return 0
 }
 
+type PrePrepareMessage struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ViewNumber    int64                  `protobuf:"varint,1,opt,name=viewNumber,proto3" json:"viewNumber,omitempty"`
+	SequenceNum   int64                  `protobuf:"varint,2,opt,name=sequenceNum,proto3" json:"sequenceNum,omitempty"`
+	Digest        []byte                 `protobuf:"bytes,3,opt,name=digest,proto3" json:"digest,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PrePrepareMessage) Reset() {
+	*x = PrePrepareMessage{}
+	mi := &file_bft_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PrePrepareMessage) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PrePrepareMessage) ProtoMessage() {}
+
+func (x *PrePrepareMessage) ProtoReflect() protoreflect.Message {
+	mi := &file_bft_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PrePrepareMessage.ProtoReflect.Descriptor instead.
+func (*PrePrepareMessage) Descriptor() ([]byte, []int) {
+	return file_bft_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *PrePrepareMessage) GetViewNumber() int64 {
+	if x != nil {
+		return x.ViewNumber
+	}
+	return 0
+}
+
+func (x *PrePrepareMessage) GetSequenceNum() int64 {
+	if x != nil {
+		return x.SequenceNum
+	}
+	return 0
+}
+
+func (x *PrePrepareMessage) GetDigest() []byte {
+	if x != nil {
+		return x.Digest
+	}
+	return nil
+}
+
+type SignedPrePrepareMessage struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Message       *PrePrepareMessage     `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
+	Signature     []byte                 `protobuf:"bytes,2,opt,name=signature,proto3" json:"signature,omitempty"`
+	Request       *TransactionRequest    `protobuf:"bytes,3,opt,name=request,proto3" json:"request,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SignedPrePrepareMessage) Reset() {
+	*x = SignedPrePrepareMessage{}
+	mi := &file_bft_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SignedPrePrepareMessage) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SignedPrePrepareMessage) ProtoMessage() {}
+
+func (x *SignedPrePrepareMessage) ProtoReflect() protoreflect.Message {
+	mi := &file_bft_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SignedPrePrepareMessage.ProtoReflect.Descriptor instead.
+func (*SignedPrePrepareMessage) Descriptor() ([]byte, []int) {
+	return file_bft_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *SignedPrePrepareMessage) GetMessage() *PrePrepareMessage {
+	if x != nil {
+		return x.Message
+	}
+	return nil
+}
+
+func (x *SignedPrePrepareMessage) GetSignature() []byte {
+	if x != nil {
+		return x.Signature
+	}
+	return nil
+}
+
+func (x *SignedPrePrepareMessage) GetRequest() *TransactionRequest {
+	if x != nil {
+		return x.Request
+	}
+	return nil
+}
+
+type PrepareMessage struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ViewNumber    int64                  `protobuf:"varint,1,opt,name=viewNumber,proto3" json:"viewNumber,omitempty"`
+	SequenceNum   int64                  `protobuf:"varint,2,opt,name=sequenceNum,proto3" json:"sequenceNum,omitempty"`
+	Digest        []byte                 `protobuf:"bytes,3,opt,name=digest,proto3" json:"digest,omitempty"`
+	NodeID        string                 `protobuf:"bytes,4,opt,name=nodeID,proto3" json:"nodeID,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PrepareMessage) Reset() {
+	*x = PrepareMessage{}
+	mi := &file_bft_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PrepareMessage) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PrepareMessage) ProtoMessage() {}
+
+func (x *PrepareMessage) ProtoReflect() protoreflect.Message {
+	mi := &file_bft_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PrepareMessage.ProtoReflect.Descriptor instead.
+func (*PrepareMessage) Descriptor() ([]byte, []int) {
+	return file_bft_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *PrepareMessage) GetViewNumber() int64 {
+	if x != nil {
+		return x.ViewNumber
+	}
+	return 0
+}
+
+func (x *PrepareMessage) GetSequenceNum() int64 {
+	if x != nil {
+		return x.SequenceNum
+	}
+	return 0
+}
+
+func (x *PrepareMessage) GetDigest() []byte {
+	if x != nil {
+		return x.Digest
+	}
+	return nil
+}
+
+func (x *PrepareMessage) GetNodeID() string {
+	if x != nil {
+		return x.NodeID
+	}
+	return ""
+}
+
+type SignedPrepareMessage struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Message       *PrepareMessage        `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
+	Signature     []byte                 `protobuf:"bytes,2,opt,name=signature,proto3" json:"signature,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SignedPrepareMessage) Reset() {
+	*x = SignedPrepareMessage{}
+	mi := &file_bft_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SignedPrepareMessage) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SignedPrepareMessage) ProtoMessage() {}
+
+func (x *SignedPrepareMessage) ProtoReflect() protoreflect.Message {
+	mi := &file_bft_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SignedPrepareMessage.ProtoReflect.Descriptor instead.
+func (*SignedPrepareMessage) Descriptor() ([]byte, []int) {
+	return file_bft_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *SignedPrepareMessage) GetMessage() *PrepareMessage {
+	if x != nil {
+		return x.Message
+	}
+	return nil
+}
+
+func (x *SignedPrepareMessage) GetSignature() []byte {
+	if x != nil {
+		return x.Signature
+	}
+	return nil
+}
+
 var File_bft_proto protoreflect.FileDescriptor
 
 const file_bft_proto_rawDesc = "" +
@@ -255,20 +539,44 @@ const file_bft_proto_rawDesc = "" +
 	"\x06sender\x18\x03 \x01(\tR\x06sender\x12\x16\n" +
 	"\x06nodeID\x18\x04 \x01(\tR\x06nodeID\x12\x16\n" +
 	"\x06result\x18\x05 \x01(\x03R\x06result\x12\x1c\n" +
-	"\tsignature\x18\x06 \x01(\fR\tsignature\"\x9b\x01\n" +
+	"\tsignature\x18\x06 \x01(\fR\tsignature\"}\n" +
 	"\x12TransactionRequest\x121\n" +
 	"\vtransaction\x18\x01 \x01(\v2\x0f.pb.TransactionR\vtransaction\x12\x1c\n" +
 	"\ttimestamp\x18\x02 \x01(\x03R\ttimestamp\x12\x16\n" +
-	"\x06sender\x18\x03 \x01(\tR\x06sender\x12\x1c\n" +
-	"\tsignature\x18\x04 \x01(\fR\tsignature\"m\n" +
+	"\x06sender\x18\x03 \x01(\tR\x06sender\"j\n" +
+	"\x18SignedTransactionRequest\x120\n" +
+	"\arequest\x18\x01 \x01(\v2\x16.pb.TransactionRequestR\arequest\x12\x1c\n" +
+	"\tsignature\x18\x02 \x01(\fR\tsignature\"m\n" +
 	"\vTransaction\x12\x12\n" +
 	"\x04type\x18\x01 \x01(\tR\x04type\x12\x16\n" +
 	"\x06sender\x18\x02 \x01(\tR\x06sender\x12\x1a\n" +
 	"\breceiver\x18\x03 \x01(\tR\breceiver\x12\x16\n" +
-	"\x06amount\x18\x04 \x01(\x03R\x06amount2\x8f\x01\n" +
-	"\x0eLinearPBFTNode\x12A\n" +
-	"\x0fTransferRequest\x12\x16.pb.TransactionRequest\x1a\x16.google.protobuf.Empty\x12:\n" +
-	"\bReadOnly\x12\x16.pb.TransactionRequest\x1a\x16.google.protobuf.Empty2V\n" +
+	"\x06amount\x18\x04 \x01(\x03R\x06amount\"m\n" +
+	"\x11PrePrepareMessage\x12\x1e\n" +
+	"\n" +
+	"viewNumber\x18\x01 \x01(\x03R\n" +
+	"viewNumber\x12 \n" +
+	"\vsequenceNum\x18\x02 \x01(\x03R\vsequenceNum\x12\x16\n" +
+	"\x06digest\x18\x03 \x01(\fR\x06digest\"\x9a\x01\n" +
+	"\x17SignedPrePrepareMessage\x12/\n" +
+	"\amessage\x18\x01 \x01(\v2\x15.pb.PrePrepareMessageR\amessage\x12\x1c\n" +
+	"\tsignature\x18\x02 \x01(\fR\tsignature\x120\n" +
+	"\arequest\x18\x03 \x01(\v2\x16.pb.TransactionRequestR\arequest\"\x82\x01\n" +
+	"\x0ePrepareMessage\x12\x1e\n" +
+	"\n" +
+	"viewNumber\x18\x01 \x01(\x03R\n" +
+	"viewNumber\x12 \n" +
+	"\vsequenceNum\x18\x02 \x01(\x03R\vsequenceNum\x12\x16\n" +
+	"\x06digest\x18\x03 \x01(\fR\x06digest\x12\x16\n" +
+	"\x06nodeID\x18\x04 \x01(\tR\x06nodeID\"b\n" +
+	"\x14SignedPrepareMessage\x12,\n" +
+	"\amessage\x18\x01 \x01(\v2\x12.pb.PrepareMessageR\amessage\x12\x1c\n" +
+	"\tsignature\x18\x02 \x01(\fR\tsignature2\xda\x01\n" +
+	"\x0eLinearPBFTNode\x12G\n" +
+	"\x0fTransferRequest\x12\x1c.pb.SignedTransactionRequest\x1a\x16.google.protobuf.Empty\x12:\n" +
+	"\bReadOnly\x12\x16.pb.TransactionRequest\x1a\x16.google.protobuf.Empty\x12C\n" +
+	"\n" +
+	"PrePrepare\x12\x1b.pb.SignedPrePrepareMessage\x1a\x18.pb.SignedPrepareMessage2V\n" +
 	"\x13LinearPBFTClientApp\x12?\n" +
 	"\fReceiveReply\x12\x17.pb.TransactionResponse\x1a\x16.google.protobuf.EmptyB%Z#github.com/mavleo96/bft-mavleo96/pbb\x06proto3"
 
@@ -284,26 +592,37 @@ func file_bft_proto_rawDescGZIP() []byte {
 	return file_bft_proto_rawDescData
 }
 
-var file_bft_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
+var file_bft_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
 var file_bft_proto_goTypes = []any{
-	(*TransactionResponse)(nil), // 0: pb.TransactionResponse
-	(*TransactionRequest)(nil),  // 1: pb.TransactionRequest
-	(*Transaction)(nil),         // 2: pb.Transaction
-	(*emptypb.Empty)(nil),       // 3: google.protobuf.Empty
+	(*TransactionResponse)(nil),      // 0: pb.TransactionResponse
+	(*TransactionRequest)(nil),       // 1: pb.TransactionRequest
+	(*SignedTransactionRequest)(nil), // 2: pb.SignedTransactionRequest
+	(*Transaction)(nil),              // 3: pb.Transaction
+	(*PrePrepareMessage)(nil),        // 4: pb.PrePrepareMessage
+	(*SignedPrePrepareMessage)(nil),  // 5: pb.SignedPrePrepareMessage
+	(*PrepareMessage)(nil),           // 6: pb.PrepareMessage
+	(*SignedPrepareMessage)(nil),     // 7: pb.SignedPrepareMessage
+	(*emptypb.Empty)(nil),            // 8: google.protobuf.Empty
 }
 var file_bft_proto_depIdxs = []int32{
-	2, // 0: pb.TransactionRequest.transaction:type_name -> pb.Transaction
-	1, // 1: pb.LinearPBFTNode.TransferRequest:input_type -> pb.TransactionRequest
-	1, // 2: pb.LinearPBFTNode.ReadOnly:input_type -> pb.TransactionRequest
-	0, // 3: pb.LinearPBFTClientApp.ReceiveReply:input_type -> pb.TransactionResponse
-	3, // 4: pb.LinearPBFTNode.TransferRequest:output_type -> google.protobuf.Empty
-	3, // 5: pb.LinearPBFTNode.ReadOnly:output_type -> google.protobuf.Empty
-	3, // 6: pb.LinearPBFTClientApp.ReceiveReply:output_type -> google.protobuf.Empty
-	4, // [4:7] is the sub-list for method output_type
-	1, // [1:4] is the sub-list for method input_type
-	1, // [1:1] is the sub-list for extension type_name
-	1, // [1:1] is the sub-list for extension extendee
-	0, // [0:1] is the sub-list for field type_name
+	3, // 0: pb.TransactionRequest.transaction:type_name -> pb.Transaction
+	1, // 1: pb.SignedTransactionRequest.request:type_name -> pb.TransactionRequest
+	4, // 2: pb.SignedPrePrepareMessage.message:type_name -> pb.PrePrepareMessage
+	1, // 3: pb.SignedPrePrepareMessage.request:type_name -> pb.TransactionRequest
+	6, // 4: pb.SignedPrepareMessage.message:type_name -> pb.PrepareMessage
+	2, // 5: pb.LinearPBFTNode.TransferRequest:input_type -> pb.SignedTransactionRequest
+	1, // 6: pb.LinearPBFTNode.ReadOnly:input_type -> pb.TransactionRequest
+	5, // 7: pb.LinearPBFTNode.PrePrepare:input_type -> pb.SignedPrePrepareMessage
+	0, // 8: pb.LinearPBFTClientApp.ReceiveReply:input_type -> pb.TransactionResponse
+	8, // 9: pb.LinearPBFTNode.TransferRequest:output_type -> google.protobuf.Empty
+	8, // 10: pb.LinearPBFTNode.ReadOnly:output_type -> google.protobuf.Empty
+	7, // 11: pb.LinearPBFTNode.PrePrepare:output_type -> pb.SignedPrepareMessage
+	8, // 12: pb.LinearPBFTClientApp.ReceiveReply:output_type -> google.protobuf.Empty
+	9, // [9:13] is the sub-list for method output_type
+	5, // [5:9] is the sub-list for method input_type
+	5, // [5:5] is the sub-list for extension type_name
+	5, // [5:5] is the sub-list for extension extendee
+	0, // [0:5] is the sub-list for field type_name
 }
 
 func init() { file_bft_proto_init() }
@@ -317,7 +636,7 @@ func file_bft_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_bft_proto_rawDesc), len(file_bft_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   3,
+			NumMessages:   8,
 			NumExtensions: 0,
 			NumServices:   2,
 		},

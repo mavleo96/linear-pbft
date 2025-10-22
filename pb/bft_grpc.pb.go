@@ -22,14 +22,16 @@ const _ = grpc.SupportPackageIsVersion7
 const (
 	LinearPBFTNode_TransferRequest_FullMethodName = "/pb.LinearPBFTNode/TransferRequest"
 	LinearPBFTNode_ReadOnly_FullMethodName        = "/pb.LinearPBFTNode/ReadOnly"
+	LinearPBFTNode_PrePrepare_FullMethodName      = "/pb.LinearPBFTNode/PrePrepare"
 )
 
 // LinearPBFTNodeClient is the client API for LinearPBFTNode service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type LinearPBFTNodeClient interface {
-	TransferRequest(ctx context.Context, in *TransactionRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	TransferRequest(ctx context.Context, in *SignedTransactionRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	ReadOnly(ctx context.Context, in *TransactionRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	PrePrepare(ctx context.Context, in *SignedPrePrepareMessage, opts ...grpc.CallOption) (*SignedPrepareMessage, error)
 }
 
 type linearPBFTNodeClient struct {
@@ -40,7 +42,7 @@ func NewLinearPBFTNodeClient(cc grpc.ClientConnInterface) LinearPBFTNodeClient {
 	return &linearPBFTNodeClient{cc}
 }
 
-func (c *linearPBFTNodeClient) TransferRequest(ctx context.Context, in *TransactionRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *linearPBFTNodeClient) TransferRequest(ctx context.Context, in *SignedTransactionRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, LinearPBFTNode_TransferRequest_FullMethodName, in, out, opts...)
 	if err != nil {
@@ -58,12 +60,22 @@ func (c *linearPBFTNodeClient) ReadOnly(ctx context.Context, in *TransactionRequ
 	return out, nil
 }
 
+func (c *linearPBFTNodeClient) PrePrepare(ctx context.Context, in *SignedPrePrepareMessage, opts ...grpc.CallOption) (*SignedPrepareMessage, error) {
+	out := new(SignedPrepareMessage)
+	err := c.cc.Invoke(ctx, LinearPBFTNode_PrePrepare_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // LinearPBFTNodeServer is the server API for LinearPBFTNode service.
 // All implementations must embed UnimplementedLinearPBFTNodeServer
 // for forward compatibility
 type LinearPBFTNodeServer interface {
-	TransferRequest(context.Context, *TransactionRequest) (*emptypb.Empty, error)
+	TransferRequest(context.Context, *SignedTransactionRequest) (*emptypb.Empty, error)
 	ReadOnly(context.Context, *TransactionRequest) (*emptypb.Empty, error)
+	PrePrepare(context.Context, *SignedPrePrepareMessage) (*SignedPrepareMessage, error)
 	mustEmbedUnimplementedLinearPBFTNodeServer()
 }
 
@@ -71,11 +83,14 @@ type LinearPBFTNodeServer interface {
 type UnimplementedLinearPBFTNodeServer struct {
 }
 
-func (UnimplementedLinearPBFTNodeServer) TransferRequest(context.Context, *TransactionRequest) (*emptypb.Empty, error) {
+func (UnimplementedLinearPBFTNodeServer) TransferRequest(context.Context, *SignedTransactionRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method TransferRequest not implemented")
 }
 func (UnimplementedLinearPBFTNodeServer) ReadOnly(context.Context, *TransactionRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ReadOnly not implemented")
+}
+func (UnimplementedLinearPBFTNodeServer) PrePrepare(context.Context, *SignedPrePrepareMessage) (*SignedPrepareMessage, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method PrePrepare not implemented")
 }
 func (UnimplementedLinearPBFTNodeServer) mustEmbedUnimplementedLinearPBFTNodeServer() {}
 
@@ -91,7 +106,7 @@ func RegisterLinearPBFTNodeServer(s grpc.ServiceRegistrar, srv LinearPBFTNodeSer
 }
 
 func _LinearPBFTNode_TransferRequest_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(TransactionRequest)
+	in := new(SignedTransactionRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -103,7 +118,7 @@ func _LinearPBFTNode_TransferRequest_Handler(srv interface{}, ctx context.Contex
 		FullMethod: LinearPBFTNode_TransferRequest_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(LinearPBFTNodeServer).TransferRequest(ctx, req.(*TransactionRequest))
+		return srv.(LinearPBFTNodeServer).TransferRequest(ctx, req.(*SignedTransactionRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -126,6 +141,24 @@ func _LinearPBFTNode_ReadOnly_Handler(srv interface{}, ctx context.Context, dec 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _LinearPBFTNode_PrePrepare_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SignedPrePrepareMessage)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LinearPBFTNodeServer).PrePrepare(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LinearPBFTNode_PrePrepare_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LinearPBFTNodeServer).PrePrepare(ctx, req.(*SignedPrePrepareMessage))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // LinearPBFTNode_ServiceDesc is the grpc.ServiceDesc for LinearPBFTNode service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -140,6 +173,10 @@ var LinearPBFTNode_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ReadOnly",
 			Handler:    _LinearPBFTNode_ReadOnly_Handler,
+		},
+		{
+			MethodName: "PrePrepare",
+			Handler:    _LinearPBFTNode_PrePrepare_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
