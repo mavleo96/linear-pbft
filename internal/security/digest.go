@@ -2,9 +2,12 @@ package security
 
 import (
 	"crypto/sha256"
+
+	"github.com/mavleo96/bft-mavleo96/pb"
 )
 
-func Digest(message string) []byte {
-	digest := sha256.Sum256([]byte(message))
+func Digest(request *pb.TransactionRequest) []byte {
+	requestString := transactionRequestString(request)
+	digest := sha256.Sum256([]byte(requestString))
 	return digest[:]
 }

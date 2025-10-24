@@ -14,7 +14,7 @@ func (n *LinearPBFTNode) AssignSequenceNumber(request *pb.TransactionRequest) in
 	defer n.Mutex.Unlock()
 
 	// Compute digest of request
-	requestDigest := security.Digest(utils.MessageString(request))
+	requestDigest := security.Digest(request)
 
 	// Check if request is already in preprepare log
 	for _, preprepare := range n.PrePrepareLog {

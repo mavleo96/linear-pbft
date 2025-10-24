@@ -10,7 +10,6 @@ import (
 
 	"github.com/mavleo96/bft-mavleo96/internal/models"
 	"github.com/mavleo96/bft-mavleo96/internal/security"
-	"github.com/mavleo96/bft-mavleo96/internal/utils"
 	"github.com/mavleo96/bft-mavleo96/pb"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
@@ -100,7 +99,7 @@ func (s *ClientAppServer) ClientSendRoutine(ctx context.Context) {
 				}
 				signedRequest := &pb.SignedTransactionRequest{
 					Request:   request,
-					Signature: security.Sign(utils.MessageString(request), s.PrivateKey),
+					Signature: security.Sign(request, s.PrivateKey),
 				}
 				result, err := processTransaction(signedRequest, s.ID, &leaderNode, s.Nodes, s.ResultCh)
 				if err != nil {
@@ -122,7 +121,7 @@ func (s *ClientAppServer) ClientSendRoutine(ctx context.Context) {
 
 func (s *ClientAppServer) ReceiveReply(ctx context.Context, resp *pb.TransactionResponse) (*emptypb.Empty, error) {
 	// Verify signature and ignore replies with invalid signature
-	ok := security.Verify(utils.MessageString(resp), s.Nodes[resp.NodeID].PublicKey, resp.Signature)
+	ok := security.Verify(resp, s.Nodes[resp.NodeID].PublicKey, resp.Signature)
 	if !ok {
 		log.Warnf("Invalid signature for reply from node %s", resp.NodeID)
 		return &emptypb.Empty{}, nil

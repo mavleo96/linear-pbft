@@ -6,15 +6,11 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/mavleo96/bft-mavleo96/internal/security"
-	"github.com/mavleo96/bft-mavleo96/internal/utils"
 	"github.com/mavleo96/bft-mavleo96/pb"
 	log "github.com/sirupsen/logrus"
 )
 
 func (n *LinearPBFTNode) SendPrePrepare(request *pb.TransactionRequest) ([]*pb.SignedPrepareMessage, error) {
-	// Compute digest of request
-	digest := security.Digest(utils.MessageString(request))
-
 	// Assign sequence number to request
 	sequenceNum := n.AssignSequenceNumber(request)
 
@@ -22,11 +18,11 @@ func (n *LinearPBFTNode) SendPrePrepare(request *pb.TransactionRequest) ([]*pb.S
 	preprepare := &pb.PrePrepareMessage{
 		ViewNumber:  n.ViewNumber,
 		SequenceNum: sequenceNum,
-		Digest:      digest,
+		Digest:      security.Digest(request),
 	}
 	signedPreprepare := &pb.SignedPrePrepareMessage{
 		Message:   preprepare,
-		Signature: security.Sign(utils.MessageString(preprepare), n.PrivateKey),
+		Signature: security.Sign(preprepare, n.PrivateKey),
 		Request:   request,
 	}
 
@@ -104,7 +100,7 @@ func (n *LinearPBFTNode) SendPrepare(signedPrepareMessages []*pb.SignedPrepareMe
 		prepareMessage := signedPrepareMessage.Message
 
 		// Verify Signature
-		ok := security.Verify(utils.MessageString(prepareMessage), n.Peers[prepareMessage.NodeID].PublicKey, signedPrepareMessage.Signature)
+		ok := security.Verify(prepareMessage, n.Peers[prepareMessage.NodeID].PublicKey, signedPrepareMessage.Signature)
 		if !ok {
 			log.Warnf("Invalid signature on prepare message with sequence number %d in view number %d; request: %v", prepareMessage.SequenceNum, prepareMessage.ViewNumber, n.PrePrepareLog[sequenceNum].String())
 			continue
@@ -139,7 +135,7 @@ func (n *LinearPBFTNode) SendPrepare(signedPrepareMessages []*pb.SignedPrepareMe
 		}
 		signedCommitMsgs = append(signedCommitMsgs, &pb.SignedCommitMessage{
 			Message:   commitMessage,
-			Signature: security.Sign(utils.MessageString(commitMessage), n.PrivateKey),
+			Signature: security.Sign(commitMessage, n.PrivateKey),
 		})
 	} else {
 		log.Warnf("Not enough prepare messages to prepare message %d: %s", sequenceNum, n.PrePrepareLog[sequenceNum].String())

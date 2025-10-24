@@ -5,7 +5,6 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/mavleo96/bft-mavleo96/internal/security"
-	"github.com/mavleo96/bft-mavleo96/internal/utils"
 	"github.com/mavleo96/bft-mavleo96/pb"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc/codes"
@@ -24,14 +23,14 @@ func (n *LinearPBFTNode) PrePrepare(ctx context.Context, signedMessage *pb.Signe
 
 	// Verify Node's signature
 	currentLeaderID := n.ViewNumberToLeader(n.ViewNumber)
-	ok := security.Verify(utils.MessageString(preprepareMessage), n.Peers[currentLeaderID].PublicKey, signedMessage.Signature)
+	ok := security.Verify(preprepareMessage, n.Peers[currentLeaderID].PublicKey, signedMessage.Signature)
 	if !ok {
 		log.Warnf("Invalid signature on preprepare message with sequence number %d in view number %d; request: %v", preprepareMessage.SequenceNum, preprepareMessage.ViewNumber, request.String())
 		return nil, status.Errorf(codes.InvalidArgument, "invalid signature")
 	}
 
 	// Verify Digest
-	if !cmp.Equal(preprepareMessage.Digest, security.Digest(utils.MessageString(request))) {
+	if !cmp.Equal(preprepareMessage.Digest, security.Digest(request)) {
 		log.Warnf("Invalid digest on preprepare message with sequence number %d in view number %d; request: %v", preprepareMessage.SequenceNum, preprepareMessage.ViewNumber, request.String())
 		return nil, status.Errorf(codes.InvalidArgument, "invalid digest")
 	}
@@ -55,7 +54,7 @@ func (n *LinearPBFTNode) PrePrepare(ctx context.Context, signedMessage *pb.Signe
 	}
 	signedPrepareMessage := &pb.SignedPrepareMessage{
 		Message:   prepareMessage,
-		Signature: security.Sign(utils.MessageString(prepareMessage), n.PrivateKey),
+		Signature: security.Sign(prepareMessage, n.PrivateKey),
 	}
 
 	return signedPrepareMessage, nil
@@ -95,7 +94,7 @@ func (n *LinearPBFTNode) Prepare(ctx context.Context, signedPrepareMessages *pb.
 		} else {
 			publicKey = n.Peers[prepareMessage.NodeID].PublicKey
 		}
-		ok := security.Verify(utils.MessageString(prepareMessage), publicKey, signedPrepareMessage.Signature)
+		ok := security.Verify(prepareMessage, publicKey, signedPrepareMessage.Signature)
 		if !ok {
 			log.Warnf("Invalid signature on prepare message with sequence number %d in view number %d; request: %v", prepareMessage.SequenceNum, prepareMessage.ViewNumber, preprepareMessage.String())
 			continue
@@ -135,7 +134,7 @@ func (n *LinearPBFTNode) Prepare(ctx context.Context, signedPrepareMessages *pb.
 	}
 	signedCommitMessage := &pb.SignedCommitMessage{
 		Message:   commitMessage,
-		Signature: security.Sign(utils.MessageString(commitMessage), n.PrivateKey),
+		Signature: security.Sign(commitMessage, n.PrivateKey),
 	}
 
 	return signedCommitMessage, nil
