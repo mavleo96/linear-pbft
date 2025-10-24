@@ -46,38 +46,22 @@ func main() {
 		log.Fatal("Node ID not found in config")
 	}
 	log.Infof("Self node configuration: %v", selfNode)
-
-	// Create database
-	bankDB := &database.Database{}
-	dbPath := filepath.Join(cfg.DBDir, *id+".db")
-	log.Infof("Initializing database")
-	err = bankDB.InitDB(dbPath, utils.Keys(cfg.Clients), cfg.InitBalance)
-	if err != nil {
-		log.Fatal(err)
+	peerNodes := make(map[string]*models.Node)
+	for _, node := range nodeMap {
+		if node.ID != *id {
+			peerNodes[node.ID] = node
+		}
 	}
-	defer bankDB.Close()
-	log.Infof("Database initialized at %s", dbPath)
 
-	privateKey, err := security.ReadPrivateKey(filepath.Join("./keys", "node", *id+".pem"))
+	grpcServer, err := CreateLinearPBFTNode(selfNode, peerNodes, clientMap, cfg.DBDir, cfg.InitBalance)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	// Create gRPC server
 	lis, err := net.Listen("tcp", selfNode.Address)
 	if err != nil {
 		log.Fatal(err)
 	}
-	grpcServer := grpc.NewServer()
-
-	// Register LinearPBFTNode server
-	pb.RegisterLinearPBFTNodeServer(grpcServer, &linearpbft.LinearPBFTNode{
-		Node:       selfNode,
-		DB:         bankDB,
-		PrivateKey: privateKey,
-		Peers:      nodeMap,
-		Clients:    clientMap,
-	})
 
 	// Start gRPC server and paxos server timeout routine
 	var wg sync.WaitGroup
@@ -90,4 +74,45 @@ func main() {
 
 	// Wait for gRPC server and paxos server timeout routine to finish
 	wg.Wait()
+}
+
+func CreateLinearPBFTNode(selfNode *models.Node, peerNodes map[string]*models.Node, clientMap map[string]*models.Client, dbDir string, initBalance int) (*grpc.Server, error) {
+	privateKey, err := security.ReadPrivateKey(filepath.Join("./keys", "node", selfNode.ID+".pem"))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	bankDB := &database.Database{}
+	dbPath := filepath.Join(dbDir, selfNode.ID+".db")
+	log.Infof("Initializing database")
+	err = bankDB.InitDB(dbPath, utils.Keys(clientMap), initBalance)
+	if err != nil {
+		log.Fatal(err)
+	}
+	// defer bankDB.Close()
+	log.Infof("Database initialized at %s", dbPath)
+
+	grpcServer := grpc.NewServer()
+
+	node := &linearpbft.LinearPBFTNode{
+		Node:                    selfNode,
+		DB:                      bankDB,
+		PrivateKey:              privateKey,
+		Peers:                   peerNodes,
+		Clients:                 clientMap,
+		F:                       int64(len(peerNodes) / 3),
+		N:                       int64(len(peerNodes) + 1),
+		Mutex:                   sync.Mutex{},
+		ViewNumber:              0,
+		PrePreparedLog:          make(map[int64]*linearpbft.LogRecord),
+		PreparedLog:             make(map[int64]*linearpbft.LogRecord),
+		CommittedLog:            make(map[int64]*linearpbft.LogRecord),
+		ExecutedLog:             make(map[int64]*linearpbft.LogRecord),
+		LastReply:               make(map[string]*pb.TransactionResponse),
+		LastExecutedSequenceNum: 0,
+		TransactionMap:          make(map[[32]byte]*pb.TransactionRequest),
+	}
+	pb.RegisterLinearPBFTNodeServer(grpcServer, node)
+
+	return grpcServer, nil
 }
