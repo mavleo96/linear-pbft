@@ -11,6 +11,7 @@ service LinearPBFTNode {
 
     rpc PrePrepare (SignedPrePrepareMessage) returns (SignedPrepareMessage);
     rpc Prepare (CollectedSignedPrepareMessage) returns (SignedCommitMessage);
+    rpc Commit (CollectedSignedCommitMessage) returns (google.protobuf.Empty);
 }
 
 service LinearPBFTClientApp {
@@ -96,4 +97,10 @@ message CommitMessage {
 message SignedCommitMessage {
     CommitMessage message = 1;
     bytes signature = 2;
+}
+
+message CollectedSignedCommitMessage {
+    int64 viewNumber = 1;
+    int64 sequenceNum = 2;
+    repeated SignedCommitMessage messages = 3;
 }

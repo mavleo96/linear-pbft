@@ -23,6 +23,7 @@ type LinearPBFTNode struct {
 	ViewNumber    int64
 	PrePrepareLog map[int64]*pb.PrePrepareMessage
 	PrepareLog    map[int64]*pb.PrepareMessage
+	CommitLog     map[int64]*pb.CommitMessage
 
 	TransactionMap map[[32]byte]*pb.TransactionRequest
 

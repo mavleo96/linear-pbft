@@ -2,6 +2,7 @@ package linearpbft
 
 import (
 	"context"
+	"errors"
 	"sync"
 
 	"github.com/google/go-cmp/cmp"
@@ -164,4 +165,74 @@ func (n *LinearPBFTNode) SendPrepare(signedPrepareMessages []*pb.SignedPrepareMe
 		}
 	}
 	return nil, nil
+}
+
+func (n *LinearPBFTNode) SendCommit(signedCommitMessages []*pb.SignedCommitMessage, sequenceNum int64) error {
+	// Create collected signed commit message
+	collectedSignedCommitMessage := &pb.CollectedSignedCommitMessage{
+		ViewNumber:  n.ViewNumber,
+		SequenceNum: sequenceNum,
+		Messages:    signedCommitMessages,
+	}
+	n.Mutex.Lock()
+	digest := n.PrepareLog[sequenceNum].Digest
+	n.Mutex.Unlock()
+
+	// Multicast commit message to all nodes
+	log.Infof("Sending commit message for sequence number %d", sequenceNum)
+	for _, peer := range n.Peers {
+		go func() {
+			_, err := (*peer.Client).Commit(context.Background(), collectedSignedCommitMessage)
+			if err != nil {
+				log.Fatal(err)
+			}
+		}()
+	}
+
+	// Verify the commit messages
+	verifiedCount := 0
+	for _, signedCommitMessage := range signedCommitMessages {
+		if signedCommitMessage == nil {
+			log.Fatal("Signed commit message is nil")
+		}
+		commitMessage := signedCommitMessage.Message
+
+		// Verify Signature
+		log.Debug(commitMessage.String())
+		if commitMessage.NodeID == n.ID {
+			// Skip verification of own commit message
+			verifiedCount++
+			continue
+		}
+		ok := security.Verify(commitMessage, n.Peers[commitMessage.NodeID].PublicKey, signedCommitMessage.Signature)
+		if !ok {
+			continue
+		}
+
+		// Check if the commit message matches prepare message
+		if !cmp.Equal(commitMessage.Digest, digest) {
+			continue
+		}
+
+		// Increment verified count
+		verifiedCount++
+	}
+
+	if verifiedCount >= 2*n.F+1 {
+		log.Infof("Verified commit messages for sequence number %d", sequenceNum)
+		n.Mutex.Lock()
+		commitMessage := &pb.CommitMessage{
+			ViewNumber:  n.ViewNumber,
+			SequenceNum: sequenceNum,
+			Digest:      digest,
+			NodeID:      n.ID,
+		}
+		n.CommitLog[sequenceNum] = commitMessage
+		log.Infof("Logged: %s", utils.LoggingString(commitMessage, n.TransactionMap[utils.To32Bytes(digest)]))
+		n.Mutex.Unlock()
+		return nil
+	}
+
+	log.Warnf("Ignored: %d; not enough commit messages (verified: %d)", sequenceNum, verifiedCount)
+	return errors.New("not enough commit messages")
 }

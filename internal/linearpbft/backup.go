@@ -10,6 +10,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 func (n *LinearPBFTNode) PrePrepare(ctx context.Context, signedMessage *pb.SignedPrePrepareMessage) (*pb.SignedPrepareMessage, error) {
@@ -152,4 +153,91 @@ func (n *LinearPBFTNode) Prepare(ctx context.Context, signedPrepareMessages *pb.
 	}
 
 	return signedCommitMessage, nil
+}
+
+func (n *LinearPBFTNode) Commit(ctx context.Context, signedCommitMessages *pb.CollectedSignedCommitMessage) (*emptypb.Empty, error) {
+	viewNumber := signedCommitMessages.ViewNumber
+	sequenceNum := signedCommitMessages.SequenceNum
+
+	// Verify View Number
+	if viewNumber != n.ViewNumber {
+		return nil, nil
+	}
+
+	// Get the preprepare message
+	n.Mutex.Lock()
+	preprepareMessage := n.PrePrepareLog[sequenceNum]
+	n.Mutex.Unlock()
+
+	// If no prepare message found, then ignore the commit message
+	if preprepareMessage == nil {
+		log.Warnf("Ignored: %d; no preprepare message found", sequenceNum)
+		return nil, nil
+	}
+
+	// Check if the sequence is prepared
+	n.Mutex.Lock()
+	prepareMessage := n.PrepareLog[sequenceNum]
+	n.Mutex.Unlock()
+	if prepareMessage == nil {
+		log.Warnf("Ignored: %d; not prepared", sequenceNum)
+		return nil, nil
+	}
+
+	// Verify Commit Messages
+	verifiedCount := 0
+	for _, signedCommitMessage := range signedCommitMessages.Messages {
+		if signedCommitMessage == nil {
+			log.Fatal("Signed commit message is nil")
+		}
+		commitMessage := signedCommitMessage.Message
+
+		// Verify Signature
+		var publicKey []byte
+		log.Debug(commitMessage.String())
+		if commitMessage.NodeID == n.ID {
+			publicKey = n.PublicKey
+		} else {
+			publicKey = n.Peers[commitMessage.NodeID].PublicKey
+		}
+		ok := security.Verify(commitMessage, publicKey, signedCommitMessage.Signature)
+		if !ok {
+			log.Warnf("Rejected: %s; invalid signature", utils.LoggingString(commitMessage, n.TransactionMap[utils.To32Bytes(commitMessage.Digest)]))
+			continue
+		}
+
+		// Check if the commit message matches prepare message
+		if !cmp.Equal(commitMessage.Digest, prepareMessage.Digest) {
+			log.Warnf("Rejected: %s; invalid digest", utils.LoggingString(commitMessage, n.TransactionMap[utils.To32Bytes(commitMessage.Digest)]))
+			continue
+		}
+		// Check if the commit message matches preprepare message
+		if !cmp.Equal(commitMessage.Digest, preprepareMessage.Digest) {
+			log.Warnf("Rejected: %s; invalid digest", utils.LoggingString(commitMessage, n.TransactionMap[utils.To32Bytes(commitMessage.Digest)]))
+			continue
+		}
+
+		// Increment verified count
+		verifiedCount++
+	}
+
+	// If verified count is less than 2f + 1 then return nil
+	if verifiedCount < 2*n.F+1 {
+		log.Warnf("Ignored: %d; not enough commit messages (verified: %d)", sequenceNum, verifiedCount)
+		return nil, nil
+	}
+
+	// Log the commit message
+	n.Mutex.Lock()
+	commitMessage := &pb.CommitMessage{
+		ViewNumber:  viewNumber,
+		SequenceNum: sequenceNum,
+		Digest:      prepareMessage.Digest,
+		NodeID:      n.ID,
+	}
+	n.CommitLog[sequenceNum] = commitMessage
+	log.Infof("Logged: %s", utils.LoggingString(commitMessage, n.TransactionMap[utils.To32Bytes(prepareMessage.Digest)]))
+	n.Mutex.Unlock()
+
+	return &emptypb.Empty{}, nil
 }

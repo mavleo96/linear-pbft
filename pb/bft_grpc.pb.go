@@ -23,6 +23,7 @@ const (
 	LinearPBFTNode_TransferRequest_FullMethodName = "/pb.LinearPBFTNode/TransferRequest"
 	LinearPBFTNode_PrePrepare_FullMethodName      = "/pb.LinearPBFTNode/PrePrepare"
 	LinearPBFTNode_Prepare_FullMethodName         = "/pb.LinearPBFTNode/Prepare"
+	LinearPBFTNode_Commit_FullMethodName          = "/pb.LinearPBFTNode/Commit"
 )
 
 // LinearPBFTNodeClient is the client API for LinearPBFTNode service.
@@ -32,6 +33,7 @@ type LinearPBFTNodeClient interface {
 	TransferRequest(ctx context.Context, in *SignedTransactionRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	PrePrepare(ctx context.Context, in *SignedPrePrepareMessage, opts ...grpc.CallOption) (*SignedPrepareMessage, error)
 	Prepare(ctx context.Context, in *CollectedSignedPrepareMessage, opts ...grpc.CallOption) (*SignedCommitMessage, error)
+	Commit(ctx context.Context, in *CollectedSignedCommitMessage, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
 type linearPBFTNodeClient struct {
@@ -69,6 +71,15 @@ func (c *linearPBFTNodeClient) Prepare(ctx context.Context, in *CollectedSignedP
 	return out, nil
 }
 
+func (c *linearPBFTNodeClient) Commit(ctx context.Context, in *CollectedSignedCommitMessage, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, LinearPBFTNode_Commit_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // LinearPBFTNodeServer is the server API for LinearPBFTNode service.
 // All implementations must embed UnimplementedLinearPBFTNodeServer
 // for forward compatibility
@@ -76,6 +87,7 @@ type LinearPBFTNodeServer interface {
 	TransferRequest(context.Context, *SignedTransactionRequest) (*emptypb.Empty, error)
 	PrePrepare(context.Context, *SignedPrePrepareMessage) (*SignedPrepareMessage, error)
 	Prepare(context.Context, *CollectedSignedPrepareMessage) (*SignedCommitMessage, error)
+	Commit(context.Context, *CollectedSignedCommitMessage) (*emptypb.Empty, error)
 	mustEmbedUnimplementedLinearPBFTNodeServer()
 }
 
@@ -91,6 +103,9 @@ func (UnimplementedLinearPBFTNodeServer) PrePrepare(context.Context, *SignedPreP
 }
 func (UnimplementedLinearPBFTNodeServer) Prepare(context.Context, *CollectedSignedPrepareMessage) (*SignedCommitMessage, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Prepare not implemented")
+}
+func (UnimplementedLinearPBFTNodeServer) Commit(context.Context, *CollectedSignedCommitMessage) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Commit not implemented")
 }
 func (UnimplementedLinearPBFTNodeServer) mustEmbedUnimplementedLinearPBFTNodeServer() {}
 
@@ -159,6 +174,24 @@ func _LinearPBFTNode_Prepare_Handler(srv interface{}, ctx context.Context, dec f
 	return interceptor(ctx, in, info, handler)
 }
 
+func _LinearPBFTNode_Commit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CollectedSignedCommitMessage)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LinearPBFTNodeServer).Commit(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LinearPBFTNode_Commit_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LinearPBFTNodeServer).Commit(ctx, req.(*CollectedSignedCommitMessage))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // LinearPBFTNode_ServiceDesc is the grpc.ServiceDesc for LinearPBFTNode service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -177,6 +210,10 @@ var LinearPBFTNode_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Prepare",
 			Handler:    _LinearPBFTNode_Prepare_Handler,
+		},
+		{
+			MethodName: "Commit",
+			Handler:    _LinearPBFTNode_Commit_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
