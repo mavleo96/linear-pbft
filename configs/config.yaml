@@ -54,4 +54,4 @@ clients:
     address: "localhost:6010"
 
 db_dir: ./data
-init_balance: 69
+init_balance: 10

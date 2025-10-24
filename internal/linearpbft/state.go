@@ -82,7 +82,7 @@ func (n *LinearPBFTNode) TryExecute(sequenceNum int64) {
 
 		resultInt := int64(0)
 		if result {
-			resultInt = int64(5)
+			resultInt = int64(1)
 		}
 
 		// Add to executed log
