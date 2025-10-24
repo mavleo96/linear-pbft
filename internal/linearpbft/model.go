@@ -56,6 +56,14 @@ func (n *LinearPBFTNode) TransferRequest(ctx context.Context, signedRequest *pb.
 		return &emptypb.Empty{}, nil
 	}
 
+	commitMsgs, err := n.SendPrepare(prepareMsgs, n.AssignSequenceNumber(request))
+	if err != nil {
+		// return nil, status.Errorf(codes.Internal, err.Error())
+		return nil, nil
+	}
+	if commitMsgs == nil {
+		return &emptypb.Empty{}, nil
+	}
 
 	return &emptypb.Empty{}, nil
 }
