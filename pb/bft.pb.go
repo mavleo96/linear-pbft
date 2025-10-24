@@ -29,7 +29,6 @@ type TransactionResponse struct {
 	Sender        string                 `protobuf:"bytes,3,opt,name=sender,proto3" json:"sender,omitempty"`
 	NodeID        string                 `protobuf:"bytes,4,opt,name=nodeID,proto3" json:"nodeID,omitempty"`
 	Result        int64                  `protobuf:"varint,5,opt,name=result,proto3" json:"result,omitempty"`
-	Signature     []byte                 `protobuf:"bytes,6,opt,name=signature,proto3" json:"signature,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -99,7 +98,52 @@ func (x *TransactionResponse) GetResult() int64 {
 	return 0
 }
 
-func (x *TransactionResponse) GetSignature() []byte {
+type SignedTransactionResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Message       *TransactionResponse   `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
+	Signature     []byte                 `protobuf:"bytes,2,opt,name=signature,proto3" json:"signature,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SignedTransactionResponse) Reset() {
+	*x = SignedTransactionResponse{}
+	mi := &file_bft_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SignedTransactionResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SignedTransactionResponse) ProtoMessage() {}
+
+func (x *SignedTransactionResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_bft_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SignedTransactionResponse.ProtoReflect.Descriptor instead.
+func (*SignedTransactionResponse) Descriptor() ([]byte, []int) {
+	return file_bft_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *SignedTransactionResponse) GetMessage() *TransactionResponse {
+	if x != nil {
+		return x.Message
+	}
+	return nil
+}
+
+func (x *SignedTransactionResponse) GetSignature() []byte {
 	if x != nil {
 		return x.Signature
 	}
@@ -117,7 +161,7 @@ type TransactionRequest struct {
 
 func (x *TransactionRequest) Reset() {
 	*x = TransactionRequest{}
-	mi := &file_bft_proto_msgTypes[1]
+	mi := &file_bft_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -129,7 +173,7 @@ func (x *TransactionRequest) String() string {
 func (*TransactionRequest) ProtoMessage() {}
 
 func (x *TransactionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_bft_proto_msgTypes[1]
+	mi := &file_bft_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -142,7 +186,7 @@ func (x *TransactionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TransactionRequest.ProtoReflect.Descriptor instead.
 func (*TransactionRequest) Descriptor() ([]byte, []int) {
-	return file_bft_proto_rawDescGZIP(), []int{1}
+	return file_bft_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *TransactionRequest) GetTransaction() *Transaction {
@@ -176,7 +220,7 @@ type SignedTransactionRequest struct {
 
 func (x *SignedTransactionRequest) Reset() {
 	*x = SignedTransactionRequest{}
-	mi := &file_bft_proto_msgTypes[2]
+	mi := &file_bft_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -188,7 +232,7 @@ func (x *SignedTransactionRequest) String() string {
 func (*SignedTransactionRequest) ProtoMessage() {}
 
 func (x *SignedTransactionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_bft_proto_msgTypes[2]
+	mi := &file_bft_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -201,7 +245,7 @@ func (x *SignedTransactionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SignedTransactionRequest.ProtoReflect.Descriptor instead.
 func (*SignedTransactionRequest) Descriptor() ([]byte, []int) {
-	return file_bft_proto_rawDescGZIP(), []int{2}
+	return file_bft_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *SignedTransactionRequest) GetRequest() *TransactionRequest {
@@ -230,7 +274,7 @@ type Transaction struct {
 
 func (x *Transaction) Reset() {
 	*x = Transaction{}
-	mi := &file_bft_proto_msgTypes[3]
+	mi := &file_bft_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -242,7 +286,7 @@ func (x *Transaction) String() string {
 func (*Transaction) ProtoMessage() {}
 
 func (x *Transaction) ProtoReflect() protoreflect.Message {
-	mi := &file_bft_proto_msgTypes[3]
+	mi := &file_bft_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -255,7 +299,7 @@ func (x *Transaction) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Transaction.ProtoReflect.Descriptor instead.
 func (*Transaction) Descriptor() ([]byte, []int) {
-	return file_bft_proto_rawDescGZIP(), []int{3}
+	return file_bft_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *Transaction) GetType() string {
@@ -297,7 +341,7 @@ type PrePrepareMessage struct {
 
 func (x *PrePrepareMessage) Reset() {
 	*x = PrePrepareMessage{}
-	mi := &file_bft_proto_msgTypes[4]
+	mi := &file_bft_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -309,7 +353,7 @@ func (x *PrePrepareMessage) String() string {
 func (*PrePrepareMessage) ProtoMessage() {}
 
 func (x *PrePrepareMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_bft_proto_msgTypes[4]
+	mi := &file_bft_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -322,7 +366,7 @@ func (x *PrePrepareMessage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PrePrepareMessage.ProtoReflect.Descriptor instead.
 func (*PrePrepareMessage) Descriptor() ([]byte, []int) {
-	return file_bft_proto_rawDescGZIP(), []int{4}
+	return file_bft_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *PrePrepareMessage) GetViewNumber() int64 {
@@ -357,7 +401,7 @@ type SignedPrePrepareMessage struct {
 
 func (x *SignedPrePrepareMessage) Reset() {
 	*x = SignedPrePrepareMessage{}
-	mi := &file_bft_proto_msgTypes[5]
+	mi := &file_bft_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -369,7 +413,7 @@ func (x *SignedPrePrepareMessage) String() string {
 func (*SignedPrePrepareMessage) ProtoMessage() {}
 
 func (x *SignedPrePrepareMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_bft_proto_msgTypes[5]
+	mi := &file_bft_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -382,7 +426,7 @@ func (x *SignedPrePrepareMessage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SignedPrePrepareMessage.ProtoReflect.Descriptor instead.
 func (*SignedPrePrepareMessage) Descriptor() ([]byte, []int) {
-	return file_bft_proto_rawDescGZIP(), []int{5}
+	return file_bft_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *SignedPrePrepareMessage) GetMessage() *PrePrepareMessage {
@@ -418,7 +462,7 @@ type PrepareMessage struct {
 
 func (x *PrepareMessage) Reset() {
 	*x = PrepareMessage{}
-	mi := &file_bft_proto_msgTypes[6]
+	mi := &file_bft_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -430,7 +474,7 @@ func (x *PrepareMessage) String() string {
 func (*PrepareMessage) ProtoMessage() {}
 
 func (x *PrepareMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_bft_proto_msgTypes[6]
+	mi := &file_bft_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -443,7 +487,7 @@ func (x *PrepareMessage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PrepareMessage.ProtoReflect.Descriptor instead.
 func (*PrepareMessage) Descriptor() ([]byte, []int) {
-	return file_bft_proto_rawDescGZIP(), []int{6}
+	return file_bft_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *PrepareMessage) GetViewNumber() int64 {
@@ -484,7 +528,7 @@ type SignedPrepareMessage struct {
 
 func (x *SignedPrepareMessage) Reset() {
 	*x = SignedPrepareMessage{}
-	mi := &file_bft_proto_msgTypes[7]
+	mi := &file_bft_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -496,7 +540,7 @@ func (x *SignedPrepareMessage) String() string {
 func (*SignedPrepareMessage) ProtoMessage() {}
 
 func (x *SignedPrepareMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_bft_proto_msgTypes[7]
+	mi := &file_bft_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -509,7 +553,7 @@ func (x *SignedPrepareMessage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SignedPrepareMessage.ProtoReflect.Descriptor instead.
 func (*SignedPrepareMessage) Descriptor() ([]byte, []int) {
-	return file_bft_proto_rawDescGZIP(), []int{7}
+	return file_bft_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *SignedPrepareMessage) GetMessage() *PrepareMessage {
@@ -537,7 +581,7 @@ type CollectedSignedPrepareMessage struct {
 
 func (x *CollectedSignedPrepareMessage) Reset() {
 	*x = CollectedSignedPrepareMessage{}
-	mi := &file_bft_proto_msgTypes[8]
+	mi := &file_bft_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -549,7 +593,7 @@ func (x *CollectedSignedPrepareMessage) String() string {
 func (*CollectedSignedPrepareMessage) ProtoMessage() {}
 
 func (x *CollectedSignedPrepareMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_bft_proto_msgTypes[8]
+	mi := &file_bft_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -562,7 +606,7 @@ func (x *CollectedSignedPrepareMessage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CollectedSignedPrepareMessage.ProtoReflect.Descriptor instead.
 func (*CollectedSignedPrepareMessage) Descriptor() ([]byte, []int) {
-	return file_bft_proto_rawDescGZIP(), []int{8}
+	return file_bft_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *CollectedSignedPrepareMessage) GetViewNumber() int64 {
@@ -598,7 +642,7 @@ type CommitMessage struct {
 
 func (x *CommitMessage) Reset() {
 	*x = CommitMessage{}
-	mi := &file_bft_proto_msgTypes[9]
+	mi := &file_bft_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -610,7 +654,7 @@ func (x *CommitMessage) String() string {
 func (*CommitMessage) ProtoMessage() {}
 
 func (x *CommitMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_bft_proto_msgTypes[9]
+	mi := &file_bft_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -623,7 +667,7 @@ func (x *CommitMessage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CommitMessage.ProtoReflect.Descriptor instead.
 func (*CommitMessage) Descriptor() ([]byte, []int) {
-	return file_bft_proto_rawDescGZIP(), []int{9}
+	return file_bft_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *CommitMessage) GetViewNumber() int64 {
@@ -664,7 +708,7 @@ type SignedCommitMessage struct {
 
 func (x *SignedCommitMessage) Reset() {
 	*x = SignedCommitMessage{}
-	mi := &file_bft_proto_msgTypes[10]
+	mi := &file_bft_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -676,7 +720,7 @@ func (x *SignedCommitMessage) String() string {
 func (*SignedCommitMessage) ProtoMessage() {}
 
 func (x *SignedCommitMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_bft_proto_msgTypes[10]
+	mi := &file_bft_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -689,7 +733,7 @@ func (x *SignedCommitMessage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SignedCommitMessage.ProtoReflect.Descriptor instead.
 func (*SignedCommitMessage) Descriptor() ([]byte, []int) {
-	return file_bft_proto_rawDescGZIP(), []int{10}
+	return file_bft_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *SignedCommitMessage) GetMessage() *CommitMessage {
@@ -717,7 +761,7 @@ type CollectedSignedCommitMessage struct {
 
 func (x *CollectedSignedCommitMessage) Reset() {
 	*x = CollectedSignedCommitMessage{}
-	mi := &file_bft_proto_msgTypes[11]
+	mi := &file_bft_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -729,7 +773,7 @@ func (x *CollectedSignedCommitMessage) String() string {
 func (*CollectedSignedCommitMessage) ProtoMessage() {}
 
 func (x *CollectedSignedCommitMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_bft_proto_msgTypes[11]
+	mi := &file_bft_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -742,7 +786,7 @@ func (x *CollectedSignedCommitMessage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CollectedSignedCommitMessage.ProtoReflect.Descriptor instead.
 func (*CollectedSignedCommitMessage) Descriptor() ([]byte, []int) {
-	return file_bft_proto_rawDescGZIP(), []int{11}
+	return file_bft_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *CollectedSignedCommitMessage) GetViewNumber() int64 {
@@ -770,7 +814,7 @@ var File_bft_proto protoreflect.FileDescriptor
 
 const file_bft_proto_rawDesc = "" +
 	"\n" +
-	"\tbft.proto\x12\x02pb\x1a\x1bgoogle/protobuf/empty.proto\"\xb9\x01\n" +
+	"\tbft.proto\x12\x02pb\x1a\x1bgoogle/protobuf/empty.proto\"\x9b\x01\n" +
 	"\x13TransactionResponse\x12\x1e\n" +
 	"\n" +
 	"viewNumber\x18\x01 \x01(\x03R\n" +
@@ -778,8 +822,10 @@ const file_bft_proto_rawDesc = "" +
 	"\ttimestamp\x18\x02 \x01(\x03R\ttimestamp\x12\x16\n" +
 	"\x06sender\x18\x03 \x01(\tR\x06sender\x12\x16\n" +
 	"\x06nodeID\x18\x04 \x01(\tR\x06nodeID\x12\x16\n" +
-	"\x06result\x18\x05 \x01(\x03R\x06result\x12\x1c\n" +
-	"\tsignature\x18\x06 \x01(\fR\tsignature\"}\n" +
+	"\x06result\x18\x05 \x01(\x03R\x06result\"l\n" +
+	"\x19SignedTransactionResponse\x121\n" +
+	"\amessage\x18\x01 \x01(\v2\x17.pb.TransactionResponseR\amessage\x12\x1c\n" +
+	"\tsignature\x18\x02 \x01(\fR\tsignature\"}\n" +
 	"\x12TransactionRequest\x121\n" +
 	"\vtransaction\x18\x01 \x01(\v2\x0f.pb.TransactionR\vtransaction\x12\x1c\n" +
 	"\ttimestamp\x18\x02 \x01(\x03R\ttimestamp\x12\x16\n" +
@@ -839,9 +885,9 @@ const file_bft_proto_rawDesc = "" +
 	"\n" +
 	"PrePrepare\x12\x1b.pb.SignedPrePrepareMessage\x1a\x18.pb.SignedPrepareMessage\x12E\n" +
 	"\aPrepare\x12!.pb.CollectedSignedPrepareMessage\x1a\x17.pb.SignedCommitMessage\x12B\n" +
-	"\x06Commit\x12 .pb.CollectedSignedCommitMessage\x1a\x16.google.protobuf.Empty2V\n" +
-	"\x13LinearPBFTClientApp\x12?\n" +
-	"\fReceiveReply\x12\x17.pb.TransactionResponse\x1a\x16.google.protobuf.EmptyB%Z#github.com/mavleo96/bft-mavleo96/pbb\x06proto3"
+	"\x06Commit\x12 .pb.CollectedSignedCommitMessage\x1a\x16.google.protobuf.Empty2\\\n" +
+	"\x13LinearPBFTClientApp\x12E\n" +
+	"\fReceiveReply\x12\x1d.pb.SignedTransactionResponse\x1a\x16.google.protobuf.EmptyB%Z#github.com/mavleo96/bft-mavleo96/pbb\x06proto3"
 
 var (
 	file_bft_proto_rawDescOnce sync.Once
@@ -855,46 +901,48 @@ func file_bft_proto_rawDescGZIP() []byte {
 	return file_bft_proto_rawDescData
 }
 
-var file_bft_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
+var file_bft_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
 var file_bft_proto_goTypes = []any{
 	(*TransactionResponse)(nil),           // 0: pb.TransactionResponse
-	(*TransactionRequest)(nil),            // 1: pb.TransactionRequest
-	(*SignedTransactionRequest)(nil),      // 2: pb.SignedTransactionRequest
-	(*Transaction)(nil),                   // 3: pb.Transaction
-	(*PrePrepareMessage)(nil),             // 4: pb.PrePrepareMessage
-	(*SignedPrePrepareMessage)(nil),       // 5: pb.SignedPrePrepareMessage
-	(*PrepareMessage)(nil),                // 6: pb.PrepareMessage
-	(*SignedPrepareMessage)(nil),          // 7: pb.SignedPrepareMessage
-	(*CollectedSignedPrepareMessage)(nil), // 8: pb.CollectedSignedPrepareMessage
-	(*CommitMessage)(nil),                 // 9: pb.CommitMessage
-	(*SignedCommitMessage)(nil),           // 10: pb.SignedCommitMessage
-	(*CollectedSignedCommitMessage)(nil),  // 11: pb.CollectedSignedCommitMessage
-	(*emptypb.Empty)(nil),                 // 12: google.protobuf.Empty
+	(*SignedTransactionResponse)(nil),     // 1: pb.SignedTransactionResponse
+	(*TransactionRequest)(nil),            // 2: pb.TransactionRequest
+	(*SignedTransactionRequest)(nil),      // 3: pb.SignedTransactionRequest
+	(*Transaction)(nil),                   // 4: pb.Transaction
+	(*PrePrepareMessage)(nil),             // 5: pb.PrePrepareMessage
+	(*SignedPrePrepareMessage)(nil),       // 6: pb.SignedPrePrepareMessage
+	(*PrepareMessage)(nil),                // 7: pb.PrepareMessage
+	(*SignedPrepareMessage)(nil),          // 8: pb.SignedPrepareMessage
+	(*CollectedSignedPrepareMessage)(nil), // 9: pb.CollectedSignedPrepareMessage
+	(*CommitMessage)(nil),                 // 10: pb.CommitMessage
+	(*SignedCommitMessage)(nil),           // 11: pb.SignedCommitMessage
+	(*CollectedSignedCommitMessage)(nil),  // 12: pb.CollectedSignedCommitMessage
+	(*emptypb.Empty)(nil),                 // 13: google.protobuf.Empty
 }
 var file_bft_proto_depIdxs = []int32{
-	3,  // 0: pb.TransactionRequest.transaction:type_name -> pb.Transaction
-	1,  // 1: pb.SignedTransactionRequest.request:type_name -> pb.TransactionRequest
-	4,  // 2: pb.SignedPrePrepareMessage.message:type_name -> pb.PrePrepareMessage
-	1,  // 3: pb.SignedPrePrepareMessage.request:type_name -> pb.TransactionRequest
-	6,  // 4: pb.SignedPrepareMessage.message:type_name -> pb.PrepareMessage
-	7,  // 5: pb.CollectedSignedPrepareMessage.messages:type_name -> pb.SignedPrepareMessage
-	9,  // 6: pb.SignedCommitMessage.message:type_name -> pb.CommitMessage
-	10, // 7: pb.CollectedSignedCommitMessage.messages:type_name -> pb.SignedCommitMessage
-	2,  // 8: pb.LinearPBFTNode.TransferRequest:input_type -> pb.SignedTransactionRequest
-	5,  // 9: pb.LinearPBFTNode.PrePrepare:input_type -> pb.SignedPrePrepareMessage
-	8,  // 10: pb.LinearPBFTNode.Prepare:input_type -> pb.CollectedSignedPrepareMessage
-	11, // 11: pb.LinearPBFTNode.Commit:input_type -> pb.CollectedSignedCommitMessage
-	0,  // 12: pb.LinearPBFTClientApp.ReceiveReply:input_type -> pb.TransactionResponse
-	12, // 13: pb.LinearPBFTNode.TransferRequest:output_type -> google.protobuf.Empty
-	7,  // 14: pb.LinearPBFTNode.PrePrepare:output_type -> pb.SignedPrepareMessage
-	10, // 15: pb.LinearPBFTNode.Prepare:output_type -> pb.SignedCommitMessage
-	12, // 16: pb.LinearPBFTNode.Commit:output_type -> google.protobuf.Empty
-	12, // 17: pb.LinearPBFTClientApp.ReceiveReply:output_type -> google.protobuf.Empty
-	13, // [13:18] is the sub-list for method output_type
-	8,  // [8:13] is the sub-list for method input_type
-	8,  // [8:8] is the sub-list for extension type_name
-	8,  // [8:8] is the sub-list for extension extendee
-	0,  // [0:8] is the sub-list for field type_name
+	0,  // 0: pb.SignedTransactionResponse.message:type_name -> pb.TransactionResponse
+	4,  // 1: pb.TransactionRequest.transaction:type_name -> pb.Transaction
+	2,  // 2: pb.SignedTransactionRequest.request:type_name -> pb.TransactionRequest
+	5,  // 3: pb.SignedPrePrepareMessage.message:type_name -> pb.PrePrepareMessage
+	2,  // 4: pb.SignedPrePrepareMessage.request:type_name -> pb.TransactionRequest
+	7,  // 5: pb.SignedPrepareMessage.message:type_name -> pb.PrepareMessage
+	8,  // 6: pb.CollectedSignedPrepareMessage.messages:type_name -> pb.SignedPrepareMessage
+	10, // 7: pb.SignedCommitMessage.message:type_name -> pb.CommitMessage
+	11, // 8: pb.CollectedSignedCommitMessage.messages:type_name -> pb.SignedCommitMessage
+	3,  // 9: pb.LinearPBFTNode.TransferRequest:input_type -> pb.SignedTransactionRequest
+	6,  // 10: pb.LinearPBFTNode.PrePrepare:input_type -> pb.SignedPrePrepareMessage
+	9,  // 11: pb.LinearPBFTNode.Prepare:input_type -> pb.CollectedSignedPrepareMessage
+	12, // 12: pb.LinearPBFTNode.Commit:input_type -> pb.CollectedSignedCommitMessage
+	1,  // 13: pb.LinearPBFTClientApp.ReceiveReply:input_type -> pb.SignedTransactionResponse
+	13, // 14: pb.LinearPBFTNode.TransferRequest:output_type -> google.protobuf.Empty
+	8,  // 15: pb.LinearPBFTNode.PrePrepare:output_type -> pb.SignedPrepareMessage
+	11, // 16: pb.LinearPBFTNode.Prepare:output_type -> pb.SignedCommitMessage
+	13, // 17: pb.LinearPBFTNode.Commit:output_type -> google.protobuf.Empty
+	13, // 18: pb.LinearPBFTClientApp.ReceiveReply:output_type -> google.protobuf.Empty
+	14, // [14:19] is the sub-list for method output_type
+	9,  // [9:14] is the sub-list for method input_type
+	9,  // [9:9] is the sub-list for extension type_name
+	9,  // [9:9] is the sub-list for extension extendee
+	0,  // [0:9] is the sub-list for field type_name
 }
 
 func init() { file_bft_proto_init() }
@@ -908,7 +956,7 @@ func file_bft_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_bft_proto_rawDesc), len(file_bft_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   12,
+			NumMessages:   13,
 			NumExtensions: 0,
 			NumServices:   2,
 		},

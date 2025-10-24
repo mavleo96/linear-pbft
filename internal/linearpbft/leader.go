@@ -2,7 +2,6 @@ package linearpbft
 
 import (
 	"context"
-	"errors"
 	"sync"
 
 	"github.com/google/go-cmp/cmp"
@@ -175,7 +174,7 @@ func (n *LinearPBFTNode) SendPrepare(signedPrepareMessages []*pb.SignedPrepareMe
 	return nil, nil
 }
 
-func (n *LinearPBFTNode) SendCommit(signedCommitMessages []*pb.SignedCommitMessage, sequenceNum int64) error {
+func (n *LinearPBFTNode) SendCommit(signedCommitMessages []*pb.SignedCommitMessage, sequenceNum int64) (bool, error) {
 	// Create collected signed commit message
 	collectedSignedCommitMessage := &pb.CollectedSignedCommitMessage{
 		ViewNumber:  n.ViewNumber,
@@ -241,9 +240,9 @@ func (n *LinearPBFTNode) SendCommit(signedCommitMessages []*pb.SignedCommitMessa
 		}
 		log.Infof("Committed (v: %d, s: %d): %s", n.ViewNumber, sequenceNum, utils.LoggingString(n.TransactionMap[utils.To32Bytes(preparedRecord.Digest)]))
 		n.Mutex.Unlock()
-		return nil
+		return true, nil
 	}
 
 	log.Warnf("Not enough commit messages to commit message (v: %d, s: %d)", n.ViewNumber, sequenceNum)
-	return errors.New("not enough commit messages")
+	return false, nil
 }

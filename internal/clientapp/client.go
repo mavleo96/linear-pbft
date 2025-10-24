@@ -46,7 +46,7 @@ func processTransaction(request *pb.SignedTransactionRequest, clientID string, l
 
 		select {
 		case result = <-resultCh:
-			log.Infof("%s: %s -> %d", clientID, request.Request.String(), result)
+			// log.Infof("%s: %s -> %d", clientID, request.Request.String(), result)
 			cancel()
 			return result, nil
 		case <-ctx.Done():

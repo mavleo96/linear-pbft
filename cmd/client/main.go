@@ -120,6 +120,7 @@ interactionLoop:
 			for clientID := range cfg.Clients {
 				<-clientSignalChs[clientID]
 			}
+			log.Infof("Set %d done", testSet.SetNumber)
 			continue interactionLoop
 		case "print log":
 			log.Info("Print log command received")

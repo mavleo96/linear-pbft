@@ -228,7 +228,7 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type LinearPBFTClientAppClient interface {
-	ReceiveReply(ctx context.Context, in *TransactionResponse, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	ReceiveReply(ctx context.Context, in *SignedTransactionResponse, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
 type linearPBFTClientAppClient struct {
@@ -239,7 +239,7 @@ func NewLinearPBFTClientAppClient(cc grpc.ClientConnInterface) LinearPBFTClientA
 	return &linearPBFTClientAppClient{cc}
 }
 
-func (c *linearPBFTClientAppClient) ReceiveReply(ctx context.Context, in *TransactionResponse, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *linearPBFTClientAppClient) ReceiveReply(ctx context.Context, in *SignedTransactionResponse, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, LinearPBFTClientApp_ReceiveReply_FullMethodName, in, out, opts...)
 	if err != nil {
@@ -252,7 +252,7 @@ func (c *linearPBFTClientAppClient) ReceiveReply(ctx context.Context, in *Transa
 // All implementations must embed UnimplementedLinearPBFTClientAppServer
 // for forward compatibility
 type LinearPBFTClientAppServer interface {
-	ReceiveReply(context.Context, *TransactionResponse) (*emptypb.Empty, error)
+	ReceiveReply(context.Context, *SignedTransactionResponse) (*emptypb.Empty, error)
 	mustEmbedUnimplementedLinearPBFTClientAppServer()
 }
 
@@ -260,7 +260,7 @@ type LinearPBFTClientAppServer interface {
 type UnimplementedLinearPBFTClientAppServer struct {
 }
 
-func (UnimplementedLinearPBFTClientAppServer) ReceiveReply(context.Context, *TransactionResponse) (*emptypb.Empty, error) {
+func (UnimplementedLinearPBFTClientAppServer) ReceiveReply(context.Context, *SignedTransactionResponse) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ReceiveReply not implemented")
 }
 func (UnimplementedLinearPBFTClientAppServer) mustEmbedUnimplementedLinearPBFTClientAppServer() {}
@@ -277,7 +277,7 @@ func RegisterLinearPBFTClientAppServer(s grpc.ServiceRegistrar, srv LinearPBFTCl
 }
 
 func _LinearPBFTClientApp_ReceiveReply_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(TransactionResponse)
+	in := new(SignedTransactionResponse)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -289,7 +289,7 @@ func _LinearPBFTClientApp_ReceiveReply_Handler(srv interface{}, ctx context.Cont
 		FullMethod: LinearPBFTClientApp_ReceiveReply_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(LinearPBFTClientAppServer).ReceiveReply(ctx, req.(*TransactionResponse))
+		return srv.(LinearPBFTClientAppServer).ReceiveReply(ctx, req.(*SignedTransactionResponse))
 	}
 	return interceptor(ctx, in, info, handler)
 }

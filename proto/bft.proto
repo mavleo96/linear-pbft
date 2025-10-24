@@ -15,8 +15,10 @@ service LinearPBFTNode {
 }
 
 service LinearPBFTClientApp {
-    rpc ReceiveReply (TransactionResponse) returns (google.protobuf.Empty);
+    rpc ReceiveReply (SignedTransactionResponse) returns (google.protobuf.Empty);
 }
+
+// ---------- TransactionRequest ----------
 
 message TransactionResponse {
     int64 viewNumber = 1;
@@ -24,9 +26,12 @@ message TransactionResponse {
     string sender = 3;
     string nodeID = 4;
     int64 result = 5;
-    bytes signature = 6;
 }
 
+message SignedTransactionResponse {
+    TransactionResponse message = 1;
+    bytes signature = 2;
+}
 
 // ---------- TransactionRequest ----------
 

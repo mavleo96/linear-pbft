@@ -119,16 +119,18 @@ func (s *ClientAppServer) ClientSendRoutine(ctx context.Context) {
 	}
 }
 
-func (s *ClientAppServer) ReceiveReply(ctx context.Context, resp *pb.TransactionResponse) (*emptypb.Empty, error) {
+func (s *ClientAppServer) ReceiveReply(ctx context.Context, resp *pb.SignedTransactionResponse) (*emptypb.Empty, error) {
+	message := resp.Message
+
 	// Verify signature and ignore replies with invalid signature
-	ok := security.Verify(resp, s.Nodes[resp.NodeID].PublicKey, resp.Signature)
+	ok := security.Verify(message, s.Nodes[message.NodeID].PublicKey, resp.Signature)
 	if !ok {
-		log.Warnf("Invalid signature for reply from node %s", resp.NodeID)
+		log.Warnf("Invalid signature for reply from node %s", message.NodeID)
 		return &emptypb.Empty{}, nil
 	}
 
 	// Send reply to client receive routine
-	s.ResponseCh <- resp
+	s.ResponseCh <- message
 
 	return &emptypb.Empty{}, nil
 }

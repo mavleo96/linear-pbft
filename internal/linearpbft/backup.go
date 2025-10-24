@@ -230,5 +230,8 @@ func (n *LinearPBFTNode) Commit(ctx context.Context, signedCommitMessages *pb.Co
 	log.Infof("Committed (v: %d, s: %d): %s", n.ViewNumber, sequenceNum, utils.LoggingString(n.TransactionMap[utils.To32Bytes(preparedRecord.Digest)]))
 	n.Mutex.Unlock()
 
+	// Execute transaction
+	go n.TryExecute(sequenceNum)
+
 	return &emptypb.Empty{}, nil
 }
