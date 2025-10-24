@@ -101,13 +101,15 @@ func (s *ClientAppServer) ClientSendRoutine(ctx context.Context) {
 					Request:   request,
 					Signature: security.Sign(request, s.PrivateKey),
 				}
+				// TODO: processTransaction functions error design is not good
 				if t.Type == "read" {
 					result, err := processReadOnlyTransaction(signedRequest, s.ID, &leaderNode, s.Nodes)
 					if err != nil {
-						log.Fatal(err)
+						log.Warnf("%s: %s -> %s", s.ID, request.String(), err.Error())
+					} else {
+						log.Infof("%s: %s -> %d", s.ID, request.String(), result)
+						continue
 					}
-					log.Infof("%s: %s -> %d", s.ID, request.String(), result)
-					continue
 				}
 				result, err := processTransaction(signedRequest, s.ID, &leaderNode, s.Nodes, s.ResultCh)
 				if err != nil {

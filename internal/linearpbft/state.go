@@ -80,11 +80,6 @@ func (n *LinearPBFTNode) TryExecute(sequenceNum int64) {
 			log.Fatal(err)
 		}
 
-		resultInt := int64(0)
-		if result {
-			resultInt = int64(1)
-		}
-
 		// Add to executed log
 		n.ExecutedLog[i] = &LogRecord{
 			ViewNumber:  n.ViewNumber,
@@ -92,7 +87,7 @@ func (n *LinearPBFTNode) TryExecute(sequenceNum int64) {
 			Digest:      committedRecord.Digest,
 		}
 		log.Infof("Executed (v: %d, s: %d): %s", n.ViewNumber, i, utils.LoggingString(request.Transaction))
-		go n.SendReply(i, request, resultInt)
+		go n.SendReply(i, request, utils.BoolToInt64(result))
 		n.LastExecutedSequenceNum = i
 	}
 }

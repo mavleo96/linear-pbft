@@ -56,7 +56,7 @@ func processTransaction(request *pb.SignedTransactionRequest, clientID string, l
 			log.Warnf("Client timeout for attempt %d", attempt)
 		}
 	}
-	return -1, errors.New("transaction timed out")
+	return 0, errors.New("transaction timed out")
 }
 
 func processReadOnlyTransaction(request *pb.SignedTransactionRequest, clientID string, leaderNode *string, nodeMap map[string]*models.Node) (int64, error) {
@@ -89,7 +89,7 @@ func processReadOnlyTransaction(request *pb.SignedTransactionRequest, clientID s
 		select {
 		case signedResponse, ok := <-responseCh:
 			if !ok {
-				return 0, errors.New("no 2f + 1 matching result before timeout")
+				return 0, errors.New("no majority")
 			}
 			message := signedResponse.Message
 
@@ -108,7 +108,7 @@ func processReadOnlyTransaction(request *pb.SignedTransactionRequest, clientID s
 				return maxVal, nil
 			}
 		case <-ctx.Done():
-			return 0, errors.New("no 2f + 1 matching result before timeout")
+			return 0, errors.New("timed out")
 		}
 	}
 }
