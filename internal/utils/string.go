@@ -6,14 +6,18 @@ import (
 	"github.com/mavleo96/bft-mavleo96/pb"
 )
 
-func MessageString(t any) string {
+func LoggingString(t any, request ...*pb.TransactionRequest) string {
+	var req *pb.TransactionRequest
+	if len(request) > 0 {
+		req = request[0]
+	}
 	switch v := t.(type) {
 	case *pb.CommitMessage:
-		return commitMessageString(v)
+		return commitMessageString(v, req)
 	case *pb.PrepareMessage:
-		return prepareMessageString(v)
+		return prepareMessageString(v, req)
 	case *pb.PrePrepareMessage:
-		return prePrepareMessageString(v)
+		return prePrepareMessageString(v, req)
 	case *pb.TransactionRequest:
 		return transactionRequestString(v)
 	case *pb.Transaction:
@@ -23,16 +27,16 @@ func MessageString(t any) string {
 	}
 }
 
-func commitMessageString(c *pb.CommitMessage) string {
-	return fmt.Sprintf("<COMMIT, %d, %d, %s, %s>", c.ViewNumber, c.SequenceNum, c.Digest, c.NodeID)
+func commitMessageString(c *pb.CommitMessage, request *pb.TransactionRequest) string {
+	return fmt.Sprintf("<COMMIT, %d, %d, D(%s), %s>", c.ViewNumber, c.SequenceNum, transactionRequestString(request), c.NodeID)
 }
 
-func prepareMessageString(p *pb.PrepareMessage) string {
-	return fmt.Sprintf("<PREPARE, %d, %d, %s, %s>", p.ViewNumber, p.SequenceNum, p.Digest, p.NodeID)
+func prepareMessageString(p *pb.PrepareMessage, request *pb.TransactionRequest) string {
+	return fmt.Sprintf("<PREPARE, %d, %d, D(%s), %s>", p.ViewNumber, p.SequenceNum, transactionRequestString(request), p.NodeID)
 }
 
-func prePrepareMessageString(p *pb.PrePrepareMessage) string {
-	return fmt.Sprintf("<PREPREPARE, %d, %d, %s>", p.ViewNumber, p.SequenceNum, p.Digest)
+func prePrepareMessageString(p *pb.PrePrepareMessage, request *pb.TransactionRequest) string {
+	return fmt.Sprintf("<PREPREPARE, %d, %d, D(%s)>", p.ViewNumber, p.SequenceNum, transactionRequestString(request))
 }
 
 func transactionRequestString(t *pb.TransactionRequest) string {

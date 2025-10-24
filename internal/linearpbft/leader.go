@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/mavleo96/bft-mavleo96/internal/security"
+	"github.com/mavleo96/bft-mavleo96/internal/utils"
 	"github.com/mavleo96/bft-mavleo96/pb"
 	log "github.com/sirupsen/logrus"
 )
@@ -27,8 +28,10 @@ func (n *LinearPBFTNode) SendPrePrepare(request *pb.TransactionRequest) ([]*pb.S
 	}
 
 	// Add preprepare message to preprepare log
+	n.Mutex.Lock()
 	n.PrePrepareLog[sequenceNum] = preprepare
-	log.Infof("Logged preprepare message for sequence number %d", sequenceNum)
+	log.Infof("Logged: %s", utils.LoggingString(preprepare, request))
+	n.Mutex.Unlock()
 
 	// Multicast preprepare message to all nodes
 	responseCh := make(chan *pb.SignedPrepareMessage, len(n.Peers))
@@ -56,10 +59,11 @@ func (n *LinearPBFTNode) SendPrePrepare(request *pb.TransactionRequest) ([]*pb.S
 		}
 		signedPrepareMsgs = append(signedPrepareMsgs, signedPrepareMsg)
 		if len(signedPrepareMsgs) == len(n.Peers)-n.F+1 {
-			log.Infof("Collected prepare message for sequence number %d", sequenceNum)
+			log.Infof("Prepare messages collected for sequence number %d", sequenceNum)
 			return signedPrepareMsgs, nil
 		}
 	}
+	log.Infof("Prepare messages not collected for sequence number %d", sequenceNum)
 	return nil, nil
 }
 
@@ -70,7 +74,9 @@ func (n *LinearPBFTNode) SendPrepare(signedPrepareMessages []*pb.SignedPrepareMe
 		SequenceNum: sequenceNum,
 		Messages:    signedPrepareMessages,
 	}
+	n.Mutex.Lock()
 	digest := n.PrePrepareLog[sequenceNum].Digest
+	n.Mutex.Unlock()
 
 	// Multicast prepare message to all nodes
 	responseCh := make(chan *pb.SignedCommitMessage, len(n.Peers))
@@ -102,13 +108,14 @@ func (n *LinearPBFTNode) SendPrepare(signedPrepareMessages []*pb.SignedPrepareMe
 		// Verify Signature
 		ok := security.Verify(prepareMessage, n.Peers[prepareMessage.NodeID].PublicKey, signedPrepareMessage.Signature)
 		if !ok {
-			log.Warnf("Invalid signature on prepare message with sequence number %d in view number %d; request: %v", prepareMessage.SequenceNum, prepareMessage.ViewNumber, n.PrePrepareLog[sequenceNum].String())
+			// log.Warnf("Invalid signature on collected prepare message: %s", utils.LoggingString(signedPrepareMessage, signedPrepareMessage.Request))
+			// log.Warnf("Rejected: %s; invalid signature", utils.LoggingString(prepareMessage, n.TransactionMap[utils.To32Bytes(prepareMessage.Digest)]))
 			continue
 		}
 
 		// Check if the prepare message matches preprepare message
 		if !cmp.Equal(prepareMessage.Digest, digest) {
-			log.Warnf("Invalid digest on prepare message with sequence number %d in view number %d; request: %v", prepareMessage.SequenceNum, prepareMessage.ViewNumber, n.PrePrepareLog[sequenceNum].String())
+			// log.Warnf("Invalid digest on prepare message with sequence number %d in view number %d; request: %v", prepareMessage.SequenceNum, prepareMessage.ViewNumber, n.PrePrepareLog[sequenceNum].String())
 			continue
 		}
 
@@ -120,13 +127,15 @@ func (n *LinearPBFTNode) SendPrepare(signedPrepareMessages []*pb.SignedPrepareMe
 
 	if verifiedCount >= 2*n.F {
 		log.Infof("Verified prepare messages for sequence number %d", sequenceNum)
+		n.Mutex.Lock()
 		n.PrepareLog[sequenceNum] = &pb.PrepareMessage{
 			ViewNumber:  n.ViewNumber,
 			SequenceNum: sequenceNum,
 			Digest:      digest,
 			NodeID:      n.ID,
 		}
-		log.Infof("Prepared message %d: %s", sequenceNum, n.PrePrepareLog[sequenceNum].String())
+		log.Infof("Logged: %s", utils.LoggingString(n.PrepareLog[sequenceNum], n.TransactionMap[utils.To32Bytes(digest)]))
+		n.Mutex.Unlock()
 		commitMessage := &pb.CommitMessage{
 			ViewNumber:  n.ViewNumber,
 			SequenceNum: sequenceNum,
@@ -138,7 +147,9 @@ func (n *LinearPBFTNode) SendPrepare(signedPrepareMessages []*pb.SignedPrepareMe
 			Signature: security.Sign(commitMessage, n.PrivateKey),
 		})
 	} else {
+		n.Mutex.Lock()
 		log.Warnf("Not enough prepare messages to prepare message %d: %s", sequenceNum, n.PrePrepareLog[sequenceNum].String())
+		n.Mutex.Unlock()
 	}
 
 	for range len(n.Peers) {

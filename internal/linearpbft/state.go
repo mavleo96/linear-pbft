@@ -24,5 +24,7 @@ type LinearPBFTNode struct {
 	PrePrepareLog map[int64]*pb.PrePrepareMessage
 	PrepareLog    map[int64]*pb.PrepareMessage
 
+	TransactionMap map[[32]byte]*pb.TransactionRequest
+
 	*pb.UnimplementedLinearPBFTNodeServer
 }

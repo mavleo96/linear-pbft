@@ -24,6 +24,7 @@ func (n *LinearPBFTNode) AssignSequenceNumber(request *pb.TransactionRequest) in
 	}
 
 	// If request is not in preprepare log, assign new sequence number
+	// and add to transaction map
 	sequenceNum := int64(0)
 	maxSequenceNum := utils.Max(utils.Keys(n.PrePrepareLog))
 	if maxSequenceNum == nil {
@@ -32,6 +33,7 @@ func (n *LinearPBFTNode) AssignSequenceNumber(request *pb.TransactionRequest) in
 		sequenceNum = *maxSequenceNum + 1
 	}
 	n.PrePrepareLog[sequenceNum] = nil
+	n.TransactionMap[utils.To32Bytes(requestDigest)] = request
 
 	return sequenceNum
 }
