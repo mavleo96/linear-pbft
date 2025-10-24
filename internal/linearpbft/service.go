@@ -58,6 +58,34 @@ func (n *LinearPBFTNode) TransferRequest(ctx context.Context, signedRequest *pb.
 	return &emptypb.Empty{}, nil
 }
 
+func (n *LinearPBFTNode) ReadOnlyRequest(ctx context.Context, signedRequest *pb.SignedTransactionRequest) (*pb.SignedTransactionResponse, error) {
+	request := signedRequest.Request
+
+	// Verify client signature
+	ok := security.Verify(request, n.Clients[request.Sender].PublicKey, signedRequest.Signature)
+	if !ok {
+		log.Warnf("Invalid client signature for request %s", request.String())
+		return nil, status.Errorf(codes.Unauthenticated, "invalid signature")
+	}
+	balance, err := n.DB.GetBalance(request.Sender)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "%s", err.Error())
+	}
+	message := &pb.TransactionResponse{
+		ViewNumber: n.ViewNumber,
+		Timestamp:  request.Timestamp,
+		Sender:     request.Sender,
+		NodeID:     n.ID,
+		Result:     int64(balance),
+	}
+	signedMessage := &pb.SignedTransactionResponse{
+		Message:   message,
+		Signature: security.Sign(message, n.PrivateKey),
+	}
+	log.Infof("Node %s: Read only request %s -> %d", n.ID, request.String(), balance)
+	return signedMessage, nil
+}
+
 func (n *LinearPBFTNode) SendReply(sequenceNum int64, request *pb.TransactionRequest, result int64) {
 	// Send reply to clients
 	reply := &pb.TransactionResponse{

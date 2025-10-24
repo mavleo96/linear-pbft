@@ -8,6 +8,7 @@ option go_package = "github.com/mavleo96/bft-mavleo96/pb";
 
 service LinearPBFTNode {
     rpc TransferRequest (SignedTransactionRequest) returns (google.protobuf.Empty);
+    rpc ReadOnlyRequest (SignedTransactionRequest) returns (SignedTransactionResponse);
 
     rpc PrePrepare (SignedPrePrepareMessage) returns (SignedPrepareMessage);
     rpc Prepare (CollectedSignedPrepareMessage) returns (SignedCommitMessage);

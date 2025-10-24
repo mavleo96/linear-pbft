@@ -879,9 +879,10 @@ const file_bft_proto_rawDesc = "" +
 	"viewNumber\x18\x01 \x01(\x03R\n" +
 	"viewNumber\x12 \n" +
 	"\vsequenceNum\x18\x02 \x01(\x03R\vsequenceNum\x123\n" +
-	"\bmessages\x18\x03 \x03(\v2\x17.pb.SignedCommitMessageR\bmessages2\xa9\x02\n" +
+	"\bmessages\x18\x03 \x03(\v2\x17.pb.SignedCommitMessageR\bmessages2\xf9\x02\n" +
 	"\x0eLinearPBFTNode\x12G\n" +
-	"\x0fTransferRequest\x12\x1c.pb.SignedTransactionRequest\x1a\x16.google.protobuf.Empty\x12C\n" +
+	"\x0fTransferRequest\x12\x1c.pb.SignedTransactionRequest\x1a\x16.google.protobuf.Empty\x12N\n" +
+	"\x0fReadOnlyRequest\x12\x1c.pb.SignedTransactionRequest\x1a\x1d.pb.SignedTransactionResponse\x12C\n" +
 	"\n" +
 	"PrePrepare\x12\x1b.pb.SignedPrePrepareMessage\x1a\x18.pb.SignedPrepareMessage\x12E\n" +
 	"\aPrepare\x12!.pb.CollectedSignedPrepareMessage\x1a\x17.pb.SignedCommitMessage\x12B\n" +
@@ -929,17 +930,19 @@ var file_bft_proto_depIdxs = []int32{
 	10, // 7: pb.SignedCommitMessage.message:type_name -> pb.CommitMessage
 	11, // 8: pb.CollectedSignedCommitMessage.messages:type_name -> pb.SignedCommitMessage
 	3,  // 9: pb.LinearPBFTNode.TransferRequest:input_type -> pb.SignedTransactionRequest
-	6,  // 10: pb.LinearPBFTNode.PrePrepare:input_type -> pb.SignedPrePrepareMessage
-	9,  // 11: pb.LinearPBFTNode.Prepare:input_type -> pb.CollectedSignedPrepareMessage
-	12, // 12: pb.LinearPBFTNode.Commit:input_type -> pb.CollectedSignedCommitMessage
-	1,  // 13: pb.LinearPBFTClientApp.ReceiveReply:input_type -> pb.SignedTransactionResponse
-	13, // 14: pb.LinearPBFTNode.TransferRequest:output_type -> google.protobuf.Empty
-	8,  // 15: pb.LinearPBFTNode.PrePrepare:output_type -> pb.SignedPrepareMessage
-	11, // 16: pb.LinearPBFTNode.Prepare:output_type -> pb.SignedCommitMessage
-	13, // 17: pb.LinearPBFTNode.Commit:output_type -> google.protobuf.Empty
-	13, // 18: pb.LinearPBFTClientApp.ReceiveReply:output_type -> google.protobuf.Empty
-	14, // [14:19] is the sub-list for method output_type
-	9,  // [9:14] is the sub-list for method input_type
+	3,  // 10: pb.LinearPBFTNode.ReadOnlyRequest:input_type -> pb.SignedTransactionRequest
+	6,  // 11: pb.LinearPBFTNode.PrePrepare:input_type -> pb.SignedPrePrepareMessage
+	9,  // 12: pb.LinearPBFTNode.Prepare:input_type -> pb.CollectedSignedPrepareMessage
+	12, // 13: pb.LinearPBFTNode.Commit:input_type -> pb.CollectedSignedCommitMessage
+	1,  // 14: pb.LinearPBFTClientApp.ReceiveReply:input_type -> pb.SignedTransactionResponse
+	13, // 15: pb.LinearPBFTNode.TransferRequest:output_type -> google.protobuf.Empty
+	1,  // 16: pb.LinearPBFTNode.ReadOnlyRequest:output_type -> pb.SignedTransactionResponse
+	8,  // 17: pb.LinearPBFTNode.PrePrepare:output_type -> pb.SignedPrepareMessage
+	11, // 18: pb.LinearPBFTNode.Prepare:output_type -> pb.SignedCommitMessage
+	13, // 19: pb.LinearPBFTNode.Commit:output_type -> google.protobuf.Empty
+	13, // 20: pb.LinearPBFTClientApp.ReceiveReply:output_type -> google.protobuf.Empty
+	15, // [15:21] is the sub-list for method output_type
+	9,  // [9:15] is the sub-list for method input_type
 	9,  // [9:9] is the sub-list for extension type_name
 	9,  // [9:9] is the sub-list for extension extendee
 	0,  // [0:9] is the sub-list for field type_name

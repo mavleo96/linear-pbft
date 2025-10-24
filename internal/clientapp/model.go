@@ -101,6 +101,14 @@ func (s *ClientAppServer) ClientSendRoutine(ctx context.Context) {
 					Request:   request,
 					Signature: security.Sign(request, s.PrivateKey),
 				}
+				if t.Type == "read" {
+					result, err := processReadOnlyTransaction(signedRequest, s.ID, &leaderNode, s.Nodes)
+					if err != nil {
+						log.Fatal(err)
+					}
+					log.Infof("%s: %s -> %d", s.ID, request.String(), result)
+					continue
+				}
 				result, err := processTransaction(signedRequest, s.ID, &leaderNode, s.Nodes, s.ResultCh)
 				if err != nil {
 					log.Fatal(err)

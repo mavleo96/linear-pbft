@@ -3,9 +3,11 @@ package clientapp
 import (
 	"context"
 	"errors"
+	"sync"
 	"time"
 
 	"github.com/mavleo96/bft-mavleo96/internal/models"
+	"github.com/mavleo96/bft-mavleo96/internal/security"
 	"github.com/mavleo96/bft-mavleo96/pb"
 	log "github.com/sirupsen/logrus"
 )
@@ -54,5 +56,71 @@ func processTransaction(request *pb.SignedTransactionRequest, clientID string, l
 			log.Warnf("Client timeout for attempt %d", attempt)
 		}
 	}
-	return 0, errors.New("transaction timed out")
+	return -1, errors.New("transaction timed out")
+}
+
+func processReadOnlyTransaction(request *pb.SignedTransactionRequest, clientID string, leaderNode *string, nodeMap map[string]*models.Node) (int64, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), clientTimeout)
+	defer cancel()
+
+	// Multicast to all nodes
+	responseCh := make(chan *pb.SignedTransactionResponse, len(nodeMap))
+	wg := sync.WaitGroup{}
+
+	for _, node := range nodeMap {
+		wg.Add(1)
+		go func(r *pb.SignedTransactionRequest, nID string, nClient pb.LinearPBFTNodeClient) {
+			defer wg.Done()
+			resp, err := nClient.ReadOnlyRequest(context.Background(), r)
+			if err != nil {
+				log.Fatal(err)
+			}
+			responseCh <- resp
+		}(request, node.ID, *node.Client)
+	}
+
+	go func() {
+		wg.Wait()
+		close(responseCh)
+	}()
+
+	resultMap := make(map[int64]int64)
+	for {
+		select {
+		case signedResponse, ok := <-responseCh:
+			if !ok {
+				return 0, errors.New("no 2f + 1 matching result before timeout")
+			}
+			message := signedResponse.Message
+
+			// verify signature
+			if !security.Verify(message, nodeMap[message.NodeID].PublicKey, signedResponse.Signature) {
+				log.Warnf("Invalid signature from node: %s", message.NodeID)
+				continue
+			}
+
+			// Add to reply map
+			resultMap[message.Result]++
+
+			// Check if we have enough matches
+			maxVal, maxCnt := tempCounterFunction(resultMap)
+			if maxCnt >= 5 {
+				return maxVal, nil
+			}
+		case <-ctx.Done():
+			return 0, errors.New("no 2f + 1 matching result before timeout")
+		}
+	}
+}
+
+func tempCounterFunction(m map[int64]int64) (int64, int64) {
+	maxVal := int64(0)
+	maxCnt := int64(0)
+	for k, v := range m {
+		if v > maxCnt {
+			maxVal = k
+			maxCnt = v
+		}
+	}
+	return maxVal, maxCnt
 }
