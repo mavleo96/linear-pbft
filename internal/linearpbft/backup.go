@@ -5,6 +5,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/mavleo96/bft-mavleo96/internal/security"
+	"github.com/mavleo96/bft-mavleo96/internal/utils"
 	"github.com/mavleo96/bft-mavleo96/pb"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc/codes"
@@ -23,14 +24,14 @@ func (n *LinearPBFTNode) PrePrepare(ctx context.Context, signedMessage *pb.Signe
 
 	// Verify Node's signature
 	currentLeaderID := n.ViewNumberToLeader(n.ViewNumber)
-	ok := security.Verify(preprepareMessage.String(), n.Peers[currentLeaderID].PublicKey, signedMessage.Signature)
+	ok := security.Verify(utils.MessageString(preprepareMessage), n.Peers[currentLeaderID].PublicKey, signedMessage.Signature)
 	if !ok {
 		log.Warnf("Invalid signature on preprepare message with sequence number %d in view number %d; request: %v", preprepareMessage.SequenceNum, preprepareMessage.ViewNumber, request.String())
 		return nil, status.Errorf(codes.InvalidArgument, "invalid signature")
 	}
 
 	// Verify Digest
-	if !cmp.Equal(preprepareMessage.Digest, security.Digest(request.String())) {
+	if !cmp.Equal(preprepareMessage.Digest, security.Digest(utils.MessageString(request))) {
 		log.Warnf("Invalid digest on preprepare message with sequence number %d in view number %d; request: %v", preprepareMessage.SequenceNum, preprepareMessage.ViewNumber, request.String())
 		return nil, status.Errorf(codes.InvalidArgument, "invalid digest")
 	}
@@ -54,7 +55,7 @@ func (n *LinearPBFTNode) PrePrepare(ctx context.Context, signedMessage *pb.Signe
 	}
 	signedPrepareMessage := &pb.SignedPrepareMessage{
 		Message:   prepareMessage,
-		Signature: security.Sign(prepareMessage.String(), n.PrivateKey),
+		Signature: security.Sign(utils.MessageString(prepareMessage), n.PrivateKey),
 	}
 
 	return signedPrepareMessage, nil

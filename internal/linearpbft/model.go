@@ -7,6 +7,7 @@ import (
 	"github.com/mavleo96/bft-mavleo96/internal/database"
 	"github.com/mavleo96/bft-mavleo96/internal/models"
 	"github.com/mavleo96/bft-mavleo96/internal/security"
+	"github.com/mavleo96/bft-mavleo96/internal/utils"
 	"github.com/mavleo96/bft-mavleo96/pb"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc/codes"
@@ -37,7 +38,7 @@ func (n *LinearPBFTNode) TransferRequest(ctx context.Context, signedRequest *pb.
 	request := signedRequest.Request
 
 	// Verify client signature
-	ok := security.Verify(request.String(), n.Clients[request.Sender].PublicKey, signedRequest.Signature)
+	ok := security.Verify(utils.MessageString(request), n.Clients[request.Sender].PublicKey, signedRequest.Signature)
 	if !ok {
 		log.Warnf("Invalid client signature for request %s", request.String())
 		return nil, status.Errorf(codes.Unauthenticated, "invalid signature")

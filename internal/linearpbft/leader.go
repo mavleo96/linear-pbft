@@ -4,13 +4,14 @@ import (
 	"context"
 
 	"github.com/mavleo96/bft-mavleo96/internal/security"
+	"github.com/mavleo96/bft-mavleo96/internal/utils"
 	"github.com/mavleo96/bft-mavleo96/pb"
 	log "github.com/sirupsen/logrus"
 )
 
 func (n *LinearPBFTNode) SendPrePrepare(request *pb.TransactionRequest) ([]*pb.SignedPrepareMessage, error) {
 	// Compute digest of request
-	digest := security.Digest(request.String())
+	digest := security.Digest(utils.MessageString(request))
 
 	// Assign sequence number to request
 	sequenceNum := n.AssignSequenceNumber(request)
@@ -23,7 +24,7 @@ func (n *LinearPBFTNode) SendPrePrepare(request *pb.TransactionRequest) ([]*pb.S
 	}
 	signedPreprepare := &pb.SignedPrePrepareMessage{
 		Message:   preprepare,
-		Signature: security.Sign(preprepare.String(), n.PrivateKey),
+		Signature: security.Sign(utils.MessageString(preprepare), n.PrivateKey),
 		Request:   request,
 	}
 
