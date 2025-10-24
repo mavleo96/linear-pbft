@@ -2,6 +2,7 @@ package linearpbft
 
 import (
 	"context"
+	"sync"
 
 	"github.com/mavleo96/bft-mavleo96/internal/security"
 	"github.com/mavleo96/bft-mavleo96/internal/utils"
@@ -35,22 +36,35 @@ func (n *LinearPBFTNode) SendPrePrepare(request *pb.TransactionRequest) ([]*pb.S
 	// Multicast preprepare message to all nodes
 	responseCh := make(chan *pb.SignedPrepareMessage, len(n.Peers))
 	log.Infof("Sending preprepare message for sequence number %d", sequenceNum)
+	wg := sync.WaitGroup{}
 	for _, peer := range n.Peers {
-		go func() {
+		wg.Go(func() {
 			signedPrepareMsg, err := (*peer.Client).PrePrepare(context.Background(), signedPreprepare)
 			if err != nil {
 				log.Fatal(err)
 			}
 			responseCh <- signedPrepareMsg
-		}()
+		})
 	}
+	go func() {
+		wg.Wait()
+		close(responseCh)
+	}()
 
 	signedPrepareMsgs := make([]*pb.SignedPrepareMessage, 0)
-	for range len(n.Peers) - n.F + 1 {
+	for range len(n.Peers) {
 		signedPrepareMsg := <-responseCh
+		if signedPrepareMsg == nil {
+			continue
+		}
 		signedPrepareMsgs = append(signedPrepareMsgs, signedPrepareMsg)
-		log.Infof("Collected prepare message for sequence number %d", sequenceNum)
+		if len(signedPrepareMsgs) == len(n.Peers)-n.F+1 {
+			log.Infof("Collected prepare message for sequence number %d", sequenceNum)
+			return signedPrepareMsgs, nil
+		}
 	}
+	return nil, nil
+}
 
 	return signedPrepareMsgs, nil
 }

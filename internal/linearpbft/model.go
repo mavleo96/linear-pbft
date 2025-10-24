@@ -49,9 +49,13 @@ func (n *LinearPBFTNode) TransferRequest(ctx context.Context, signedRequest *pb.
 	// Send preprepare message to all nodes
 	prepareMsgs, err := n.SendPrePrepare(request)
 	if err != nil {
-		return nil, err
+		// return nil, status.Errorf(codes.Internal, err.Error())
+		return nil, nil
 	}
-	log.Infof("Received %d prepare messages", len(prepareMsgs))
+	if prepareMsgs == nil {
+		return &emptypb.Empty{}, nil
+	}
+
 
 	return &emptypb.Empty{}, nil
 }
