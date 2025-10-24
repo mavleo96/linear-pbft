@@ -12,6 +12,8 @@ func LoggingString(t any, request ...*pb.TransactionRequest) string {
 		req = request[0]
 	}
 	switch v := t.(type) {
+	case *pb.TransactionResponse:
+		return transactionResponseString(v)
 	case *pb.CommitMessage:
 		return commitMessageString(v, req)
 	case *pb.PrepareMessage:
@@ -25,6 +27,10 @@ func LoggingString(t any, request ...*pb.TransactionRequest) string {
 	default:
 		return fmt.Sprintf("<%T>", t)
 	}
+}
+
+func transactionResponseString(r *pb.TransactionResponse) string {
+	return fmt.Sprintf("<REPLY, %d, %d, %s, %s, %d>", r.ViewNumber, r.Timestamp, r.Sender, r.NodeID, r.Result)
 }
 
 func commitMessageString(c *pb.CommitMessage, request *pb.TransactionRequest) string {

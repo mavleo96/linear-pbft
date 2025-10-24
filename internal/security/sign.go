@@ -5,6 +5,7 @@ package security
 import (
 	"crypto/ed25519"
 	"fmt"
+	"log"
 
 	"github.com/mavleo96/bft-mavleo96/pb"
 )
@@ -21,6 +22,8 @@ func Verify[T any](message T, publicKey []byte, signature []byte) bool {
 
 func messageString(message any) string {
 	switch v := message.(type) {
+	case *pb.TransactionResponse:
+		return transactionResponseString(v)
 	case *pb.CommitMessage:
 		return commitMessageString(v)
 	case *pb.PrepareMessage:
@@ -32,8 +35,14 @@ func messageString(message any) string {
 	case *pb.Transaction:
 		return transactionString(v)
 	default:
+		// TODO: remove this
+		log.Fatalf("Unknown message type: %T", message)
 		return fmt.Sprintf("<%T>", message)
 	}
+}
+
+func transactionResponseString(r *pb.TransactionResponse) string {
+	return fmt.Sprintf("<REPLY, %d, %d, %s, %s, %d>", r.ViewNumber, r.Timestamp, r.Sender, r.NodeID, r.Result)
 }
 
 func commitMessageString(c *pb.CommitMessage) string {
