@@ -52,13 +52,14 @@ func (s *ClientAppServer) ClientReceiveRoutine(ctx context.Context) {
 
 	// Main receive loop
 	replyMap := make(map[string]int64)
+	majorityReached := false
 
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case resp := <-s.ResponseCh:
-			// Ignore replies for old timestamps
+			// Ignore replies for old timestamps or if majority has been reached
 			if resp.Timestamp < s.CurrentTimestamp {
 				continue
 			} else if resp.Timestamp > s.CurrentTimestamp || resp.ViewNumber > s.CurrentViewNumber {
@@ -66,6 +67,9 @@ func (s *ClientAppServer) ClientReceiveRoutine(ctx context.Context) {
 				s.CurrentTimestamp = resp.Timestamp
 				s.CurrentViewNumber = resp.ViewNumber
 				replyMap = make(map[string]int64)
+				majorityReached = false
+			} else if majorityReached {
+				continue
 			}
 			// Record reply
 			replyMap[resp.NodeID] = resp.Result
@@ -74,6 +78,7 @@ func (s *ClientAppServer) ClientReceiveRoutine(ctx context.Context) {
 			// and respond on result channel with the value
 			maxVal, maxCnt := CounterFunction(replyMap)
 			if maxCnt >= s.F+1 {
+				majorityReached = true
 				s.ResultCh <- maxVal
 			}
 		}
