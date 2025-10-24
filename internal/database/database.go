@@ -107,7 +107,7 @@ func (d *Database) UpdateDB(t *pb.Transaction) (bool, error) {
 }
 
 // GetBalance retrieves the balance of the given account.
-func (d *Database) GetBalance(account string) (int, error) {
+func (d *Database) GetBalance(account string) (int64, error) {
 	var balance int
 	err := d.db.View(func(tx *bbolt.Tx) error {
 		b := tx.Bucket([]byte("balances"))
@@ -125,7 +125,7 @@ func (d *Database) GetBalance(account string) (int, error) {
 		balance = val
 		return nil
 	})
-	return balance, err
+	return int64(balance), err
 }
 
 // PrintDB prints the current state of the database.

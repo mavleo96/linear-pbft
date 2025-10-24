@@ -208,6 +208,9 @@ func (n *LinearPBFTNode) SendCommit(signedCommitMessages []*pb.SignedCommitMessa
 			log.Fatal("Signed commit message is nil")
 		}
 		commitMessage := signedCommitMessage.Message
+		if commitMessage == nil {
+			log.Fatal("Commit message is nil")
+		}
 
 		// Verify Signature
 		if commitMessage.NodeID == n.ID {

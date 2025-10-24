@@ -75,7 +75,17 @@ func (n *LinearPBFTNode) TryExecute(sequenceNum int64) {
 		// Execute transaction
 		digest := committedRecord.Digest
 		request := n.TransactionMap[utils.To32Bytes(digest)]
-		result, err := n.DB.UpdateDB(request.Transaction)
+		var result int64
+		var err error
+		if request.Transaction.Type == "read" {
+			result, err = n.DB.GetBalance(request.Transaction.Sender)
+			log.Infof("Read transaction result: %d", result)
+		} else {
+			var success bool
+			success, err = n.DB.UpdateDB(request.Transaction)
+			result = utils.BoolToInt64(success)
+
+		}
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -87,7 +97,7 @@ func (n *LinearPBFTNode) TryExecute(sequenceNum int64) {
 			Digest:      committedRecord.Digest,
 		}
 		log.Infof("Executed (v: %d, s: %d): %s", n.ViewNumber, i, utils.LoggingString(request.Transaction))
-		go n.SendReply(i, request, utils.BoolToInt64(result))
+		go n.SendReply(i, request, result)
 		n.LastExecutedSequenceNum = i
 	}
 }
