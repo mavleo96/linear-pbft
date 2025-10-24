@@ -30,13 +30,17 @@ func (n *LinearPBFTNode) SendPrePrepare(request *pb.TransactionRequest) ([]*pb.S
 
 	// Add preprepare message to preprepare log
 	n.Mutex.Lock()
-	n.PrePrepareLog[sequenceNum] = preprepare
-	log.Infof("Logged: %s", utils.LoggingString(preprepare, request))
+	n.PrePreparedLog[sequenceNum] = &LogRecord{
+		ViewNumber:  n.ViewNumber,
+		SequenceNum: sequenceNum,
+		Digest:      security.Digest(request),
+	}
+	log.Infof("Preprepared (v: %d, s: %d): %s", n.ViewNumber, sequenceNum, utils.LoggingString(request))
 	n.Mutex.Unlock()
 
 	// Multicast preprepare message to all nodes
 	responseCh := make(chan *pb.SignedPrepareMessage, len(n.Peers))
-	log.Infof("Sending preprepare message for sequence number %d", sequenceNum)
+	log.Infof("Sending preprepare (v: %d, s: %d): %s", n.ViewNumber, sequenceNum, utils.LoggingString(request))
 	wg := sync.WaitGroup{}
 	for _, peer := range n.Peers {
 		wg.Go(func() {
@@ -59,7 +63,7 @@ func (n *LinearPBFTNode) SendPrePrepare(request *pb.TransactionRequest) ([]*pb.S
 			continue
 		}
 		signedPrepareMsgs = append(signedPrepareMsgs, signedPrepareMsg)
-		if len(signedPrepareMsgs) == len(n.Peers)-n.F+1 {
+		if len(signedPrepareMsgs) == int(n.N-n.F) {
 			log.Infof("Prepare messages collected for sequence number %d", sequenceNum)
 			return signedPrepareMsgs, nil
 		}
@@ -75,9 +79,6 @@ func (n *LinearPBFTNode) SendPrepare(signedPrepareMessages []*pb.SignedPrepareMe
 		SequenceNum: sequenceNum,
 		Messages:    signedPrepareMessages,
 	}
-	n.Mutex.Lock()
-	digest := n.PrePrepareLog[sequenceNum].Digest
-	n.Mutex.Unlock()
 
 	// Multicast prepare message to all nodes
 	responseCh := make(chan *pb.SignedCommitMessage, len(n.Peers))
@@ -98,6 +99,14 @@ func (n *LinearPBFTNode) SendPrepare(signedPrepareMessages []*pb.SignedPrepareMe
 		close(responseCh)
 	}()
 
+	// Get preprepare record from preprepare log
+	n.Mutex.Lock()
+	preprepareRecord := n.PrePreparedLog[sequenceNum]
+	n.Mutex.Unlock()
+	if preprepareRecord == nil {
+		log.Fatal("Preprepare record is nil")
+	}
+
 	// Verify the prepare messages
 	verifiedCount := 0
 	for _, signedPrepareMessage := range signedPrepareMessages {
@@ -109,14 +118,13 @@ func (n *LinearPBFTNode) SendPrepare(signedPrepareMessages []*pb.SignedPrepareMe
 		// Verify Signature
 		ok := security.Verify(prepareMessage, n.Peers[prepareMessage.NodeID].PublicKey, signedPrepareMessage.Signature)
 		if !ok {
-			// log.Warnf("Invalid signature on collected prepare message: %s", utils.LoggingString(signedPrepareMessage, signedPrepareMessage.Request))
-			// log.Warnf("Rejected: %s; invalid signature", utils.LoggingString(prepareMessage, n.TransactionMap[utils.To32Bytes(prepareMessage.Digest)]))
 			continue
 		}
 
 		// Check if the prepare message matches preprepare message
-		if !cmp.Equal(prepareMessage.Digest, digest) {
-			// log.Warnf("Invalid digest on prepare message with sequence number %d in view number %d; request: %v", prepareMessage.SequenceNum, prepareMessage.ViewNumber, n.PrePrepareLog[sequenceNum].String())
+		if prepareMessage.ViewNumber != preprepareRecord.ViewNumber ||
+			prepareMessage.SequenceNum != preprepareRecord.SequenceNum ||
+			!cmp.Equal(prepareMessage.Digest, preprepareRecord.Digest) {
 			continue
 		}
 
@@ -126,21 +134,21 @@ func (n *LinearPBFTNode) SendPrepare(signedPrepareMessages []*pb.SignedPrepareMe
 
 	signedCommitMsgs := make([]*pb.SignedCommitMessage, 0)
 
-	if verifiedCount >= 2*n.F {
+	// If 2f matching prepare messages are collected, then log the prepare message
+	if verifiedCount >= int(2*n.F) {
 		log.Infof("Verified prepare messages for sequence number %d", sequenceNum)
 		n.Mutex.Lock()
-		n.PrepareLog[sequenceNum] = &pb.PrepareMessage{
+		n.PreparedLog[sequenceNum] = &LogRecord{
 			ViewNumber:  n.ViewNumber,
 			SequenceNum: sequenceNum,
-			Digest:      digest,
-			NodeID:      n.ID,
+			Digest:      preprepareRecord.Digest,
 		}
-		log.Infof("Logged: %s", utils.LoggingString(n.PrepareLog[sequenceNum], n.TransactionMap[utils.To32Bytes(digest)]))
+		log.Infof("Prepared (v: %d, s: %d): %s", n.ViewNumber, sequenceNum, utils.LoggingString(n.TransactionMap[utils.To32Bytes(preprepareRecord.Digest)]))
 		n.Mutex.Unlock()
 		commitMessage := &pb.CommitMessage{
 			ViewNumber:  n.ViewNumber,
 			SequenceNum: sequenceNum,
-			Digest:      digest,
+			Digest:      preprepareRecord.Digest,
 			NodeID:      n.ID,
 		}
 		signedCommitMsgs = append(signedCommitMsgs, &pb.SignedCommitMessage{
@@ -149,7 +157,7 @@ func (n *LinearPBFTNode) SendPrepare(signedPrepareMessages []*pb.SignedPrepareMe
 		})
 	} else {
 		n.Mutex.Lock()
-		log.Warnf("Not enough prepare messages to prepare message %d: %s", sequenceNum, n.PrePrepareLog[sequenceNum].String())
+		log.Warnf("Not enough prepare messages to prepare message (v: %d, s: %d)", n.ViewNumber, sequenceNum)
 		n.Mutex.Unlock()
 	}
 
@@ -159,7 +167,7 @@ func (n *LinearPBFTNode) SendPrepare(signedPrepareMessages []*pb.SignedPrepareMe
 			continue
 		}
 		signedCommitMsgs = append(signedCommitMsgs, signedCommitMsg)
-		if len(signedCommitMsgs) == len(n.Peers)-n.F+1 {
+		if len(signedCommitMsgs) == int(n.N-n.F) {
 			log.Infof("Collected commit message for sequence number %d", sequenceNum)
 			return signedCommitMsgs, nil
 		}
@@ -174,9 +182,6 @@ func (n *LinearPBFTNode) SendCommit(signedCommitMessages []*pb.SignedCommitMessa
 		SequenceNum: sequenceNum,
 		Messages:    signedCommitMessages,
 	}
-	n.Mutex.Lock()
-	digest := n.PrepareLog[sequenceNum].Digest
-	n.Mutex.Unlock()
 
 	// Multicast commit message to all nodes
 	log.Infof("Sending commit message for sequence number %d", sequenceNum)
@@ -189,6 +194,14 @@ func (n *LinearPBFTNode) SendCommit(signedCommitMessages []*pb.SignedCommitMessa
 		}()
 	}
 
+	// Get prepared record from prepared log
+	n.Mutex.Lock()
+	preparedRecord := n.PreparedLog[sequenceNum]
+	n.Mutex.Unlock()
+	if preparedRecord == nil {
+		log.Fatal("Prepared record is nil")
+	}
+
 	// Verify the commit messages
 	verifiedCount := 0
 	for _, signedCommitMessage := range signedCommitMessages {
@@ -198,9 +211,7 @@ func (n *LinearPBFTNode) SendCommit(signedCommitMessages []*pb.SignedCommitMessa
 		commitMessage := signedCommitMessage.Message
 
 		// Verify Signature
-		log.Debug(commitMessage.String())
 		if commitMessage.NodeID == n.ID {
-			// Skip verification of own commit message
 			verifiedCount++
 			continue
 		}
@@ -210,7 +221,9 @@ func (n *LinearPBFTNode) SendCommit(signedCommitMessages []*pb.SignedCommitMessa
 		}
 
 		// Check if the commit message matches prepare message
-		if !cmp.Equal(commitMessage.Digest, digest) {
+		if commitMessage.ViewNumber != preparedRecord.ViewNumber ||
+			commitMessage.SequenceNum != preparedRecord.SequenceNum ||
+			!cmp.Equal(commitMessage.Digest, preparedRecord.Digest) {
 			continue
 		}
 
@@ -218,21 +231,19 @@ func (n *LinearPBFTNode) SendCommit(signedCommitMessages []*pb.SignedCommitMessa
 		verifiedCount++
 	}
 
-	if verifiedCount >= 2*n.F+1 {
+	if verifiedCount >= int(2*n.F+1) {
 		log.Infof("Verified commit messages for sequence number %d", sequenceNum)
 		n.Mutex.Lock()
-		commitMessage := &pb.CommitMessage{
+		n.CommittedLog[sequenceNum] = &LogRecord{
 			ViewNumber:  n.ViewNumber,
 			SequenceNum: sequenceNum,
-			Digest:      digest,
-			NodeID:      n.ID,
+			Digest:      preparedRecord.Digest,
 		}
-		n.CommitLog[sequenceNum] = commitMessage
-		log.Infof("Logged: %s", utils.LoggingString(commitMessage, n.TransactionMap[utils.To32Bytes(digest)]))
+		log.Infof("Committed (v: %d, s: %d): %s", n.ViewNumber, sequenceNum, utils.LoggingString(n.TransactionMap[utils.To32Bytes(preparedRecord.Digest)]))
 		n.Mutex.Unlock()
 		return nil
 	}
 
-	log.Warnf("Ignored: %d; not enough commit messages (verified: %d)", sequenceNum, verifiedCount)
+	log.Warnf("Not enough commit messages to commit message (v: %d, s: %d)", n.ViewNumber, sequenceNum)
 	return errors.New("not enough commit messages")
 }

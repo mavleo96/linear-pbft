@@ -15,17 +15,23 @@ type LinearPBFTNode struct {
 	DB         *database.Database
 
 	Peers   map[string]*models.Node
-	F       int
-	N       int
+	F       int64
+	N       int64
 	Clients map[string]*models.Client
 
-	Mutex         sync.Mutex
-	ViewNumber    int64
-	PrePrepareLog map[int64]*pb.PrePrepareMessage
-	PrepareLog    map[int64]*pb.PrepareMessage
-	CommitLog     map[int64]*pb.CommitMessage
+	Mutex          sync.Mutex
+	ViewNumber     int64
+	PrePreparedLog map[int64]*LogRecord
+	PreparedLog    map[int64]*LogRecord
+	CommittedLog   map[int64]*LogRecord
 
 	TransactionMap map[[32]byte]*pb.TransactionRequest
 
 	*pb.UnimplementedLinearPBFTNodeServer
+}
+
+type LogRecord struct {
+	ViewNumber  int64
+	SequenceNum int64
+	Digest      []byte
 }
