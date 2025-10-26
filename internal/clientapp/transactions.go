@@ -8,6 +8,7 @@ import (
 
 	"github.com/mavleo96/bft-mavleo96/internal/models"
 	"github.com/mavleo96/bft-mavleo96/internal/security"
+	"github.com/mavleo96/bft-mavleo96/internal/utils"
 	"github.com/mavleo96/bft-mavleo96/pb"
 	log "github.com/sirupsen/logrus"
 )
@@ -23,7 +24,6 @@ func processTransaction(request *pb.SignedTransactionRequest, clientID string, l
 
 	var result int64
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
-		log.Infof("%s: Attempt %d", clientID, attempt)
 		// Create context with timeout common for current attempt
 		ctx, cancel := context.WithTimeout(context.Background(), clientTimeout)
 		// If first attempt
@@ -48,12 +48,11 @@ func processTransaction(request *pb.SignedTransactionRequest, clientID string, l
 
 		select {
 		case result = <-resultCh:
-			// log.Infof("%s: %s -> %d", clientID, request.Request.String(), result)
 			cancel()
 			return result, nil
 		case <-ctx.Done():
 			cancel()
-			log.Warnf("Client timeout for attempt %d", attempt)
+			log.Warnf("%s: %s -> attempt %d timed out", clientID, utils.LoggingString(request), attempt)
 		}
 	}
 	return 0, errors.New("transaction timed out")

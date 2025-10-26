@@ -10,6 +10,7 @@ import (
 
 	"github.com/mavleo96/bft-mavleo96/internal/models"
 	"github.com/mavleo96/bft-mavleo96/internal/security"
+	"github.com/mavleo96/bft-mavleo96/internal/utils"
 	"github.com/mavleo96/bft-mavleo96/pb"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
@@ -31,7 +32,7 @@ type ClientAppServer struct {
 }
 
 func (s *ClientAppServer) ClientReceiveRoutine(ctx context.Context) {
-	log.Infof("Starting client receive routine for %s", s.ID)
+	// log.Infof("Starting client receive routine for %s", s.ID)
 	// Listen on client address
 	lis, err := net.Listen("tcp", s.Client.Address)
 	if err != nil {
@@ -42,12 +43,13 @@ func (s *ClientAppServer) ClientReceiveRoutine(ctx context.Context) {
 	pb.RegisterLinearPBFTClientAppServer(grpcServer, s)
 	go func() {
 		if err := grpcServer.Serve(lis); err != nil {
-			log.Fatal(err)
+			log.Fatal(err, " here 2")
 		}
 	}()
 	go func() {
 		<-ctx.Done()
 		grpcServer.GracefulStop()
+		log.Infof("%s graceful stop on receive routine", s.ID)
 	}()
 
 	// Main receive loop
@@ -57,6 +59,7 @@ func (s *ClientAppServer) ClientReceiveRoutine(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
+			log.Infof("%s received exit signal on receive routine", s.ID)
 			return
 		case resp := <-s.ResponseCh:
 			// Ignore replies for old timestamps or if majority has been reached
@@ -87,7 +90,7 @@ func (s *ClientAppServer) ClientReceiveRoutine(ctx context.Context) {
 
 // ClientRoutine is a persistent routine that processes transactions for a client
 func (s *ClientAppServer) ClientSendRoutine(ctx context.Context) {
-	log.Infof("Starting client send routine for %s", s.ID)
+	// log.Infof("Starting client send routine for %s", s.ID)
 	for {
 		select {
 		// Wait for set id to process from main routine
@@ -110,9 +113,9 @@ func (s *ClientAppServer) ClientSendRoutine(ctx context.Context) {
 				if t.Type == "read" {
 					result, err := processReadOnlyTransaction(signedRequest, s.ID, &leaderNode, s.Nodes)
 					if err != nil {
-						log.Warnf("%s: %s -> %s", s.ID, request.String(), err.Error())
+						log.Warnf("%s: %s -> read only attempt: %s", s.ID, utils.LoggingString(request), err.Error())
 					} else {
-						log.Infof("%s: %s -> %d", s.ID, request.String(), result)
+						log.Infof("%s: %s -> %d", s.ID, utils.LoggingString(request), result)
 						continue
 					}
 				}
@@ -120,7 +123,7 @@ func (s *ClientAppServer) ClientSendRoutine(ctx context.Context) {
 				if err != nil {
 					log.Fatal(err)
 				}
-				log.Infof("%s: %s -> %d", s.ID, request.String(), result)
+				log.Infof("%s: %s -> %d", s.ID, utils.LoggingString(request), result)
 			}
 			// Signal main routine that the set is done
 			s.SignalCh <- nil
@@ -128,7 +131,7 @@ func (s *ClientAppServer) ClientSendRoutine(ctx context.Context) {
 		// Exit signal
 		case <-ctx.Done():
 			close(s.SignalCh)
-			log.Infof("%s received exit signal", s.ID)
+			log.Infof("%s received exit signal on send routine", s.ID)
 			return
 		}
 	}
