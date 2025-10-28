@@ -11,30 +11,15 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func (n *LinearPBFTNode) SendPrePrepare(request *pb.TransactionRequest) ([]*pb.SignedPrepareMessage, error) {
-	// Assign sequence number to request
-	sequenceNum := n.AssignSequenceNumber(request)
-
-	// Create preprepare message and sign it
-	preprepare := &pb.PrePrepareMessage{
-		ViewNumber:  n.ViewNumber,
-		SequenceNum: sequenceNum,
-		Digest:      security.Digest(request),
-	}
-	signedPreprepare := &pb.SignedPrePrepareMessage{
-		Message:   preprepare,
-		Signature: security.Sign(preprepare, n.PrivateKey),
-		Request:   request,
-	}
+func (n *LinearPBFTNode) SendPrePrepare(signedPreprepare *pb.SignedPrePrepareMessage, sequenceNum int64) ([]*pb.SignedPrepareMessage, error) {
+	preprepare := signedPreprepare.Message
 
 	// Add preprepare message to log record
-	n.Mutex.Lock()
 	record := n.LogRecords[sequenceNum]
 	if record == nil {
 		log.Fatal("Leader tried to preprepare a sequence number that is not in the log record")
 	}
-	record.AddPrePrepareMessage(signedPreprepare)
-	n.Mutex.Unlock()
+	request := record.Request
 
 	// Multicast preprepare message to all nodes
 	responseCh := make(chan *pb.SignedPrepareMessage, len(n.Peers))

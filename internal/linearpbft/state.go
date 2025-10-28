@@ -28,6 +28,7 @@ type LinearPBFTNode struct {
 	LastReply               map[string]*pb.TransactionResponse
 
 	// ExecuteSignalCh chan int64
+	// Flag                    bool
 
 	*pb.UnimplementedLinearPBFTNodeServer
 }
@@ -85,5 +86,23 @@ func (n *LinearPBFTNode) TryExecute(sequenceNum int64) {
 		log.Infof("Executed (v: %d, s: %d): %s", n.ViewNumber, i, utils.LoggingString(request.Transaction))
 		go n.SendReply(i, request, result)
 		n.LastExecutedSequenceNum = i
+	}
+}
+
+func CreateLinearPBFTNode(selfNode *models.Node, peerNodes map[string]*models.Node, clientMap map[string]*models.Client, bankDB *database.Database, privateKey []byte) *LinearPBFTNode {
+	return &LinearPBFTNode{
+		Node:                    selfNode,
+		DB:                      bankDB,
+		PrivateKey:              privateKey,
+		Peers:                   peerNodes,
+		Clients:                 clientMap,
+		F:                       int64(len(peerNodes) / 3),
+		N:                       int64(len(peerNodes) + 1),
+		Mutex:                   sync.Mutex{},
+		ViewNumber:              0,
+		LogRecords:              make(map[int64]*LogRecord),
+		LastReply:               make(map[string]*pb.TransactionResponse),
+		LastExecutedSequenceNum: 0,
+		// Flag:                    false,
 	}
 }

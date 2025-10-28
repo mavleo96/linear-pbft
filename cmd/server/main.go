@@ -53,7 +53,7 @@ func main() {
 		}
 	}
 
-	grpcServer, err := CreateLinearPBFTNode(selfNode, peerNodes, clientMap, cfg.DBDir, cfg.InitBalance)
+	grpcServer, err := CreateServer(selfNode, peerNodes, clientMap, cfg.DBDir, cfg.InitBalance)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -76,7 +76,7 @@ func main() {
 	wg.Wait()
 }
 
-func CreateLinearPBFTNode(selfNode *models.Node, peerNodes map[string]*models.Node, clientMap map[string]*models.Client, dbDir string, initBalance int) (*grpc.Server, error) {
+func CreateServer(selfNode *models.Node, peerNodes map[string]*models.Node, clientMap map[string]*models.Client, dbDir string, initBalance int) (*grpc.Server, error) {
 	privateKey, err := security.ReadPrivateKey(filepath.Join("./keys", "node", selfNode.ID+".pem"))
 	if err != nil {
 		log.Fatal(err)
@@ -94,20 +94,7 @@ func CreateLinearPBFTNode(selfNode *models.Node, peerNodes map[string]*models.No
 
 	grpcServer := grpc.NewServer()
 
-	node := &linearpbft.LinearPBFTNode{
-		Node:                    selfNode,
-		DB:                      bankDB,
-		PrivateKey:              privateKey,
-		Peers:                   peerNodes,
-		Clients:                 clientMap,
-		F:                       int64(len(peerNodes) / 3),
-		N:                       int64(len(peerNodes) + 1),
-		Mutex:                   sync.Mutex{},
-		ViewNumber:              0,
-		LogRecords:              make(map[int64]*linearpbft.LogRecord),
-		LastReply:               make(map[string]*pb.TransactionResponse),
-		LastExecutedSequenceNum: 0,
-	}
+	node := linearpbft.CreateLinearPBFTNode(selfNode, peerNodes, clientMap, bankDB, privateKey)
 	pb.RegisterLinearPBFTNodeServer(grpcServer, node)
 
 	return grpcServer, nil

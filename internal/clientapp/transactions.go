@@ -16,7 +16,7 @@ import (
 // TODO: raise this to 1000 later
 const (
 	maxAttempts   = 3
-	clientTimeout = 60000 * time.Millisecond // 1 minute
+	clientTimeout = 1000 * time.Millisecond
 )
 
 // TODO: change this to read write operations

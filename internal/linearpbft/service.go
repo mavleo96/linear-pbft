@@ -34,10 +34,37 @@ func (n *LinearPBFTNode) TransferRequest(ctx context.Context, signedRequest *pb.
 	if n.ID != n.ViewNumberToLeader(n.ViewNumber) {
 		go n.ForwardRequest(signedRequest)
 		return &emptypb.Empty{}, nil
+		// } else if !n.Flag {
+		// 	log.Infof("Ignore request for debugging purposes %s", utils.LoggingString(request))
+		// 	n.Flag = true
+		// 	return &emptypb.Empty{}, nil
 	}
 
+	// Assign sequence number to request
+	sequenceNum := n.AssignSequenceNumber(request)
+
+	// Add request to log record
+	record := n.LogRecords[sequenceNum]
+	if record.IsPrePrepared() {
+		log.Infof("In Progress: %s", utils.LoggingString(request))
+		return &emptypb.Empty{}, nil
+	}
+
+	// Create preprepare message
+	preprepare := &pb.PrePrepareMessage{
+		ViewNumber:  n.ViewNumber,
+		SequenceNum: sequenceNum,
+		Digest:      security.Digest(request),
+	}
+	signedPreprepare := &pb.SignedPrePrepareMessage{
+		Message:   preprepare,
+		Signature: security.Sign(preprepare, n.PrivateKey),
+		Request:   request,
+	}
+	record.AddPrePrepareMessage(signedPreprepare)
+
 	// Send preprepare message to all nodes and collect prepare messages
-	prepareMsgs, err := n.SendPrePrepare(request)
+	prepareMsgs, err := n.SendPrePrepare(signedPreprepare, sequenceNum)
 	if err != nil {
 		// return nil, status.Errorf(codes.Internal, err.Error())
 		return nil, nil
@@ -47,7 +74,7 @@ func (n *LinearPBFTNode) TransferRequest(ctx context.Context, signedRequest *pb.
 	}
 
 	// Send prepare message to all nodes and collect commit messages
-	commitMsgs, err := n.SendPrepare(prepareMsgs, n.AssignSequenceNumber(request))
+	commitMsgs, err := n.SendPrepare(prepareMsgs, sequenceNum)
 	if err != nil {
 		// return nil, status.Errorf(codes.Internal, err.Error())
 		return nil, nil
@@ -57,7 +84,7 @@ func (n *LinearPBFTNode) TransferRequest(ctx context.Context, signedRequest *pb.
 	}
 
 	// Send commit message to all nodes
-	committed, err := n.SendCommit(commitMsgs, n.AssignSequenceNumber(request))
+	committed, err := n.SendCommit(commitMsgs, sequenceNum)
 	if err != nil {
 		// return nil, status.Errorf(codes.Internal, err.Error())
 		return nil, nil
