@@ -71,7 +71,7 @@ func (n *LinearPBFTNode) SendPrePrepare(request *pb.TransactionRequest) ([]*pb.S
 	// Note: leader is attaching his own prepare message to comply with TSS
 	for range len(n.Peers) {
 		signedPrepareMsg := <-responseCh
-		if signedPrepareMsg == nil {
+		if signedPrepareMsg == nil || signedPrepareMsg.Message == nil {
 			continue
 		}
 
@@ -159,7 +159,7 @@ func (n *LinearPBFTNode) SendPrepare(signedPrepareMessages []*pb.SignedPrepareMe
 	// Collect 2f + 1 matching commit messages including self
 	for range len(n.Peers) {
 		signedCommitMsg := <-responseCh
-		if signedCommitMsg == nil {
+		if signedCommitMsg == nil || signedCommitMsg.Message == nil {
 			continue
 		}
 
