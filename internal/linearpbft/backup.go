@@ -52,6 +52,18 @@ func (n *LinearPBFTNode) PrePrepare(ctx context.Context, signedMessage *pb.Signe
 		record = CreateLogRecord(preprepareMessage.ViewNumber, preprepareMessage.SequenceNum, security.Digest(request))
 		n.LogRecords[preprepareMessage.SequenceNum] = record
 		record.AddPrePrepareMessage(signedMessage)
+
+		// Check if the request is in the forwarded requests log
+		inForwardedRequestsLog := false
+		for _, forwardedRequest := range n.ForwardedRequestsLog {
+			if cmp.Equal(security.Digest(forwardedRequest.Request), preprepareMessage.Digest) {
+				inForwardedRequestsLog = true
+				break
+			}
+		}
+		if !inForwardedRequestsLog {
+			n.SafeTimer.IncrementWaitCountOrStart()
+		}
 	}
 	n.Mutex.Unlock()
 
@@ -89,6 +101,19 @@ func (n *LinearPBFTNode) Prepare(ctx context.Context, signedPrepareMessages *pb.
 	if !ok {
 		record = CreateLogRecord(viewNumber, sequenceNum, signedPrepareMessages.Digest)
 		n.LogRecords[sequenceNum] = record
+
+		// Check if the request is in the forwarded requests log by comparing the digest
+		// If it is then don't increment the wait count else increment the wait count
+		inForwardedRequestsLog := false
+		for _, forwardedRequest := range n.ForwardedRequestsLog {
+			if cmp.Equal(security.Digest(forwardedRequest.Request), signedPrepareMessages.Digest) {
+				inForwardedRequestsLog = true
+				break
+			}
+		}
+		if !inForwardedRequestsLog {
+			n.SafeTimer.IncrementWaitCountOrStart()
+		}
 	}
 	n.Mutex.Unlock()
 
@@ -168,6 +193,19 @@ func (n *LinearPBFTNode) Commit(ctx context.Context, signedCommitMessages *pb.Co
 	if !ok {
 		record = CreateLogRecord(viewNumber, sequenceNum, signedCommitMessages.Digest)
 		n.LogRecords[sequenceNum] = record
+
+		// Check if the request is in the forwarded requests log by comparing the digest
+		// If it is then don't increment the wait count else increment the wait count
+		inForwardedRequestsLog := false
+		for _, forwardedRequest := range n.ForwardedRequestsLog {
+			if cmp.Equal(security.Digest(forwardedRequest.Request), signedCommitMessages.Digest) {
+				inForwardedRequestsLog = true
+				break
+			}
+		}
+		if !inForwardedRequestsLog {
+			n.SafeTimer.IncrementWaitCountOrStart()
+		}
 	}
 	n.Mutex.Unlock()
 

@@ -32,12 +32,15 @@ func (n *LinearPBFTNode) TransferRequest(ctx context.Context, signedRequest *pb.
 
 	// Forward request to leader if not leader
 	if n.ID != n.ViewNumberToLeader(n.ViewNumber) {
-		go n.ForwardRequest(signedRequest)
+		n.SafeTimer.IncrementWaitCountOrStart()
+		ctx := n.SafeTimer.GetContext()
+		go n.ForwardRequest(ctx, signedRequest)
+		n.ForwardedRequestsLog = append(n.ForwardedRequestsLog, signedRequest)
 		return &emptypb.Empty{}, nil
 		// } else if !n.Flag {
 		// 	log.Infof("Ignore request for debugging purposes %s", utils.LoggingString(request))
 		// 	n.Flag = true
-		// 	return &emptypb.Empty{}, nil
+		// return &emptypb.Empty{}, nil
 	}
 
 	// Assign sequence number to request
@@ -148,7 +151,7 @@ func (n *LinearPBFTNode) SendReply(sequenceNum int64, request *pb.TransactionReq
 	}
 }
 
-func (n *LinearPBFTNode) ForwardRequest(signedRequest *pb.SignedTransactionRequest) {
+func (n *LinearPBFTNode) ForwardRequest(ctx context.Context, signedRequest *pb.SignedTransactionRequest) {
 	// Forward request to leader
 	leaderID := n.ViewNumberToLeader(n.ViewNumber)
 	leader := n.Peers[leaderID]

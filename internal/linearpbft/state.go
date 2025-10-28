@@ -2,6 +2,7 @@ package linearpbft
 
 import (
 	"sync"
+	"time"
 
 	"github.com/mavleo96/bft-mavleo96/internal/database"
 	"github.com/mavleo96/bft-mavleo96/internal/models"
@@ -27,8 +28,11 @@ type LinearPBFTNode struct {
 	LastExecutedSequenceNum int64
 	LastReply               map[string]*pb.TransactionResponse
 
+	SafeTimer *SafeTimer
 	// ExecuteSignalCh chan int64
-	// Flag                    bool
+	// Flag bool
+
+	ForwardedRequestsLog []*pb.SignedTransactionRequest
 
 	*pb.UnimplementedLinearPBFTNodeServer
 }
@@ -83,6 +87,8 @@ func (n *LinearPBFTNode) TryExecute(sequenceNum int64) {
 
 		// Add to executed log
 		record.SetExecuted()
+		// TODO: make this elegant since leader doesn't have a safe timer running
+		n.SafeTimer.DecrementWaitCountAndResetOrStopIfZero()
 		log.Infof("Executed (v: %d, s: %d): %s", n.ViewNumber, i, utils.LoggingString(request.Transaction))
 		go n.SendReply(i, request, result)
 		n.LastExecutedSequenceNum = i
@@ -103,6 +109,7 @@ func CreateLinearPBFTNode(selfNode *models.Node, peerNodes map[string]*models.No
 		LogRecords:              make(map[int64]*LogRecord),
 		LastReply:               make(map[string]*pb.TransactionResponse),
 		LastExecutedSequenceNum: 0,
+		SafeTimer:               CreateSafeTimer(500 * time.Millisecond),
 		// Flag:                    false,
 	}
 }
