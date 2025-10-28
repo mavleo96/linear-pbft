@@ -24,7 +24,7 @@ func (n *LinearPBFTNode) TransferRequest(ctx context.Context, signedRequest *pb.
 
 	// TODO: need to ignore or forward request if not leader
 
-	// Send preprepare message to all nodes
+	// Send preprepare message to all nodes and collect prepare messages
 	prepareMsgs, err := n.SendPrePrepare(request)
 	if err != nil {
 		// return nil, status.Errorf(codes.Internal, err.Error())
@@ -34,6 +34,7 @@ func (n *LinearPBFTNode) TransferRequest(ctx context.Context, signedRequest *pb.
 		return &emptypb.Empty{}, nil
 	}
 
+	// Send prepare message to all nodes and collect commit messages
 	commitMsgs, err := n.SendPrepare(prepareMsgs, n.AssignSequenceNumber(request))
 	if err != nil {
 		// return nil, status.Errorf(codes.Internal, err.Error())
@@ -43,6 +44,7 @@ func (n *LinearPBFTNode) TransferRequest(ctx context.Context, signedRequest *pb.
 		return &emptypb.Empty{}, nil
 	}
 
+	// Send commit message to all nodes
 	committed, err := n.SendCommit(commitMsgs, n.AssignSequenceNumber(request))
 	if err != nil {
 		// return nil, status.Errorf(codes.Internal, err.Error())
