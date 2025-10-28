@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/mavleo96/bft-mavleo96/internal/security"
+	"github.com/mavleo96/bft-mavleo96/internal/utils"
 	"github.com/mavleo96/bft-mavleo96/pb"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc/codes"
@@ -22,7 +23,18 @@ func (n *LinearPBFTNode) TransferRequest(ctx context.Context, signedRequest *pb.
 		return nil, status.Errorf(codes.Unauthenticated, "invalid signature")
 	}
 
-	// TODO: need to ignore or forward request if not leader
+	// Send reply to client if duplicate request
+	if n.LastReply[request.Sender] != nil && request.Timestamp == n.LastReply[request.Sender].Timestamp {
+		log.Infof("Received duplicate request from client %s for request %s, sending reply", request.Sender, utils.LoggingString(request))
+		go n.SendReply(n.AssignSequenceNumber(request), request, n.LastReply[request.Sender].Result)
+		return &emptypb.Empty{}, nil
+	}
+
+	// Forward request to leader if not leader
+	if n.ID != n.ViewNumberToLeader(n.ViewNumber) {
+		go n.ForwardRequest(signedRequest)
+		return &emptypb.Empty{}, nil
+	}
 
 	// Send preprepare message to all nodes and collect prepare messages
 	prepareMsgs, err := n.SendPrePrepare(request)
@@ -103,6 +115,18 @@ func (n *LinearPBFTNode) SendReply(sequenceNum int64, request *pb.TransactionReq
 	}
 	n.LastReply[request.Sender] = reply
 	_, err := (*n.Clients[request.Sender].Client).ReceiveReply(context.Background(), signedReply)
+	if err != nil {
+		log.Fatal(err)
+		return
+	}
+}
+
+func (n *LinearPBFTNode) ForwardRequest(signedRequest *pb.SignedTransactionRequest) {
+	// Forward request to leader
+	leaderID := n.ViewNumberToLeader(n.ViewNumber)
+	leader := n.Peers[leaderID]
+	log.Infof("Forwarding to leader %s: %s", leaderID, utils.LoggingString(signedRequest.Request))
+	_, err := (*leader.Client).TransferRequest(context.Background(), signedRequest)
 	if err != nil {
 		log.Fatal(err)
 		return
