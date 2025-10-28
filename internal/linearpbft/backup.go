@@ -53,9 +53,6 @@ func (n *LinearPBFTNode) PrePrepare(ctx context.Context, signedMessage *pb.Signe
 		n.LogRecords[preprepareMessage.SequenceNum] = record
 		record.AddPrePrepareMessage(signedMessage)
 	}
-	if record.IsPrePrepared() {
-		log.Infof("Preprepared (v: %d, s: %d): %s", n.ViewNumber, preprepareMessage.SequenceNum, utils.LoggingString(request))
-	}
 	n.Mutex.Unlock()
 
 	// Create prepare message and sign it
@@ -137,9 +134,6 @@ func (n *LinearPBFTNode) Prepare(ctx context.Context, signedPrepareMessages *pb.
 	// Log the prepare message
 	n.Mutex.Lock()
 	record.AddPrepareMessages(signedPrepareMessages.Messages)
-	if record.IsPrepared() {
-		log.Infof("Prepared (v: %d, s: %d): %s", n.ViewNumber, sequenceNum, utils.LoggingString(record.Request))
-	}
 	n.Mutex.Unlock()
 
 	// Create commit message and sign it
@@ -220,9 +214,6 @@ func (n *LinearPBFTNode) Commit(ctx context.Context, signedCommitMessages *pb.Co
 	// Log the commit message
 	n.Mutex.Lock()
 	record.AddCommitMessages(signedCommitMessages.Messages)
-	if record.IsCommitted() {
-		log.Infof("Committed (v: %d, s: %d): %s", n.ViewNumber, sequenceNum, utils.LoggingString(record.Request))
-	}
 	n.Mutex.Unlock()
 
 	// Execute transaction

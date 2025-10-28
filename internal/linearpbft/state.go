@@ -27,6 +27,8 @@ type LinearPBFTNode struct {
 	LastExecutedSequenceNum int64
 	LastReply               map[string]*pb.TransactionResponse
 
+	// ExecuteSignalCh chan int64
+
 	*pb.UnimplementedLinearPBFTNodeServer
 }
 
@@ -36,7 +38,7 @@ func (n *LinearPBFTNode) TryExecute(sequenceNum int64) {
 	defer n.Mutex.Unlock()
 	record := n.LogRecords[sequenceNum]
 
-	if record != nil && record.Executed {
+	if record != nil && record.IsExecuted() {
 		// Send reply if timestamp is same as last reply
 		request := record.Request
 		lastReply := n.LastReply[request.Sender]
@@ -79,7 +81,7 @@ func (n *LinearPBFTNode) TryExecute(sequenceNum int64) {
 		}
 
 		// Add to executed log
-		record.Executed = true
+		record.SetExecuted()
 		log.Infof("Executed (v: %d, s: %d): %s", n.ViewNumber, i, utils.LoggingString(request.Transaction))
 		go n.SendReply(i, request, result)
 		n.LastExecutedSequenceNum = i

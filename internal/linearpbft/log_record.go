@@ -1,7 +1,9 @@
 package linearpbft
 
 import (
+	"github.com/mavleo96/bft-mavleo96/internal/utils"
 	"github.com/mavleo96/bft-mavleo96/pb"
+	log "github.com/sirupsen/logrus"
 )
 
 type LogRecord struct {
@@ -11,7 +13,7 @@ type LogRecord struct {
 	prePrepared       bool
 	prepared          bool
 	committed         bool
-	Executed          bool
+	executed          bool
 	prePrepareMessage *pb.SignedPrePrepareMessage
 	prepareMessages   []*pb.SignedPrepareMessage
 	commitMessages    []*pb.SignedCommitMessage
@@ -31,7 +33,11 @@ func (l *LogRecord) IsCommitted() bool {
 }
 
 func (l *LogRecord) IsExecuted() bool {
-	return l.Executed
+	return l.executed
+}
+
+func (l *LogRecord) SetExecuted() {
+	l.executed = true
 }
 
 func (l *LogRecord) updateLogState() {
@@ -39,14 +45,17 @@ func (l *LogRecord) updateLogState() {
 		return
 	}
 	l.prePrepared = true
+	log.Infof("Preprepared (v: %d, s: %d): %s", l.ViewNumber, l.SequenceNum, utils.LoggingString(l.Request))
 	if len(l.prepareMessages) == 0 {
 		return
 	}
 	l.prepared = true
+	log.Infof("Prepared (v: %d, s: %d): %s", l.ViewNumber, l.SequenceNum, utils.LoggingString(l.Request))
 	if len(l.commitMessages) == 0 {
 		return
 	}
 	l.committed = true
+	log.Infof("Committed (v: %d, s: %d): %s", l.ViewNumber, l.SequenceNum, utils.LoggingString(l.Request))
 }
 
 func (l *LogRecord) AddPrePrepareMessage(signedPrePrepareMessage *pb.SignedPrePrepareMessage) {
@@ -75,7 +84,7 @@ func CreateLogRecord(viewNumber int64, sequenceNumber int64, digest []byte) *Log
 		prePrepared:       false,
 		prepared:          false,
 		committed:         false,
-		Executed:          false,
+		executed:          false,
 		prePrepareMessage: nil,
 		prepareMessages:   nil,
 		commitMessages:    nil,

@@ -34,7 +34,6 @@ func (n *LinearPBFTNode) SendPrePrepare(request *pb.TransactionRequest) ([]*pb.S
 		log.Fatal("Leader tried to preprepare a sequence number that is not in the log record")
 	}
 	record.AddPrePrepareMessage(signedPreprepare)
-	log.Infof("Preprepared (v: %d, s: %d): %s", n.ViewNumber, sequenceNum, utils.LoggingString(request))
 	n.Mutex.Unlock()
 
 	// Multicast preprepare message to all nodes
@@ -143,7 +142,6 @@ func (n *LinearPBFTNode) SendPrepare(signedPrepareMessages []*pb.SignedPrepareMe
 
 	n.Mutex.Lock()
 	record.AddPrepareMessages(signedPrepareMessages)
-	log.Infof("Prepared (v: %d, s: %d): %s", n.ViewNumber, sequenceNum, utils.LoggingString(record.Request))
 	n.Mutex.Unlock()
 
 	// Create commit message and sign it
@@ -223,7 +221,6 @@ func (n *LinearPBFTNode) SendCommit(signedCommitMessages []*pb.SignedCommitMessa
 	// Add to committed log
 	n.Mutex.Lock()
 	record.AddCommitMessages(signedCommitMessages)
-	log.Infof("Committed (v: %d, s: %d): %s", n.ViewNumber, sequenceNum, utils.LoggingString(record.Request))
 	n.Mutex.Unlock()
 	return true, nil
 }
