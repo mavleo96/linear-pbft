@@ -88,7 +88,8 @@ message SignedPrepareMessage {
 message CollectedSignedPrepareMessage {
     int64 viewNumber = 1;
     int64 sequenceNum = 2;
-    repeated SignedPrepareMessage messages = 3;
+    bytes digest = 3;
+    repeated SignedPrepareMessage messages = 4;
 }
 
 // -------------- Commit --------------
@@ -108,5 +109,6 @@ message SignedCommitMessage {
 message CollectedSignedCommitMessage {
     int64 viewNumber = 1;
     int64 sequenceNum = 2;
-    repeated SignedCommitMessage messages = 3;
+    bytes digest = 3;
+    repeated SignedCommitMessage messages = 4;
 }

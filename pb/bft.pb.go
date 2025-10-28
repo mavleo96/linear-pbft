@@ -574,7 +574,8 @@ type CollectedSignedPrepareMessage struct {
 	state         protoimpl.MessageState  `protogen:"open.v1"`
 	ViewNumber    int64                   `protobuf:"varint,1,opt,name=viewNumber,proto3" json:"viewNumber,omitempty"`
 	SequenceNum   int64                   `protobuf:"varint,2,opt,name=sequenceNum,proto3" json:"sequenceNum,omitempty"`
-	Messages      []*SignedPrepareMessage `protobuf:"bytes,3,rep,name=messages,proto3" json:"messages,omitempty"`
+	Digest        []byte                  `protobuf:"bytes,3,opt,name=digest,proto3" json:"digest,omitempty"`
+	Messages      []*SignedPrepareMessage `protobuf:"bytes,4,rep,name=messages,proto3" json:"messages,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -621,6 +622,13 @@ func (x *CollectedSignedPrepareMessage) GetSequenceNum() int64 {
 		return x.SequenceNum
 	}
 	return 0
+}
+
+func (x *CollectedSignedPrepareMessage) GetDigest() []byte {
+	if x != nil {
+		return x.Digest
+	}
+	return nil
 }
 
 func (x *CollectedSignedPrepareMessage) GetMessages() []*SignedPrepareMessage {
@@ -754,7 +762,8 @@ type CollectedSignedCommitMessage struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	ViewNumber    int64                  `protobuf:"varint,1,opt,name=viewNumber,proto3" json:"viewNumber,omitempty"`
 	SequenceNum   int64                  `protobuf:"varint,2,opt,name=sequenceNum,proto3" json:"sequenceNum,omitempty"`
-	Messages      []*SignedCommitMessage `protobuf:"bytes,3,rep,name=messages,proto3" json:"messages,omitempty"`
+	Digest        []byte                 `protobuf:"bytes,3,opt,name=digest,proto3" json:"digest,omitempty"`
+	Messages      []*SignedCommitMessage `protobuf:"bytes,4,rep,name=messages,proto3" json:"messages,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -801,6 +810,13 @@ func (x *CollectedSignedCommitMessage) GetSequenceNum() int64 {
 		return x.SequenceNum
 	}
 	return 0
+}
+
+func (x *CollectedSignedCommitMessage) GetDigest() []byte {
+	if x != nil {
+		return x.Digest
+	}
+	return nil
 }
 
 func (x *CollectedSignedCommitMessage) GetMessages() []*SignedCommitMessage {
@@ -857,13 +873,14 @@ const file_bft_proto_rawDesc = "" +
 	"\x06nodeID\x18\x04 \x01(\tR\x06nodeID\"b\n" +
 	"\x14SignedPrepareMessage\x12,\n" +
 	"\amessage\x18\x01 \x01(\v2\x12.pb.PrepareMessageR\amessage\x12\x1c\n" +
-	"\tsignature\x18\x02 \x01(\fR\tsignature\"\x97\x01\n" +
+	"\tsignature\x18\x02 \x01(\fR\tsignature\"\xaf\x01\n" +
 	"\x1dCollectedSignedPrepareMessage\x12\x1e\n" +
 	"\n" +
 	"viewNumber\x18\x01 \x01(\x03R\n" +
 	"viewNumber\x12 \n" +
-	"\vsequenceNum\x18\x02 \x01(\x03R\vsequenceNum\x124\n" +
-	"\bmessages\x18\x03 \x03(\v2\x18.pb.SignedPrepareMessageR\bmessages\"\x81\x01\n" +
+	"\vsequenceNum\x18\x02 \x01(\x03R\vsequenceNum\x12\x16\n" +
+	"\x06digest\x18\x03 \x01(\fR\x06digest\x124\n" +
+	"\bmessages\x18\x04 \x03(\v2\x18.pb.SignedPrepareMessageR\bmessages\"\x81\x01\n" +
 	"\rCommitMessage\x12\x1e\n" +
 	"\n" +
 	"viewNumber\x18\x01 \x01(\x03R\n" +
@@ -873,13 +890,14 @@ const file_bft_proto_rawDesc = "" +
 	"\x06nodeID\x18\x04 \x01(\tR\x06nodeID\"`\n" +
 	"\x13SignedCommitMessage\x12+\n" +
 	"\amessage\x18\x01 \x01(\v2\x11.pb.CommitMessageR\amessage\x12\x1c\n" +
-	"\tsignature\x18\x02 \x01(\fR\tsignature\"\x95\x01\n" +
+	"\tsignature\x18\x02 \x01(\fR\tsignature\"\xad\x01\n" +
 	"\x1cCollectedSignedCommitMessage\x12\x1e\n" +
 	"\n" +
 	"viewNumber\x18\x01 \x01(\x03R\n" +
 	"viewNumber\x12 \n" +
-	"\vsequenceNum\x18\x02 \x01(\x03R\vsequenceNum\x123\n" +
-	"\bmessages\x18\x03 \x03(\v2\x17.pb.SignedCommitMessageR\bmessages2\xf9\x02\n" +
+	"\vsequenceNum\x18\x02 \x01(\x03R\vsequenceNum\x12\x16\n" +
+	"\x06digest\x18\x03 \x01(\fR\x06digest\x123\n" +
+	"\bmessages\x18\x04 \x03(\v2\x17.pb.SignedCommitMessageR\bmessages2\xf9\x02\n" +
 	"\x0eLinearPBFTNode\x12G\n" +
 	"\x0fTransferRequest\x12\x1c.pb.SignedTransactionRequest\x1a\x16.google.protobuf.Empty\x12N\n" +
 	"\x0fReadOnlyRequest\x12\x1c.pb.SignedTransactionRequest\x1a\x1d.pb.SignedTransactionResponse\x12C\n" +
