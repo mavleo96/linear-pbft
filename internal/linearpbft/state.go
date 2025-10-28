@@ -27,23 +27,7 @@ type LinearPBFTNode struct {
 	LastExecutedSequenceNum int64
 	LastReply               map[string]*pb.TransactionResponse
 
-	TransactionMap map[[32]byte]*pb.TransactionRequest
-
 	*pb.UnimplementedLinearPBFTNodeServer
-}
-
-type LogRecord struct {
-	ViewNumber        int64
-	SequenceNum       int64
-	Digest            []byte
-	PrePrepared       bool
-	Prepared          bool
-	Committed         bool
-	Executed          bool
-	PrePrepareMessage *pb.SignedPrePrepareMessage
-	PrepareMessages   []*pb.SignedPrepareMessage
-	CommitMessages    []*pb.SignedCommitMessage
-	// Request     *pb.TransactionRequest // TODO: add request to full log record
 }
 
 func (n *LinearPBFTNode) TryExecute(sequenceNum int64) {
@@ -54,8 +38,7 @@ func (n *LinearPBFTNode) TryExecute(sequenceNum int64) {
 
 	if record != nil && record.Executed {
 		// Send reply if timestamp is same as last reply
-		digest := record.Digest
-		request := n.TransactionMap[utils.To32Bytes(digest)]
+		request := record.Request
 		lastReply := n.LastReply[request.Sender]
 		if lastReply != nil && request.Timestamp == lastReply.Timestamp {
 			go n.SendReply(sequenceNum, request, lastReply.Result)
@@ -63,7 +46,7 @@ func (n *LinearPBFTNode) TryExecute(sequenceNum int64) {
 		log.Infof("Sequence number %d already executed", sequenceNum)
 	}
 
-	// Get max sequence number in full log record
+	// Get max sequence number in log record
 	maxSequenceNum := int64(0)
 	if utils.Max(utils.Keys(n.LogRecords)) != nil {
 		maxSequenceNum = *utils.Max(utils.Keys(n.LogRecords))
@@ -73,14 +56,13 @@ func (n *LinearPBFTNode) TryExecute(sequenceNum int64) {
 	for i := n.LastExecutedSequenceNum + 1; i <= maxSequenceNum; i++ {
 		// Check if sequence is committed
 		record := n.LogRecords[i]
-		if record == nil || !record.Committed {
+		if record == nil || !record.IsCommitted() {
 			log.Warnf("Sequence number %d not committed", i)
 			break
 		}
 
 		// Execute transaction
-		digest := record.Digest
-		request := n.TransactionMap[utils.To32Bytes(digest)]
+		request := record.Request
 		var result int64
 		var err error
 		if request.Transaction.Type == "read" {

@@ -107,7 +107,6 @@ func CreateLinearPBFTNode(selfNode *models.Node, peerNodes map[string]*models.No
 		LogRecords:              make(map[int64]*linearpbft.LogRecord),
 		LastReply:               make(map[string]*pb.TransactionResponse),
 		LastExecutedSequenceNum: 0,
-		TransactionMap:          make(map[[32]byte]*pb.TransactionRequest),
 	}
 	pb.RegisterLinearPBFTNodeServer(grpcServer, node)
 

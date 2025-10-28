@@ -43,31 +43,19 @@ func (n *LinearPBFTNode) PrePrepare(ctx context.Context, signedMessage *pb.Signe
 	n.Mutex.Lock()
 	record, ok := n.LogRecords[preprepareMessage.SequenceNum]
 	if ok {
-		if record.PrePrepared && !cmp.Equal(record.Digest, preprepareMessage.Digest) {
+		if record.IsPrePrepared() && !cmp.Equal(record.Digest, preprepareMessage.Digest) {
 			log.Warnf("Rejected: %s; previously accepted preprepare message with different digest", utils.LoggingString(preprepareMessage, request))
 			return nil, status.Errorf(codes.InvalidArgument, "previously accepted preprepare message with different digest")
 		}
-
-		record.PrePrepareMessage = signedMessage
-		record.PrePrepared = true
-		record.Digest = security.Digest(request)
-		n.TransactionMap[utils.To32Bytes(preprepareMessage.Digest)] = request
+		record.AddPrePrepareMessage(signedMessage)
 	} else {
-		n.LogRecords[preprepareMessage.SequenceNum] = &LogRecord{
-			ViewNumber:        preprepareMessage.ViewNumber,
-			SequenceNum:       preprepareMessage.SequenceNum,
-			Digest:            security.Digest(request),
-			PrePrepared:       true,
-			Prepared:          false,
-			Committed:         false,
-			Executed:          false,
-			PrePrepareMessage: signedMessage,
-			PrepareMessages:   nil,
-			CommitMessages:    nil,
-		}
-		n.TransactionMap[utils.To32Bytes(preprepareMessage.Digest)] = request
+		record = CreateLogRecord(preprepareMessage.ViewNumber, preprepareMessage.SequenceNum, security.Digest(request))
+		n.LogRecords[preprepareMessage.SequenceNum] = record
+		record.AddPrePrepareMessage(signedMessage)
 	}
-	log.Infof("Preprepared (v: %d, s: %d): %s", n.ViewNumber, preprepareMessage.SequenceNum, utils.LoggingString(request))
+	if record.IsPrePrepared() {
+		log.Infof("Preprepared (v: %d, s: %d): %s", n.ViewNumber, preprepareMessage.SequenceNum, utils.LoggingString(request))
+	}
 	n.Mutex.Unlock()
 
 	// Create prepare message and sign it
@@ -81,6 +69,8 @@ func (n *LinearPBFTNode) PrePrepare(ctx context.Context, signedMessage *pb.Signe
 		Message:   prepareMessage,
 		Signature: security.Sign(prepareMessage, n.PrivateKey),
 	}
+
+	go n.TryExecute(preprepareMessage.SequenceNum)
 
 	return signedPrepareMessage, nil
 }
@@ -96,17 +86,14 @@ func (n *LinearPBFTNode) Prepare(ctx context.Context, signedPrepareMessages *pb.
 		return nil, nil
 	}
 
-	// Get the preprepare record from preprepare log
+	// Get the record from log record or create new one
 	n.Mutex.Lock()
-	record, _ := n.LogRecords[sequenceNum]
-	// preprepareRecord := n.PrePreparedLog[sequenceNum]
-	n.Mutex.Unlock()
-
-	// If no preprepare message found, then ignore the prepare message
-	if record == nil || !record.PrePrepared {
-		log.Warnf("Ignored: %d; no preprepare message found", sequenceNum)
-		return nil, nil
+	record, ok := n.LogRecords[sequenceNum]
+	if !ok {
+		record = CreateLogRecord(viewNumber, sequenceNum, signedPrepareMessages.Digest)
+		n.LogRecords[sequenceNum] = record
 	}
+	n.Mutex.Unlock()
 
 	// Verify Prepare Messages
 	verifiedCount := 0
@@ -125,7 +112,7 @@ func (n *LinearPBFTNode) Prepare(ctx context.Context, signedPrepareMessages *pb.
 		}
 		ok := security.Verify(prepareMessage, publicKey, signedPrepareMessage.Signature)
 		if !ok {
-			log.Warnf("Rejected: %s; invalid signature", utils.LoggingString(prepareMessage, n.TransactionMap[utils.To32Bytes(prepareMessage.Digest)]))
+			log.Warnf("Rejected: %s; invalid signature", utils.LoggingString(prepareMessage, record.Request))
 			continue
 		}
 
@@ -133,7 +120,7 @@ func (n *LinearPBFTNode) Prepare(ctx context.Context, signedPrepareMessages *pb.
 		if prepareMessage.ViewNumber != record.ViewNumber ||
 			prepareMessage.SequenceNum != record.SequenceNum ||
 			!cmp.Equal(prepareMessage.Digest, record.Digest) {
-			log.Warnf("Rejected: %s; invalid digest", utils.LoggingString(prepareMessage, n.TransactionMap[utils.To32Bytes(prepareMessage.Digest)]))
+			log.Warnf("Rejected: %s; invalid digest", utils.LoggingString(prepareMessage, record.Request))
 			continue
 		}
 
@@ -141,17 +128,18 @@ func (n *LinearPBFTNode) Prepare(ctx context.Context, signedPrepareMessages *pb.
 		verifiedCount++
 	}
 
-	// If verified count is less than 2f then return nil
-	if verifiedCount < int(2*n.F) {
+	// If verified count is less than 2f + 1 then return nil
+	if verifiedCount < int(2*n.F+1) {
 		log.Warnf("Ignored: %d; not enough prepare messages (verified: %d)", sequenceNum, verifiedCount)
 		return nil, nil
 	}
 
 	// Log the prepare message
 	n.Mutex.Lock()
-	record.PrepareMessages = signedPrepareMessages.Messages
-	record.Prepared = true
-	log.Infof("Prepared (v: %d, s: %d): %s", n.ViewNumber, sequenceNum, utils.LoggingString(n.TransactionMap[utils.To32Bytes(record.Digest)]))
+	record.AddPrepareMessages(signedPrepareMessages.Messages)
+	if record.IsPrepared() {
+		log.Infof("Prepared (v: %d, s: %d): %s", n.ViewNumber, sequenceNum, utils.LoggingString(record.Request))
+	}
 	n.Mutex.Unlock()
 
 	// Create commit message and sign it
@@ -165,6 +153,8 @@ func (n *LinearPBFTNode) Prepare(ctx context.Context, signedPrepareMessages *pb.
 		Message:   commitMessage,
 		Signature: security.Sign(commitMessage, n.PrivateKey),
 	}
+
+	go n.TryExecute(sequenceNum)
 
 	return signedCommitMessage, nil
 }
@@ -180,14 +170,12 @@ func (n *LinearPBFTNode) Commit(ctx context.Context, signedCommitMessages *pb.Co
 
 	// Get the prepared record from prepared log
 	n.Mutex.Lock()
-	record := n.LogRecords[sequenceNum]
-	n.Mutex.Unlock()
-
-	// If no prepare message found, then ignore the commit message
-	if record == nil || !record.Prepared {
-		log.Warnf("Ignored: %d; no prepared message found", sequenceNum)
-		return nil, nil
+	record, ok := n.LogRecords[sequenceNum]
+	if !ok {
+		record = CreateLogRecord(viewNumber, sequenceNum, signedCommitMessages.Digest)
+		n.LogRecords[sequenceNum] = record
 	}
+	n.Mutex.Unlock()
 
 	// Verify Commit Messages
 	verifiedCount := 0
@@ -207,7 +195,7 @@ func (n *LinearPBFTNode) Commit(ctx context.Context, signedCommitMessages *pb.Co
 		}
 		ok := security.Verify(commitMessage, publicKey, signedCommitMessage.Signature)
 		if !ok {
-			log.Warnf("Rejected: %s; invalid signature", utils.LoggingString(commitMessage, n.TransactionMap[utils.To32Bytes(commitMessage.Digest)]))
+			log.Warnf("Rejected: %s; invalid signature", utils.LoggingString(commitMessage, record.Request))
 			continue
 		}
 
@@ -215,7 +203,7 @@ func (n *LinearPBFTNode) Commit(ctx context.Context, signedCommitMessages *pb.Co
 		if commitMessage.ViewNumber != record.ViewNumber ||
 			commitMessage.SequenceNum != record.SequenceNum ||
 			!cmp.Equal(commitMessage.Digest, record.Digest) {
-			log.Warnf("Rejected: %s; invalid digest", utils.LoggingString(commitMessage, n.TransactionMap[utils.To32Bytes(commitMessage.Digest)]))
+			log.Warnf("Rejected: %s; invalid digest", utils.LoggingString(commitMessage, record.Request))
 			continue
 		}
 
@@ -231,9 +219,10 @@ func (n *LinearPBFTNode) Commit(ctx context.Context, signedCommitMessages *pb.Co
 
 	// Log the commit message
 	n.Mutex.Lock()
-	record.Committed = true
-	record.CommitMessages = signedCommitMessages.Messages
-	log.Infof("Committed (v: %d, s: %d): %s", n.ViewNumber, sequenceNum, utils.LoggingString(n.TransactionMap[utils.To32Bytes(record.Digest)]))
+	record.AddCommitMessages(signedCommitMessages.Messages)
+	if record.IsCommitted() {
+		log.Infof("Committed (v: %d, s: %d): %s", n.ViewNumber, sequenceNum, utils.LoggingString(record.Request))
+	}
 	n.Mutex.Unlock()
 
 	// Execute transaction
