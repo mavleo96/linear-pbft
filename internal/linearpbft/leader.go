@@ -27,13 +27,10 @@ func (n *LinearPBFTNode) SendPrePrepare(request *pb.TransactionRequest) ([]*pb.S
 		Request:   request,
 	}
 
-	// Add preprepare message to preprepare log
+	// Add preprepare message to log record
 	n.Mutex.Lock()
-	n.PrePreparedLog[sequenceNum] = &LogRecord{
-		ViewNumber:  n.ViewNumber,
-		SequenceNum: sequenceNum,
-		Digest:      security.Digest(request),
-	}
+	n.LogRecords[sequenceNum].PrePrepareMessage = signedPreprepare
+	n.LogRecords[sequenceNum].PrePrepared = true
 	log.Infof("Preprepared (v: %d, s: %d): %s", n.ViewNumber, sequenceNum, utils.LoggingString(request))
 	n.Mutex.Unlock()
 
@@ -96,6 +93,7 @@ func (n *LinearPBFTNode) SendPrePrepare(request *pb.TransactionRequest) ([]*pb.S
 		if len(signedPrepareMsgs) == int(n.N-n.F) {
 			log.Infof("Verified prepare messages for sequence number %d", sequenceNum)
 			log.Infof("Prepare messages collected for sequence number %d", sequenceNum)
+			n.LogRecords[sequenceNum].PrepareMessages = signedPrepareMsgs
 			return signedPrepareMsgs, nil
 		}
 	}
@@ -131,28 +129,25 @@ func (n *LinearPBFTNode) SendPrepare(signedPrepareMessages []*pb.SignedPrepareMe
 
 	// Get preprepare record from preprepare log
 	n.Mutex.Lock()
-	preprepareRecord := n.PrePreparedLog[sequenceNum]
+	record, _ := n.LogRecords[sequenceNum]
 	n.Mutex.Unlock()
-	if preprepareRecord == nil {
+	if record == nil || !record.PrePrepared {
 		log.Fatal("Preprepare record is nil")
 	}
 
 	signedCommitMsgs := make([]*pb.SignedCommitMessage, 0)
 
 	n.Mutex.Lock()
-	n.PreparedLog[sequenceNum] = &LogRecord{
-		ViewNumber:  n.ViewNumber,
-		SequenceNum: sequenceNum,
-		Digest:      preprepareRecord.Digest,
-	}
-	log.Infof("Prepared (v: %d, s: %d): %s", n.ViewNumber, sequenceNum, utils.LoggingString(n.TransactionMap[utils.To32Bytes(preprepareRecord.Digest)]))
+	record.PrepareMessages = signedPrepareMessages
+	record.Prepared = true
+	log.Infof("Prepared (v: %d, s: %d): %s", n.ViewNumber, sequenceNum, utils.LoggingString(n.TransactionMap[utils.To32Bytes(record.Digest)]))
 	n.Mutex.Unlock()
 
 	// Create commit message and sign it
 	commitMessage := &pb.CommitMessage{
 		ViewNumber:  n.ViewNumber,
 		SequenceNum: sequenceNum,
-		Digest:      preprepareRecord.Digest,
+		Digest:      record.Digest,
 		NodeID:      n.ID,
 	}
 	signedCommitMsgs = append(signedCommitMsgs, &pb.SignedCommitMessage{
@@ -175,9 +170,9 @@ func (n *LinearPBFTNode) SendPrepare(signedPrepareMessages []*pb.SignedPrepareMe
 		}
 
 		// Check if the commit message matches prepare message
-		if signedCommitMsg.Message.ViewNumber != preprepareRecord.ViewNumber ||
-			signedCommitMsg.Message.SequenceNum != preprepareRecord.SequenceNum ||
-			!cmp.Equal(signedCommitMsg.Message.Digest, preprepareRecord.Digest) {
+		if signedCommitMsg.Message.ViewNumber != record.ViewNumber ||
+			signedCommitMsg.Message.SequenceNum != record.SequenceNum ||
+			!cmp.Equal(signedCommitMsg.Message.Digest, record.Digest) {
 			continue
 		}
 
@@ -215,20 +210,17 @@ func (n *LinearPBFTNode) SendCommit(signedCommitMessages []*pb.SignedCommitMessa
 
 	// Get prepared record from prepared log
 	n.Mutex.Lock()
-	preparedRecord := n.PreparedLog[sequenceNum]
+	record := n.LogRecords[sequenceNum]
 	n.Mutex.Unlock()
-	if preparedRecord == nil {
+	if record == nil || !record.Prepared {
 		log.Fatal("Prepared record is nil")
 	}
 
 	// Add to committed log
 	n.Mutex.Lock()
-	n.CommittedLog[sequenceNum] = &LogRecord{
-		ViewNumber:  n.ViewNumber,
-		SequenceNum: sequenceNum,
-		Digest:      preparedRecord.Digest,
-	}
-	log.Infof("Committed (v: %d, s: %d): %s", n.ViewNumber, sequenceNum, utils.LoggingString(n.TransactionMap[utils.To32Bytes(preparedRecord.Digest)]))
+	record.Committed = true
+	record.CommitMessages = signedCommitMessages
+	log.Infof("Committed (v: %d, s: %d): %s", n.ViewNumber, sequenceNum, utils.LoggingString(n.TransactionMap[utils.To32Bytes(record.Digest)]))
 	n.Mutex.Unlock()
 	return true, nil
 }

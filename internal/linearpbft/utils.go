@@ -17,30 +17,37 @@ func (n *LinearPBFTNode) AssignSequenceNumber(request *pb.TransactionRequest) in
 	// Compute digest of request
 	digest := security.Digest(request)
 
-	// Check if request is already in preprepare log
-	for _, preprepare := range n.PrePreparedLog {
-		if preprepare == nil {
-			log.Fatal("Preprepare log record is nil")
+	// Check if request is already in full log record
+	for _, record := range n.LogRecords {
+		if record == nil {
+			log.Fatal("Log record is nil")
 		}
-		if preprepare != nil && cmp.Equal(preprepare.Digest, digest) {
-			return preprepare.SequenceNum
+		if record != nil && cmp.Equal(record.Digest, digest) {
+			return record.SequenceNum
 		}
 	}
 
-	// If request is not in preprepare log, assign new sequence number
+	// If request is not in full log record, assign new sequence number
 	sequenceNum := int64(0)
-	maxSequenceNum := utils.Max(utils.Keys(n.PrePreparedLog))
+	maxSequenceNum := utils.Max(utils.Keys(n.LogRecords))
 	if maxSequenceNum == nil {
 		sequenceNum = int64(1)
 	} else {
 		sequenceNum = *maxSequenceNum + 1
 	}
 
-	// Add to preprepare log and transaction map
-	n.PrePreparedLog[sequenceNum] = &LogRecord{
-		ViewNumber:  n.ViewNumber,
-		SequenceNum: sequenceNum,
-		Digest:      digest,
+	// Add to full log record and transaction map
+	n.LogRecords[sequenceNum] = &LogRecord{
+		ViewNumber:        n.ViewNumber,
+		SequenceNum:       sequenceNum,
+		Digest:            digest,
+		PrePrepared:       false,
+		Prepared:          false,
+		Committed:         false,
+		Executed:          false,
+		PrePrepareMessage: nil,
+		PrepareMessages:   nil,
+		CommitMessages:    nil,
 	}
 	n.TransactionMap[utils.To32Bytes(digest)] = request
 
