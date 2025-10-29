@@ -2,6 +2,7 @@ package utils
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/mavleo96/bft-mavleo96/pb"
 )
@@ -14,6 +15,8 @@ func LoggingString(t any, request ...*pb.TransactionRequest) string {
 	switch v := t.(type) {
 	case *pb.TransactionResponse:
 		return transactionResponseString(v)
+	case *pb.ViewChangeMessage:
+		return viewChangeMessageString(v)
 	case *pb.CommitMessage:
 		return commitMessageString(v, req)
 	case *pb.PrepareMessage:
@@ -31,6 +34,17 @@ func LoggingString(t any, request ...*pb.TransactionRequest) string {
 
 func transactionResponseString(r *pb.TransactionResponse) string {
 	return fmt.Sprintf("<REPLY, %d, %d, %s, %s, %d>", r.ViewNumber, r.Timestamp, r.Sender, r.NodeID, r.Result)
+}
+
+func viewChangeMessageString(v *pb.ViewChangeMessage) string {
+	prepareStringSlice := make([]string, 0)
+	for _, prepareProof := range v.PreparedSet {
+		sequenceNum := prepareProof.SignedPrePrepareMessage.Message.SequenceNum
+		prepareStringSlice = append(prepareStringSlice, fmt.Sprintf("P%d", sequenceNum))
+	}
+	prepareString := "{" + strings.Join(prepareStringSlice, ", ") + "}"
+
+	return fmt.Sprintf("<VIEWCHANGE, %d, %d, C, %s, %s>", v.ViewNumber, v.SequenceNum, prepareString, v.NodeID)
 }
 
 func commitMessageString(c *pb.CommitMessage, request *pb.TransactionRequest) string {

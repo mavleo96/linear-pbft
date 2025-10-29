@@ -13,6 +13,8 @@ service LinearPBFTNode {
     rpc PrePrepare (SignedPrePrepareMessage) returns (SignedPrepareMessage);
     rpc Prepare (CollectedSignedPrepareMessage) returns (SignedCommitMessage);
     rpc Commit (CollectedSignedCommitMessage) returns (google.protobuf.Empty);
+
+    rpc ViewChange (SignedViewChangeMessage) returns (google.protobuf.Empty);
 }
 
 service LinearPBFTClientApp {
@@ -111,4 +113,25 @@ message CollectedSignedCommitMessage {
     int64 sequenceNum = 2;
     bytes digest = 3;
     repeated SignedCommitMessage messages = 4;
+}
+
+
+// -------------- ViewChange --------------
+
+// TODO: SignedPrePrepareMessage contains the original request also...not ideal
+message PrepareProof {
+    SignedPrePrepareMessage signedPrePrepareMessage = 1;
+    repeated SignedPrepareMessage signedPrepareMessages = 2;
+}
+
+message ViewChangeMessage {
+    int64 viewNumber = 1;
+    int64 sequenceNum = 2;
+    repeated PrepareProof preparedSet = 3;
+    string nodeID = 4;
+}
+
+message SignedViewChangeMessage {
+    ViewChangeMessage message = 1;
+    bytes signature = 2;
 }

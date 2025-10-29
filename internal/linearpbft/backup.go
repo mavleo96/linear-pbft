@@ -24,6 +24,12 @@ func (n *LinearPBFTNode) PrePrepare(ctx context.Context, signedMessage *pb.Signe
 	// 	return nil, status.Errorf(codes.InvalidArgument, "invalid view number")
 	// }
 
+	// Ignore if already in view change
+	if n.SentViewChange {
+		log.Infof("Ignored: %s; already in view change", utils.LoggingString(preprepareMessage, request))
+		return nil, nil
+	}
+
 	// Verify Node's signature
 	currentLeaderID := n.ViewNumberToLeader(n.ViewNumber)
 	ok := security.Verify(preprepareMessage, n.Peers[currentLeaderID].PublicKey, signedMessage.Signature)
@@ -87,6 +93,12 @@ func (n *LinearPBFTNode) PrePrepare(ctx context.Context, signedMessage *pb.Signe
 func (n *LinearPBFTNode) Prepare(ctx context.Context, signedPrepareMessages *pb.CollectedSignedPrepareMessage) (*pb.SignedCommitMessage, error) {
 	viewNumber := signedPrepareMessages.ViewNumber
 	sequenceNum := signedPrepareMessages.SequenceNum
+
+	// Ignore if already in view change
+	if n.SentViewChange {
+		log.Infof("Ignored: %s; already in view change", utils.LoggingString(signedPrepareMessages))
+		return nil, nil
+	}
 
 	// Verify View Number
 	if viewNumber != n.ViewNumber {
@@ -182,6 +194,12 @@ func (n *LinearPBFTNode) Commit(ctx context.Context, signedCommitMessages *pb.Co
 	viewNumber := signedCommitMessages.ViewNumber
 	sequenceNum := signedCommitMessages.SequenceNum
 
+	// Ignore if already in view change
+	if n.SentViewChange {
+		log.Infof("Ignored: %s; already in view change", utils.LoggingString(signedCommitMessages))
+		return nil, nil
+	}
+
 	// Verify View Number
 	if viewNumber != n.ViewNumber {
 		return nil, nil
@@ -257,5 +275,159 @@ func (n *LinearPBFTNode) Commit(ctx context.Context, signedCommitMessages *pb.Co
 	// Execute transaction
 	go n.TryExecute(sequenceNum)
 
+	return &emptypb.Empty{}, nil
+}
+
+func (n *LinearPBFTNode) SendViewChange() error {
+	n.Mutex.Lock()
+	defer n.Mutex.Unlock()
+
+	// Set sent view change flag to true
+	n.SentViewChange = true
+
+	// Get max sequence number in log record
+	maxSequenceNum := int64(0)
+	if utils.Max(utils.Keys(n.LogRecords)) != nil {
+		maxSequenceNum = *utils.Max(utils.Keys(n.LogRecords))
+	}
+	// TODO: later get this from stable checkpoint
+	lowerSequenceNum := int64(0)
+
+	// Get prepared message proof set
+	preparedSet := make([]*pb.PrepareProof, 0)
+	for sequenceNum := lowerSequenceNum + 1; sequenceNum <= maxSequenceNum; sequenceNum++ {
+		record := n.LogRecords[sequenceNum]
+		if record == nil || !record.IsPrepared() {
+			continue
+		}
+		prepareProof := record.GetPrepareProof()
+		preparedSet = append(preparedSet, prepareProof)
+
+	}
+
+	// Create signed view change message
+	viewChangeMessage := &pb.ViewChangeMessage{
+		ViewNumber:  n.ViewNumber + 1,
+		SequenceNum: lowerSequenceNum,
+		PreparedSet: preparedSet,
+		NodeID:      n.ID,
+	}
+	signedViewChangeMessage := &pb.SignedViewChangeMessage{
+		Message:   viewChangeMessage,
+		Signature: security.Sign(viewChangeMessage, n.PrivateKey),
+	}
+
+	// Log the view change message
+	if _, ok := n.ViewChangeMessageLog[viewChangeMessage.ViewNumber]; !ok {
+		n.ViewChangeMessageLog[viewChangeMessage.ViewNumber] = make(map[string]*pb.ViewChangeMessage)
+	}
+	viewChangeMessageLog := n.ViewChangeMessageLog[viewChangeMessage.ViewNumber]
+	if _, ok := viewChangeMessageLog[viewChangeMessage.NodeID]; !ok {
+		viewChangeMessageLog[viewChangeMessage.NodeID] = viewChangeMessage
+	}
+
+	// Multicast view change message to all nodes
+	log.Infof("Sending view change message to all nodes: %s", utils.LoggingString(viewChangeMessage))
+	for _, peer := range n.Peers {
+		go func() {
+			_, err := (*peer.Client).ViewChange(context.Background(), signedViewChangeMessage)
+			if err != nil {
+				log.Fatal(err)
+			}
+		}()
+	}
+	return nil
+}
+
+func (n *LinearPBFTNode) ViewChange(ctx context.Context, signedViewChangeMessage *pb.SignedViewChangeMessage) (*emptypb.Empty, error) {
+	n.Mutex.Lock()
+	defer n.Mutex.Unlock()
+	viewChangeMessage := signedViewChangeMessage.Message
+	viewNumber := viewChangeMessage.ViewNumber
+
+	// Verify signature
+
+	ok := security.Verify(viewChangeMessage, n.Peers[viewChangeMessage.NodeID].PublicKey, signedViewChangeMessage.Signature)
+	if !ok {
+		log.Warnf("Rejected: %s; invalid signature", utils.LoggingString(viewChangeMessage))
+		// return nil, status.Errorf(codes.InvalidArgument, "invalid signature")
+		return nil, nil
+	}
+
+	// Verify view number
+	if viewNumber <= n.ViewNumber {
+		return &emptypb.Empty{}, nil
+	}
+
+	// Verify prepare set
+	for _, prepareProof := range viewChangeMessage.PreparedSet {
+		signedPrePrepareMessage := prepareProof.SignedPrePrepareMessage
+		prePrepareMessage := signedPrePrepareMessage.Message
+		signedPrepareMessages := prepareProof.SignedPrepareMessages
+
+		viewNumber := prePrepareMessage.ViewNumber
+		sequenceNum := prePrepareMessage.SequenceNum
+		digest := prePrepareMessage.Digest
+
+		// Verify preprepare message signature
+		leaderID := n.ViewNumberToLeader(viewNumber)
+		var leaderPublicKey []byte
+		if leaderID == n.ID {
+			leaderPublicKey = n.PublicKey
+		} else {
+			leaderPublicKey = n.Peers[leaderID].PublicKey
+		}
+		ok := security.Verify(prePrepareMessage, leaderPublicKey, signedPrePrepareMessage.Signature)
+		if !ok {
+			// log.Warnf("Rejected: %s; invalid signature", utils.LoggingString(preprepareMessage))
+			// continue
+			return nil, nil
+		}
+
+		// Verify preprepare message digest
+		// TODO: think what else needs to be verified
+		// view number and sequence number have to accepted
+		// digest may not be possible to verify if request not availables
+
+		// Verify prepare messages signatures
+		for _, signedPrepareMessage := range signedPrepareMessages {
+			prepareMessage := signedPrepareMessage.Message
+			// Verify signature
+			var publicKey []byte
+			if prepareMessage.NodeID == n.ID {
+				publicKey = n.PublicKey
+			} else {
+				publicKey = n.Peers[prepareMessage.NodeID].PublicKey
+			}
+			ok := security.Verify(prepareMessage, publicKey, signedPrepareMessage.Signature)
+			if !ok {
+				// log.Warnf("Rejected: %s; invalid signature", utils.LoggingString(prepareMessage))
+				return nil, nil
+			}
+
+			// Verify prepare message digest, view number and sequence number
+			if prepareMessage.ViewNumber != viewNumber ||
+				prepareMessage.SequenceNum != sequenceNum ||
+				!cmp.Equal(prepareMessage.Digest, digest) {
+				// log.Warnf("Rejected: %s; invalid digest", utils.LoggingString(prepareMessage))
+				return nil, nil
+			}
+		}
+	}
+
+	// Log the view change message
+	log.Infof("Logged view change message: %s", utils.LoggingString(viewChangeMessage))
+	if _, ok := n.ViewChangeMessageLog[viewNumber]; !ok {
+		n.ViewChangeMessageLog[viewNumber] = make(map[string]*pb.ViewChangeMessage)
+	}
+	viewChangeMessageLog := n.ViewChangeMessageLog[viewNumber]
+	if _, ok := viewChangeMessageLog[viewChangeMessage.NodeID]; !ok {
+		viewChangeMessageLog[viewChangeMessage.NodeID] = viewChangeMessage
+	}
+
+	// Send view change message to all nodes if f + 1 view change messages are collected
+	if !n.SentViewChange && len(viewChangeMessageLog) >= int(n.F+1) {
+		go n.SendViewChange()
+	}
 	return &emptypb.Empty{}, nil
 }

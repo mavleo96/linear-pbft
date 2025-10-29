@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"net"
 	"path/filepath"
@@ -96,6 +97,8 @@ func CreateServer(selfNode *models.Node, peerNodes map[string]*models.Node, clie
 
 	node := linearpbft.CreateLinearPBFTNode(selfNode, peerNodes, clientMap, bankDB, privateKey)
 	pb.RegisterLinearPBFTNodeServer(grpcServer, node)
+
+	go node.ViewChangeRoutine(context.Background())
 
 	return grpcServer, nil
 }

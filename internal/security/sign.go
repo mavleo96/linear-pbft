@@ -6,6 +6,7 @@ import (
 	"crypto/ed25519"
 	"fmt"
 	"log"
+	"strings"
 
 	"github.com/mavleo96/bft-mavleo96/pb"
 )
@@ -24,6 +25,8 @@ func messageString(message any) string {
 	switch v := message.(type) {
 	case *pb.TransactionResponse:
 		return transactionResponseString(v)
+	case *pb.ViewChangeMessage:
+		return viewChangeMessageString(v)
 	case *pb.CommitMessage:
 		return commitMessageString(v)
 	case *pb.PrepareMessage:
@@ -43,6 +46,31 @@ func messageString(message any) string {
 
 func transactionResponseString(r *pb.TransactionResponse) string {
 	return fmt.Sprintf("<REPLY, %d, %d, %s, %s, %d>", r.ViewNumber, r.Timestamp, r.Sender, r.NodeID, r.Result)
+}
+
+func viewChangeMessageString(v *pb.ViewChangeMessage) string {
+	prepareProofStringSlice := make([]string, 0)
+	for _, prepareProof := range v.PreparedSet {
+		prepareProofString := prepareProofString(prepareProof)
+		prepareProofStringSlice = append(prepareProofStringSlice, prepareProofString)
+	}
+	prepareProofString := strings.Join(prepareProofStringSlice, ", ")
+	prepareProofString = "{" + prepareProofString + "}"
+
+	return fmt.Sprintf("<VIEWCHANGE, %d, %d, C, %s, %s>", v.ViewNumber, v.SequenceNum, prepareProofString, v.NodeID)
+}
+
+func prepareProofString(p *pb.PrepareProof) string {
+	prePrepareMessageString := prePrepareMessageString(p.SignedPrePrepareMessage.Message)
+
+	prepareMessageStringSlice := make([]string, 0)
+	for _, prepareMessage := range p.SignedPrepareMessages {
+		prepareMessageStringSlice = append(prepareMessageStringSlice, prepareMessageString(prepareMessage.Message))
+	}
+	prepareMessagesString := strings.Join(prepareMessageStringSlice, ", ")
+	prepareMessagesString = "{" + prepareMessagesString + "}"
+
+	return fmt.Sprintf("<PREPAREPROOF, %s, %s>", prePrepareMessageString, prepareMessagesString)
 }
 
 func commitMessageString(c *pb.CommitMessage) string {

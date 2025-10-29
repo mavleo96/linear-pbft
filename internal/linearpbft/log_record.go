@@ -76,6 +76,13 @@ func (l *LogRecord) AddCommitMessages(signedCommitMessages []*pb.SignedCommitMes
 	l.updateLogState()
 }
 
+func (l *LogRecord) GetPrepareProof() *pb.PrepareProof {
+	return &pb.PrepareProof{
+		SignedPrePrepareMessage: l.prePrepareMessage,
+		SignedPrepareMessages:   l.prepareMessages,
+	}
+}
+
 func CreateLogRecord(viewNumber int64, sequenceNumber int64, digest []byte) *LogRecord {
 	return &LogRecord{
 		ViewNumber:        viewNumber,
