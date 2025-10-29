@@ -1,8 +1,6 @@
 package linearpbft
 
 import (
-	"fmt"
-
 	"github.com/google/go-cmp/cmp"
 	"github.com/mavleo96/bft-mavleo96/internal/security"
 	"github.com/mavleo96/bft-mavleo96/internal/utils"
@@ -40,9 +38,4 @@ func (n *LinearPBFTNode) AssignSequenceNumber(request *pb.TransactionRequest) in
 	n.LogRecords[sequenceNum] = CreateLogRecord(n.ViewNumber, sequenceNum, digest)
 
 	return sequenceNum
-}
-
-func (n *LinearPBFTNode) ViewNumberToLeader(v int64) string {
-	leaderID := v % n.N
-	return fmt.Sprintf("n%d", leaderID+1)
 }

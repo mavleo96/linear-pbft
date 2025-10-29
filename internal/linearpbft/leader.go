@@ -216,6 +216,7 @@ func (n *LinearPBFTNode) SendNewView(viewNumber int64) {
 
 	// Update view number
 	n.ViewNumber = viewNumber
+	n.SentViewChange = false
 
 	// Get view change messages from view change message log
 	viewChangeMessageLog := n.ViewChangeMessageLog[viewNumber]

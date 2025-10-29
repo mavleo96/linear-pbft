@@ -31,7 +31,7 @@ func (n *LinearPBFTNode) PrePrepare(ctx context.Context, signedMessage *pb.Signe
 	}
 
 	// Verify Node's signature
-	currentLeaderID := n.ViewNumberToLeader(n.ViewNumber)
+	currentLeaderID := utils.ViewNumberToLeaderID(n.ViewNumber, n.N)
 	ok := security.Verify(preprepareMessage, n.Peers[currentLeaderID].PublicKey, signedMessage.Signature)
 	if !ok {
 		log.Warnf("Rejected: %s; invalid signature", utils.LoggingString(preprepareMessage, request))
@@ -370,7 +370,7 @@ func (n *LinearPBFTNode) ViewChange(ctx context.Context, signedViewChangeMessage
 		digest := prePrepareMessage.Digest
 
 		// Verify preprepare message signature
-		leaderID := n.ViewNumberToLeader(viewNumber)
+		leaderID := utils.ViewNumberToLeaderID(viewNumber, n.N)
 		var leaderPublicKey []byte
 		if leaderID == n.ID {
 			leaderPublicKey = n.PublicKey
@@ -431,7 +431,7 @@ func (n *LinearPBFTNode) ViewChange(ctx context.Context, signedViewChangeMessage
 	}
 
 	// If 2f + 1 view change messages are collected, go if next primary then send new view message
-	if len(viewChangeMessageLog) >= int(2*n.F+1) && n.ViewNumberToLeader(viewNumber) == n.ID {
+	if len(viewChangeMessageLog) >= int(2*n.F+1) && utils.ViewNumberToLeaderID(viewNumber, n.N) == n.ID {
 		go n.SendNewView(viewNumber)
 	}
 
@@ -446,7 +446,7 @@ func (n *LinearPBFTNode) NewView(ctx context.Context, signedNewViewMessage *pb.S
 	// viewNumber := newViewMessage.ViewNumber
 
 	// Verify signature
-	leaderID := n.ViewNumberToLeader(newViewMessage.ViewNumber)
+	leaderID := utils.ViewNumberToLeaderID(newViewMessage.ViewNumber, n.N)
 	var leaderPublicKey []byte
 	if leaderID == n.ID {
 		leaderPublicKey = n.PublicKey
@@ -486,5 +486,10 @@ func (n *LinearPBFTNode) NewView(ctx context.Context, signedNewViewMessage *pb.S
 	}
 
 	log.Infof("Logged new view message: %s", utils.LoggingString(newViewMessage))
+
+	// Update view number
+	n.ViewNumber = newViewMessage.ViewNumber
+	n.SentViewChange = false
+
 	return &emptypb.Empty{}, nil
 }

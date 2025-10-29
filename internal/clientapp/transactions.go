@@ -20,7 +20,7 @@ const (
 )
 
 // TODO: change this to read write operations
-func processTransaction(request *pb.SignedTransactionRequest, clientID string, leaderNode *string, nodeMap map[string]*models.Node, resultCh chan int64) (int64, error) {
+func processTransaction(request *pb.SignedTransactionRequest, clientID string, leaderNode string, nodeMap map[string]*models.Node, resultCh chan int64) (int64, error) {
 
 	var result int64
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
@@ -29,7 +29,7 @@ func processTransaction(request *pb.SignedTransactionRequest, clientID string, l
 		// If first attempt
 		// 1. send to leader node
 		if attempt == 1 {
-			leaderClient := *nodeMap[*leaderNode].Client
+			leaderClient := *nodeMap[leaderNode].Client
 			_, err := leaderClient.TransferRequest(context.Background(), request)
 			if err != nil {
 				log.Fatal(err)
@@ -52,13 +52,13 @@ func processTransaction(request *pb.SignedTransactionRequest, clientID string, l
 			return result, nil
 		case <-ctx.Done():
 			cancel()
-			log.Warnf("%s: %s -> attempt %d timed out", clientID, utils.LoggingString(request), attempt)
+			log.Warnf("%s: %s -> attempt %d timed out", clientID, utils.LoggingString(request.Request), attempt)
 		}
 	}
 	return 0, errors.New("transaction timed out")
 }
 
-func processReadOnlyTransaction(request *pb.SignedTransactionRequest, clientID string, leaderNode *string, nodeMap map[string]*models.Node) (int64, error) {
+func processReadOnlyTransaction(request *pb.SignedTransactionRequest, clientID string, nodeMap map[string]*models.Node) (int64, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), clientTimeout)
 	defer cancel()
 

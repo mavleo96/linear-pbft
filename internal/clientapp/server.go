@@ -95,9 +95,11 @@ func (s *ClientAppServer) ClientSendRoutine(ctx context.Context) {
 		select {
 		// Wait for set id to process from main routine
 		case testSet := <-s.SignalCh:
-			leaderNode := "n1" // leader initialized to n1 by default
 			// Process transactions for the set
 			for _, t := range testSet.Transactions[s.ID] {
+				// Leader node is initialized to n1 since CurrentViewNumber is initialized to 0
+				leaderNode := utils.ViewNumberToLeaderID(s.CurrentViewNumber, int64(len(s.Nodes)))
+
 				// Create a signed transaction request
 				timestamp := time.Now().UnixMilli()
 				request := &pb.TransactionRequest{
@@ -111,7 +113,7 @@ func (s *ClientAppServer) ClientSendRoutine(ctx context.Context) {
 				}
 				// TODO: processTransaction functions error design is not good
 				if t.Type == "read" {
-					result, err := processReadOnlyTransaction(signedRequest, s.ID, &leaderNode, s.Nodes)
+					result, err := processReadOnlyTransaction(signedRequest, s.ID, s.Nodes)
 					if err != nil {
 						log.Warnf("%s: %s -> read only attempt: %s", s.ID, utils.LoggingString(request), err.Error())
 					} else {
@@ -119,7 +121,7 @@ func (s *ClientAppServer) ClientSendRoutine(ctx context.Context) {
 						continue
 					}
 				}
-				result, err := processTransaction(signedRequest, s.ID, &leaderNode, s.Nodes, s.ResultCh)
+				result, err := processTransaction(signedRequest, s.ID, leaderNode, s.Nodes, s.ResultCh)
 				if err != nil {
 					log.Fatal(err)
 				}
