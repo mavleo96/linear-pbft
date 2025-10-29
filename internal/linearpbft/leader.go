@@ -209,3 +209,94 @@ func (n *LinearPBFTNode) SendCommit(signedCommitMessages []*pb.SignedCommitMessa
 	n.Mutex.Unlock()
 	return true, nil
 }
+
+func (n *LinearPBFTNode) SendNewView(viewNumber int64) {
+	n.Mutex.Lock()
+	defer n.Mutex.Unlock()
+
+	// Update view number
+	n.ViewNumber = viewNumber
+
+	// Get view change messages from view change message log
+	viewChangeMessageLog := n.ViewChangeMessageLog[viewNumber]
+	signedViewChangeMessages := make([]*pb.SignedViewChangeMessage, 0)
+	for _, viewChangeMessage := range viewChangeMessageLog {
+		signedViewChangeMessages = append(signedViewChangeMessages, viewChangeMessage)
+	}
+
+	// TODO: later get this from stable checkpoint
+	lowerSequenceNum := int64(0)
+
+	// Aggregate preprepare messages from view change messages
+	signedPrePrepareMessages := make(map[int64]*pb.SignedPrePrepareMessage)
+	for _, signedViewChangeMessage := range viewChangeMessageLog {
+		viewChangeMessage := signedViewChangeMessage.Message
+
+		// Loop through prepare proofs and add to signed preprepare messages if not already added
+		for _, prepareProof := range viewChangeMessage.PreparedSet {
+			prePrepareMessage := prepareProof.SignedPrePrepareMessage.Message
+			sequenceNum := prePrepareMessage.SequenceNum
+
+			if _, ok := signedPrePrepareMessages[sequenceNum]; ok {
+				continue
+			}
+
+			// Create new preprepare message and add to signed preprepare messages
+			newPrePrepareMessage := &pb.PrePrepareMessage{
+				ViewNumber:  viewNumber,
+				SequenceNum: sequenceNum,
+				Digest:      prePrepareMessage.Digest,
+			}
+			signedPrePrepareMessages[sequenceNum] = &pb.SignedPrePrepareMessage{
+				Message:   newPrePrepareMessage,
+				Signature: security.Sign(newPrePrepareMessage, n.PrivateKey),
+			}
+		}
+	}
+	// Order signed preprepare messages by sequence number and add no op preprepare message if sequence number is not in the log record
+	sortedSignedPrePrepareMessages := make([]*pb.SignedPrePrepareMessage, 0)
+	maxSequenceNum := int64(0)
+	if utils.Max(utils.Keys(signedPrePrepareMessages)) != nil {
+		maxSequenceNum = *utils.Max(utils.Keys(signedPrePrepareMessages))
+	}
+	for sequenceNum := lowerSequenceNum + 1; sequenceNum <= maxSequenceNum; sequenceNum++ {
+		var newSignedPrePrepareMessage *pb.SignedPrePrepareMessage
+		if _, ok := signedPrePrepareMessages[sequenceNum]; !ok {
+			newPrePrepareMessage := &pb.PrePrepareMessage{
+				ViewNumber:  viewNumber,
+				SequenceNum: sequenceNum,
+				Digest:      security.Digest(NoOpTransactionRequest),
+			}
+			newSignedPrePrepareMessage = &pb.SignedPrePrepareMessage{
+				Message:   newPrePrepareMessage,
+				Signature: security.Sign(newPrePrepareMessage, n.PrivateKey),
+			}
+		} else {
+			newSignedPrePrepareMessage = signedPrePrepareMessages[sequenceNum]
+		}
+		sortedSignedPrePrepareMessages = append(sortedSignedPrePrepareMessages, newSignedPrePrepareMessage)
+		continue
+	}
+
+	// Create new view message and sign it
+	newViewMessage := &pb.NewViewMessage{
+		ViewNumber:               viewNumber,
+		SignedViewChangeMessages: signedViewChangeMessages,
+		SignedPrePrepareMessages: sortedSignedPrePrepareMessages,
+	}
+	signedNewViewMessage := &pb.SignedNewViewMessage{
+		Message:   newViewMessage,
+		Signature: security.Sign(newViewMessage, n.PrivateKey),
+	}
+
+	// Multicast new view message to all nodes
+	log.Infof("Sending new view message for view number %d: %s", viewNumber, utils.LoggingString(newViewMessage))
+	for _, peer := range n.Peers {
+		go func() {
+			_, err := (*peer.Client).NewView(context.Background(), signedNewViewMessage)
+			if err != nil {
+				log.Fatal(err)
+			}
+		}()
+	}
+}

@@ -319,11 +319,11 @@ func (n *LinearPBFTNode) SendViewChange() error {
 
 	// Log the view change message
 	if _, ok := n.ViewChangeMessageLog[viewChangeMessage.ViewNumber]; !ok {
-		n.ViewChangeMessageLog[viewChangeMessage.ViewNumber] = make(map[string]*pb.ViewChangeMessage)
+		n.ViewChangeMessageLog[viewChangeMessage.ViewNumber] = make(map[string]*pb.SignedViewChangeMessage)
 	}
 	viewChangeMessageLog := n.ViewChangeMessageLog[viewChangeMessage.ViewNumber]
 	if _, ok := viewChangeMessageLog[viewChangeMessage.NodeID]; !ok {
-		viewChangeMessageLog[viewChangeMessage.NodeID] = viewChangeMessage
+		viewChangeMessageLog[viewChangeMessage.NodeID] = signedViewChangeMessage
 	}
 
 	// Multicast view change message to all nodes
@@ -418,16 +418,73 @@ func (n *LinearPBFTNode) ViewChange(ctx context.Context, signedViewChangeMessage
 	// Log the view change message
 	log.Infof("Logged view change message: %s", utils.LoggingString(viewChangeMessage))
 	if _, ok := n.ViewChangeMessageLog[viewNumber]; !ok {
-		n.ViewChangeMessageLog[viewNumber] = make(map[string]*pb.ViewChangeMessage)
+		n.ViewChangeMessageLog[viewNumber] = make(map[string]*pb.SignedViewChangeMessage)
 	}
 	viewChangeMessageLog := n.ViewChangeMessageLog[viewNumber]
 	if _, ok := viewChangeMessageLog[viewChangeMessage.NodeID]; !ok {
-		viewChangeMessageLog[viewChangeMessage.NodeID] = viewChangeMessage
+		viewChangeMessageLog[viewChangeMessage.NodeID] = signedViewChangeMessage
 	}
 
 	// Send view change message to all nodes if f + 1 view change messages are collected
 	if !n.SentViewChange && len(viewChangeMessageLog) >= int(n.F+1) {
 		go n.SendViewChange()
 	}
+
+	// If 2f + 1 view change messages are collected, go if next primary then send new view message
+	if len(viewChangeMessageLog) >= int(2*n.F+1) && n.ViewNumberToLeader(viewNumber) == n.ID {
+		go n.SendNewView(viewNumber)
+	}
+
+	return &emptypb.Empty{}, nil
+}
+
+func (n *LinearPBFTNode) NewView(ctx context.Context, signedNewViewMessage *pb.SignedNewViewMessage) (*emptypb.Empty, error) {
+	n.Mutex.Lock()
+	defer n.Mutex.Unlock()
+	newViewMessage := signedNewViewMessage.Message
+	signedViewChangeMessages := newViewMessage.SignedViewChangeMessages
+	// viewNumber := newViewMessage.ViewNumber
+
+	// Verify signature
+	leaderID := n.ViewNumberToLeader(newViewMessage.ViewNumber)
+	var leaderPublicKey []byte
+	if leaderID == n.ID {
+		leaderPublicKey = n.PublicKey
+	} else {
+		leaderPublicKey = n.Peers[leaderID].PublicKey
+	}
+	ok := security.Verify(newViewMessage, leaderPublicKey, signedNewViewMessage.Signature)
+	if !ok {
+		log.Warnf("Rejected: %s; invalid signature", utils.LoggingString(newViewMessage))
+		return nil, status.Errorf(codes.InvalidArgument, "invalid signature")
+	}
+
+	// Verify view change messages signatures
+	for _, signedViewChangeMessage := range signedViewChangeMessages {
+		viewChangeMessage := signedViewChangeMessage.Message
+
+		var publicKey []byte
+		if viewChangeMessage.NodeID == n.ID {
+			publicKey = n.PublicKey
+		} else {
+			publicKey = n.Peers[viewChangeMessage.NodeID].PublicKey
+		}
+		ok := security.Verify(viewChangeMessage, publicKey, signedViewChangeMessage.Signature)
+		if !ok {
+			log.Warnf("Rejected: %s; invalid signature", utils.LoggingString(viewChangeMessage))
+			return nil, status.Errorf(codes.InvalidArgument, "invalid signature")
+		}
+	}
+	// Verify preprepare messages signatures
+	for _, signedPrePrepareMessage := range newViewMessage.SignedPrePrepareMessages {
+		prePrepareMessage := signedPrePrepareMessage.Message
+		ok := security.Verify(prePrepareMessage, leaderPublicKey, signedPrePrepareMessage.Signature)
+		if !ok {
+			log.Warnf("Rejected: %s; invalid signature", utils.LoggingString(prePrepareMessage))
+			return nil, status.Errorf(codes.InvalidArgument, "invalid signature")
+		}
+	}
+
+	log.Infof("Logged new view message: %s", utils.LoggingString(newViewMessage))
 	return &emptypb.Empty{}, nil
 }

@@ -15,6 +15,7 @@ service LinearPBFTNode {
     rpc Commit (CollectedSignedCommitMessage) returns (google.protobuf.Empty);
 
     rpc ViewChange (SignedViewChangeMessage) returns (google.protobuf.Empty);
+    rpc NewView (SignedNewViewMessage) returns (google.protobuf.Empty);
 }
 
 service LinearPBFTClientApp {
@@ -133,5 +134,16 @@ message ViewChangeMessage {
 
 message SignedViewChangeMessage {
     ViewChangeMessage message = 1;
+    bytes signature = 2;
+}
+
+message NewViewMessage {
+    int64 viewNumber = 1;
+    repeated SignedViewChangeMessage signedViewChangeMessages = 2;
+    repeated SignedPrePrepareMessage signedPrePrepareMessages = 3;
+}
+
+message SignedNewViewMessage {
+    NewViewMessage message = 1;
     bytes signature = 2;
 }

@@ -12,6 +12,17 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+var NoOpTransactionRequest = &pb.TransactionRequest{
+	Transaction: &pb.Transaction{
+		Type:     "send",
+		Sender:   "null",
+		Receiver: "null",
+		Amount:   0,
+	},
+	Timestamp: 0,
+	Sender:    "null",
+}
+
 // LinearPBFTNode represents a LinearPBFT node
 type LinearPBFTNode struct {
 	*models.Node
@@ -34,7 +45,7 @@ type LinearPBFTNode struct {
 	// Flag bool
 
 	SentViewChange       bool
-	ViewChangeMessageLog map[int64]map[string]*pb.ViewChangeMessage // v -> (id -> msg)
+	ViewChangeMessageLog map[int64]map[string]*pb.SignedViewChangeMessage // v -> (id -> msg)
 	ForwardedRequestsLog []*pb.SignedTransactionRequest
 
 	*pb.UnimplementedLinearPBFTNodeServer
@@ -126,7 +137,7 @@ func CreateLinearPBFTNode(selfNode *models.Node, peerNodes map[string]*models.No
 		LastReply:               make(map[string]*pb.TransactionResponse),
 		LastExecutedSequenceNum: 0,
 		SafeTimer:               CreateSafeTimer(500 * time.Millisecond),
-		ViewChangeMessageLog:    make(map[int64]map[string]*pb.ViewChangeMessage),
+		ViewChangeMessageLog:    make(map[int64]map[string]*pb.SignedViewChangeMessage),
 		ForwardedRequestsLog:    make([]*pb.SignedTransactionRequest, 0),
 		// Flag:                    false,
 	}

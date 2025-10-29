@@ -25,6 +25,8 @@ func messageString(message any) string {
 	switch v := message.(type) {
 	case *pb.TransactionResponse:
 		return transactionResponseString(v)
+	case *pb.NewViewMessage:
+		return newViewMessageString(v)
 	case *pb.ViewChangeMessage:
 		return viewChangeMessageString(v)
 	case *pb.CommitMessage:
@@ -46,6 +48,28 @@ func messageString(message any) string {
 
 func transactionResponseString(r *pb.TransactionResponse) string {
 	return fmt.Sprintf("<REPLY, %d, %d, %s, %s, %d>", r.ViewNumber, r.Timestamp, r.Sender, r.NodeID, r.Result)
+}
+
+func newViewMessageString(v *pb.NewViewMessage) string {
+	viewChangeMessageStringSlice := make([]string, 0)
+	for _, signedViewChangeMessage := range v.SignedViewChangeMessages {
+		viewChangeMessage := signedViewChangeMessage.Message
+		viewChangeMessageString := viewChangeMessageString(viewChangeMessage)
+		viewChangeMessageStringSlice = append(viewChangeMessageStringSlice, viewChangeMessageString)
+	}
+	viewChangeMessagesString := strings.Join(viewChangeMessageStringSlice, ", ")
+	viewChangeMessagesString = "{" + viewChangeMessagesString + "}"
+
+	prePrepareMessageStringSlice := make([]string, 0)
+	for _, signedPrePrepareMessage := range v.SignedPrePrepareMessages {
+		prePrepareMessage := signedPrePrepareMessage.Message
+		prePrepareMessageString := prePrepareMessageString(prePrepareMessage)
+		prePrepareMessageStringSlice = append(prePrepareMessageStringSlice, prePrepareMessageString)
+	}
+	prePrepareMessagesString := strings.Join(prePrepareMessageStringSlice, ", ")
+	prePrepareMessagesString = "{" + prePrepareMessagesString + "}"
+
+	return fmt.Sprintf("<NEWVIEW, %d, %s, %s>", v.ViewNumber, viewChangeMessagesString, prePrepareMessagesString)
 }
 
 func viewChangeMessageString(v *pb.ViewChangeMessage) string {

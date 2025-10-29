@@ -999,6 +999,118 @@ func (x *SignedViewChangeMessage) GetSignature() []byte {
 	return nil
 }
 
+type NewViewMessage struct {
+	state                    protoimpl.MessageState     `protogen:"open.v1"`
+	ViewNumber               int64                      `protobuf:"varint,1,opt,name=viewNumber,proto3" json:"viewNumber,omitempty"`
+	SignedViewChangeMessages []*SignedViewChangeMessage `protobuf:"bytes,2,rep,name=signedViewChangeMessages,proto3" json:"signedViewChangeMessages,omitempty"`
+	SignedPrePrepareMessages []*SignedPrePrepareMessage `protobuf:"bytes,3,rep,name=signedPrePrepareMessages,proto3" json:"signedPrePrepareMessages,omitempty"`
+	unknownFields            protoimpl.UnknownFields
+	sizeCache                protoimpl.SizeCache
+}
+
+func (x *NewViewMessage) Reset() {
+	*x = NewViewMessage{}
+	mi := &file_bft_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *NewViewMessage) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*NewViewMessage) ProtoMessage() {}
+
+func (x *NewViewMessage) ProtoReflect() protoreflect.Message {
+	mi := &file_bft_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use NewViewMessage.ProtoReflect.Descriptor instead.
+func (*NewViewMessage) Descriptor() ([]byte, []int) {
+	return file_bft_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *NewViewMessage) GetViewNumber() int64 {
+	if x != nil {
+		return x.ViewNumber
+	}
+	return 0
+}
+
+func (x *NewViewMessage) GetSignedViewChangeMessages() []*SignedViewChangeMessage {
+	if x != nil {
+		return x.SignedViewChangeMessages
+	}
+	return nil
+}
+
+func (x *NewViewMessage) GetSignedPrePrepareMessages() []*SignedPrePrepareMessage {
+	if x != nil {
+		return x.SignedPrePrepareMessages
+	}
+	return nil
+}
+
+type SignedNewViewMessage struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Message       *NewViewMessage        `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
+	Signature     []byte                 `protobuf:"bytes,2,opt,name=signature,proto3" json:"signature,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SignedNewViewMessage) Reset() {
+	*x = SignedNewViewMessage{}
+	mi := &file_bft_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SignedNewViewMessage) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SignedNewViewMessage) ProtoMessage() {}
+
+func (x *SignedNewViewMessage) ProtoReflect() protoreflect.Message {
+	mi := &file_bft_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SignedNewViewMessage.ProtoReflect.Descriptor instead.
+func (*SignedNewViewMessage) Descriptor() ([]byte, []int) {
+	return file_bft_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *SignedNewViewMessage) GetMessage() *NewViewMessage {
+	if x != nil {
+		return x.Message
+	}
+	return nil
+}
+
+func (x *SignedNewViewMessage) GetSignature() []byte {
+	if x != nil {
+		return x.Signature
+	}
+	return nil
+}
+
 var File_bft_proto protoreflect.FileDescriptor
 
 const file_bft_proto_rawDesc = "" +
@@ -1083,7 +1195,16 @@ const file_bft_proto_rawDesc = "" +
 	"\x06nodeID\x18\x04 \x01(\tR\x06nodeID\"h\n" +
 	"\x17SignedViewChangeMessage\x12/\n" +
 	"\amessage\x18\x01 \x01(\v2\x15.pb.ViewChangeMessageR\amessage\x12\x1c\n" +
-	"\tsignature\x18\x02 \x01(\fR\tsignature2\xbc\x03\n" +
+	"\tsignature\x18\x02 \x01(\fR\tsignature\"\xe2\x01\n" +
+	"\x0eNewViewMessage\x12\x1e\n" +
+	"\n" +
+	"viewNumber\x18\x01 \x01(\x03R\n" +
+	"viewNumber\x12W\n" +
+	"\x18signedViewChangeMessages\x18\x02 \x03(\v2\x1b.pb.SignedViewChangeMessageR\x18signedViewChangeMessages\x12W\n" +
+	"\x18signedPrePrepareMessages\x18\x03 \x03(\v2\x1b.pb.SignedPrePrepareMessageR\x18signedPrePrepareMessages\"b\n" +
+	"\x14SignedNewViewMessage\x12,\n" +
+	"\amessage\x18\x01 \x01(\v2\x12.pb.NewViewMessageR\amessage\x12\x1c\n" +
+	"\tsignature\x18\x02 \x01(\fR\tsignature2\xf9\x03\n" +
 	"\x0eLinearPBFTNode\x12G\n" +
 	"\x0fTransferRequest\x12\x1c.pb.SignedTransactionRequest\x1a\x16.google.protobuf.Empty\x12N\n" +
 	"\x0fReadOnlyRequest\x12\x1c.pb.SignedTransactionRequest\x1a\x1d.pb.SignedTransactionResponse\x12C\n" +
@@ -1092,7 +1213,8 @@ const file_bft_proto_rawDesc = "" +
 	"\aPrepare\x12!.pb.CollectedSignedPrepareMessage\x1a\x17.pb.SignedCommitMessage\x12B\n" +
 	"\x06Commit\x12 .pb.CollectedSignedCommitMessage\x1a\x16.google.protobuf.Empty\x12A\n" +
 	"\n" +
-	"ViewChange\x12\x1b.pb.SignedViewChangeMessage\x1a\x16.google.protobuf.Empty2\\\n" +
+	"ViewChange\x12\x1b.pb.SignedViewChangeMessage\x1a\x16.google.protobuf.Empty\x12;\n" +
+	"\aNewView\x12\x18.pb.SignedNewViewMessage\x1a\x16.google.protobuf.Empty2\\\n" +
 	"\x13LinearPBFTClientApp\x12E\n" +
 	"\fReceiveReply\x12\x1d.pb.SignedTransactionResponse\x1a\x16.google.protobuf.EmptyB%Z#github.com/mavleo96/bft-mavleo96/pbb\x06proto3"
 
@@ -1108,7 +1230,7 @@ func file_bft_proto_rawDescGZIP() []byte {
 	return file_bft_proto_rawDescData
 }
 
-var file_bft_proto_msgTypes = make([]protoimpl.MessageInfo, 16)
+var file_bft_proto_msgTypes = make([]protoimpl.MessageInfo, 18)
 var file_bft_proto_goTypes = []any{
 	(*TransactionResponse)(nil),           // 0: pb.TransactionResponse
 	(*SignedTransactionResponse)(nil),     // 1: pb.SignedTransactionResponse
@@ -1126,7 +1248,9 @@ var file_bft_proto_goTypes = []any{
 	(*PrepareProof)(nil),                  // 13: pb.PrepareProof
 	(*ViewChangeMessage)(nil),             // 14: pb.ViewChangeMessage
 	(*SignedViewChangeMessage)(nil),       // 15: pb.SignedViewChangeMessage
-	(*emptypb.Empty)(nil),                 // 16: google.protobuf.Empty
+	(*NewViewMessage)(nil),                // 16: pb.NewViewMessage
+	(*SignedNewViewMessage)(nil),          // 17: pb.SignedNewViewMessage
+	(*emptypb.Empty)(nil),                 // 18: google.protobuf.Empty
 }
 var file_bft_proto_depIdxs = []int32{
 	0,  // 0: pb.SignedTransactionResponse.message:type_name -> pb.TransactionResponse
@@ -1142,25 +1266,30 @@ var file_bft_proto_depIdxs = []int32{
 	8,  // 10: pb.PrepareProof.signedPrepareMessages:type_name -> pb.SignedPrepareMessage
 	13, // 11: pb.ViewChangeMessage.preparedSet:type_name -> pb.PrepareProof
 	14, // 12: pb.SignedViewChangeMessage.message:type_name -> pb.ViewChangeMessage
-	3,  // 13: pb.LinearPBFTNode.TransferRequest:input_type -> pb.SignedTransactionRequest
-	3,  // 14: pb.LinearPBFTNode.ReadOnlyRequest:input_type -> pb.SignedTransactionRequest
-	6,  // 15: pb.LinearPBFTNode.PrePrepare:input_type -> pb.SignedPrePrepareMessage
-	9,  // 16: pb.LinearPBFTNode.Prepare:input_type -> pb.CollectedSignedPrepareMessage
-	12, // 17: pb.LinearPBFTNode.Commit:input_type -> pb.CollectedSignedCommitMessage
-	15, // 18: pb.LinearPBFTNode.ViewChange:input_type -> pb.SignedViewChangeMessage
-	1,  // 19: pb.LinearPBFTClientApp.ReceiveReply:input_type -> pb.SignedTransactionResponse
-	16, // 20: pb.LinearPBFTNode.TransferRequest:output_type -> google.protobuf.Empty
-	1,  // 21: pb.LinearPBFTNode.ReadOnlyRequest:output_type -> pb.SignedTransactionResponse
-	8,  // 22: pb.LinearPBFTNode.PrePrepare:output_type -> pb.SignedPrepareMessage
-	11, // 23: pb.LinearPBFTNode.Prepare:output_type -> pb.SignedCommitMessage
-	16, // 24: pb.LinearPBFTNode.Commit:output_type -> google.protobuf.Empty
-	16, // 25: pb.LinearPBFTNode.ViewChange:output_type -> google.protobuf.Empty
-	16, // 26: pb.LinearPBFTClientApp.ReceiveReply:output_type -> google.protobuf.Empty
-	20, // [20:27] is the sub-list for method output_type
-	13, // [13:20] is the sub-list for method input_type
-	13, // [13:13] is the sub-list for extension type_name
-	13, // [13:13] is the sub-list for extension extendee
-	0,  // [0:13] is the sub-list for field type_name
+	15, // 13: pb.NewViewMessage.signedViewChangeMessages:type_name -> pb.SignedViewChangeMessage
+	6,  // 14: pb.NewViewMessage.signedPrePrepareMessages:type_name -> pb.SignedPrePrepareMessage
+	16, // 15: pb.SignedNewViewMessage.message:type_name -> pb.NewViewMessage
+	3,  // 16: pb.LinearPBFTNode.TransferRequest:input_type -> pb.SignedTransactionRequest
+	3,  // 17: pb.LinearPBFTNode.ReadOnlyRequest:input_type -> pb.SignedTransactionRequest
+	6,  // 18: pb.LinearPBFTNode.PrePrepare:input_type -> pb.SignedPrePrepareMessage
+	9,  // 19: pb.LinearPBFTNode.Prepare:input_type -> pb.CollectedSignedPrepareMessage
+	12, // 20: pb.LinearPBFTNode.Commit:input_type -> pb.CollectedSignedCommitMessage
+	15, // 21: pb.LinearPBFTNode.ViewChange:input_type -> pb.SignedViewChangeMessage
+	17, // 22: pb.LinearPBFTNode.NewView:input_type -> pb.SignedNewViewMessage
+	1,  // 23: pb.LinearPBFTClientApp.ReceiveReply:input_type -> pb.SignedTransactionResponse
+	18, // 24: pb.LinearPBFTNode.TransferRequest:output_type -> google.protobuf.Empty
+	1,  // 25: pb.LinearPBFTNode.ReadOnlyRequest:output_type -> pb.SignedTransactionResponse
+	8,  // 26: pb.LinearPBFTNode.PrePrepare:output_type -> pb.SignedPrepareMessage
+	11, // 27: pb.LinearPBFTNode.Prepare:output_type -> pb.SignedCommitMessage
+	18, // 28: pb.LinearPBFTNode.Commit:output_type -> google.protobuf.Empty
+	18, // 29: pb.LinearPBFTNode.ViewChange:output_type -> google.protobuf.Empty
+	18, // 30: pb.LinearPBFTNode.NewView:output_type -> google.protobuf.Empty
+	18, // 31: pb.LinearPBFTClientApp.ReceiveReply:output_type -> google.protobuf.Empty
+	24, // [24:32] is the sub-list for method output_type
+	16, // [16:24] is the sub-list for method input_type
+	16, // [16:16] is the sub-list for extension type_name
+	16, // [16:16] is the sub-list for extension extendee
+	0,  // [0:16] is the sub-list for field type_name
 }
 
 func init() { file_bft_proto_init() }
@@ -1174,7 +1303,7 @@ func file_bft_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_bft_proto_rawDesc), len(file_bft_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   16,
+			NumMessages:   18,
 			NumExtensions: 0,
 			NumServices:   2,
 		},

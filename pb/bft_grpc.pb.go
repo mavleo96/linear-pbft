@@ -26,6 +26,7 @@ const (
 	LinearPBFTNode_Prepare_FullMethodName         = "/pb.LinearPBFTNode/Prepare"
 	LinearPBFTNode_Commit_FullMethodName          = "/pb.LinearPBFTNode/Commit"
 	LinearPBFTNode_ViewChange_FullMethodName      = "/pb.LinearPBFTNode/ViewChange"
+	LinearPBFTNode_NewView_FullMethodName         = "/pb.LinearPBFTNode/NewView"
 )
 
 // LinearPBFTNodeClient is the client API for LinearPBFTNode service.
@@ -38,6 +39,7 @@ type LinearPBFTNodeClient interface {
 	Prepare(ctx context.Context, in *CollectedSignedPrepareMessage, opts ...grpc.CallOption) (*SignedCommitMessage, error)
 	Commit(ctx context.Context, in *CollectedSignedCommitMessage, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	ViewChange(ctx context.Context, in *SignedViewChangeMessage, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	NewView(ctx context.Context, in *SignedNewViewMessage, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
 type linearPBFTNodeClient struct {
@@ -102,6 +104,15 @@ func (c *linearPBFTNodeClient) ViewChange(ctx context.Context, in *SignedViewCha
 	return out, nil
 }
 
+func (c *linearPBFTNodeClient) NewView(ctx context.Context, in *SignedNewViewMessage, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, LinearPBFTNode_NewView_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // LinearPBFTNodeServer is the server API for LinearPBFTNode service.
 // All implementations must embed UnimplementedLinearPBFTNodeServer
 // for forward compatibility
@@ -112,6 +123,7 @@ type LinearPBFTNodeServer interface {
 	Prepare(context.Context, *CollectedSignedPrepareMessage) (*SignedCommitMessage, error)
 	Commit(context.Context, *CollectedSignedCommitMessage) (*emptypb.Empty, error)
 	ViewChange(context.Context, *SignedViewChangeMessage) (*emptypb.Empty, error)
+	NewView(context.Context, *SignedNewViewMessage) (*emptypb.Empty, error)
 	mustEmbedUnimplementedLinearPBFTNodeServer()
 }
 
@@ -136,6 +148,9 @@ func (UnimplementedLinearPBFTNodeServer) Commit(context.Context, *CollectedSigne
 }
 func (UnimplementedLinearPBFTNodeServer) ViewChange(context.Context, *SignedViewChangeMessage) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ViewChange not implemented")
+}
+func (UnimplementedLinearPBFTNodeServer) NewView(context.Context, *SignedNewViewMessage) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method NewView not implemented")
 }
 func (UnimplementedLinearPBFTNodeServer) mustEmbedUnimplementedLinearPBFTNodeServer() {}
 
@@ -258,6 +273,24 @@ func _LinearPBFTNode_ViewChange_Handler(srv interface{}, ctx context.Context, de
 	return interceptor(ctx, in, info, handler)
 }
 
+func _LinearPBFTNode_NewView_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SignedNewViewMessage)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LinearPBFTNodeServer).NewView(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LinearPBFTNode_NewView_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LinearPBFTNodeServer).NewView(ctx, req.(*SignedNewViewMessage))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // LinearPBFTNode_ServiceDesc is the grpc.ServiceDesc for LinearPBFTNode service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -288,6 +321,10 @@ var LinearPBFTNode_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ViewChange",
 			Handler:    _LinearPBFTNode_ViewChange_Handler,
+		},
+		{
+			MethodName: "NewView",
+			Handler:    _LinearPBFTNode_NewView_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
