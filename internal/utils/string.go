@@ -87,6 +87,9 @@ func transactionRequestString(t *pb.TransactionRequest) string {
 }
 
 func transactionString(t *pb.Transaction) string {
+	if t.Type == "null" {
+		return "(null)"
+	}
 	if t.Type == "read" {
 		return fmt.Sprintf("(%s)", t.Sender)
 	}

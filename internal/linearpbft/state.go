@@ -14,7 +14,7 @@ import (
 
 var NoOpTransactionRequest = &pb.TransactionRequest{
 	Transaction: &pb.Transaction{
-		Type:     "send",
+		Type:     "null",
 		Sender:   "null",
 		Receiver: "null",
 		Amount:   0,
@@ -86,14 +86,16 @@ func (n *LinearPBFTNode) TryExecute(sequenceNum int64) {
 		request := record.Request
 		var result int64
 		var err error
-		if request.Transaction.Type == "read" {
+		switch request.Transaction.Type {
+		case "read":
 			result, err = n.DB.GetBalance(request.Transaction.Sender)
 			log.Infof("Read transaction result: %d", result)
-		} else {
+		case "send":
 			var success bool
 			success, err = n.DB.UpdateDB(request.Transaction)
 			result = utils.BoolToInt64(success)
-
+		default:
+			continue
 		}
 		if err != nil {
 			log.Fatal(err)
@@ -104,7 +106,9 @@ func (n *LinearPBFTNode) TryExecute(sequenceNum int64) {
 		// TODO: make this elegant since leader doesn't have a safe timer running
 		n.SafeTimer.DecrementWaitCountAndResetOrStopIfZero()
 		log.Infof("Executed (v: %d, s: %d): %s", n.ViewNumber, i, utils.LoggingString(request.Transaction))
-		go n.SendReply(i, request, result)
+		if request.Transaction.Type != "null" {
+			go n.SendReply(i, request, result)
+		}
 		n.LastExecutedSequenceNum = i
 	}
 }
