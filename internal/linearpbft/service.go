@@ -24,9 +24,9 @@ func (n *LinearPBFTNode) TransferRequest(ctx context.Context, signedRequest *pb.
 	}
 
 	// Send reply to client if duplicate request
-	if n.LastReply[request.Sender] != nil && request.Timestamp == n.LastReply[request.Sender].Timestamp {
+	if n.LastReply.Get(request.Sender) != nil && request.Timestamp == n.LastReply.Get(request.Sender).Timestamp {
 		log.Infof("Received duplicate request from client %s for request %s, sending reply", request.Sender, utils.LoggingString(request))
-		go n.SendReply(n.AssignSequenceNumber(request), request, n.LastReply[request.Sender].Result)
+		go n.SendReply(n.AssignSequenceNumber(request), request, n.LastReply.Get(request.Sender).Result)
 		return &emptypb.Empty{}, nil
 	}
 
@@ -143,7 +143,7 @@ func (n *LinearPBFTNode) SendReply(sequenceNum int64, request *pb.TransactionReq
 		Message:   reply,
 		Signature: security.Sign(reply, n.PrivateKey),
 	}
-	n.LastReply[request.Sender] = reply
+	n.LastReply.Update(request.Sender, reply)
 	_, err := (*n.Clients[request.Sender].Client).ReceiveReply(context.Background(), signedReply)
 	if err != nil {
 		log.Fatal(err)

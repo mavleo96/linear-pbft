@@ -38,7 +38,7 @@ type LinearPBFTNode struct {
 	ViewNumber              int64
 	LogRecords              map[int64]*LogRecord
 	LastExecutedSequenceNum int64
-	LastReply               map[string]*pb.TransactionResponse
+	LastReply               *LastReply
 
 	SafeTimer *SafeTimer
 	// ExecuteSignalCh chan int64
@@ -51,6 +51,23 @@ type LinearPBFTNode struct {
 	*pb.UnimplementedLinearPBFTNodeServer
 }
 
+type LastReply struct {
+	Mutex    sync.RWMutex
+	ReplyMap map[string]*pb.TransactionResponse
+}
+
+func (l *LastReply) Get(sender string) *pb.TransactionResponse {
+	l.Mutex.RLock()
+	defer l.Mutex.RUnlock()
+	return l.ReplyMap[sender]
+}
+
+func (l *LastReply) Update(sender string, reply *pb.TransactionResponse) {
+	l.Mutex.Lock()
+	defer l.Mutex.Unlock()
+	l.ReplyMap[sender] = reply
+}
+
 func (n *LinearPBFTNode) TryExecute(sequenceNum int64) {
 	// Check if sequence number is in executed log
 	n.Mutex.Lock()
@@ -60,7 +77,7 @@ func (n *LinearPBFTNode) TryExecute(sequenceNum int64) {
 	if record != nil && record.IsExecuted() {
 		// Send reply if timestamp is same as last reply
 		request := record.Request
-		lastReply := n.LastReply[request.Sender]
+		lastReply := n.LastReply.Get(request.Sender)
 		if lastReply != nil && request.Timestamp == lastReply.Timestamp {
 			go n.SendReply(sequenceNum, request, lastReply.Result)
 		}
@@ -138,7 +155,7 @@ func CreateLinearPBFTNode(selfNode *models.Node, peerNodes map[string]*models.No
 		Mutex:                   sync.Mutex{},
 		ViewNumber:              0,
 		LogRecords:              make(map[int64]*LogRecord),
-		LastReply:               make(map[string]*pb.TransactionResponse),
+		LastReply:               &LastReply{Mutex: sync.RWMutex{}, ReplyMap: make(map[string]*pb.TransactionResponse)},
 		LastExecutedSequenceNum: 0,
 		SafeTimer:               CreateSafeTimer(500 * time.Millisecond),
 		ViewChangeMessageLog:    make(map[int64]map[string]*pb.SignedViewChangeMessage),
