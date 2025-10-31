@@ -13,6 +13,7 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
+// ViewChangeRoutine is a persistent routine that sends view change messages to all nodes
 func (n *LinearPBFTNode) ViewChangeRoutine(ctx context.Context) {
 	log.Infof("Starting view change routine for %s", n.ID)
 	for {
@@ -26,14 +27,14 @@ func (n *LinearPBFTNode) ViewChangeRoutine(ctx context.Context) {
 	}
 }
 
+// SendViewChange sends a view change message to all nodes
 func (n *LinearPBFTNode) SendViewChange() error {
 	n.Mutex.Lock()
 	defer n.Mutex.Unlock()
 
-	// Set sent view change flag to true and view number to current view number + 1
+	// Set sent view change flag to true
 	// TODO: need to send view change for smallest view number of the logged view change messages or current view number + 1
 	n.ViewChangePhase = true
-	n.ViewNumber = n.ViewNumber + 1
 
 	// Get max sequence number in log record
 	maxSequenceNum := utils.Max(utils.Keys(n.LogRecords))
@@ -54,7 +55,7 @@ func (n *LinearPBFTNode) SendViewChange() error {
 
 	// Create signed view change message
 	viewChangeMessage := &pb.ViewChangeMessage{
-		ViewNumber:  n.ViewNumber,
+		ViewNumber:  n.ViewNumber + 1,
 		SequenceNum: lowerSequenceNum,
 		PreparedSet: preparedSet,
 		NodeID:      n.ID,
@@ -79,7 +80,8 @@ func (n *LinearPBFTNode) SendViewChange() error {
 		go func() {
 			_, err := (*peer.Client).ViewChange(context.Background(), signedViewChangeMessage)
 			if err != nil {
-				log.Fatal(err)
+				// log.Fatal(err)
+				return
 			}
 		}()
 	}
@@ -88,6 +90,7 @@ func (n *LinearPBFTNode) SendViewChange() error {
 	return nil
 }
 
+// ViewChange handles incoming view change messages from nodes
 func (n *LinearPBFTNode) ViewChange(ctx context.Context, signedViewChangeMessage *pb.SignedViewChangeMessage) (*emptypb.Empty, error) {
 	n.Mutex.Lock()
 	defer n.Mutex.Unlock()
@@ -95,42 +98,36 @@ func (n *LinearPBFTNode) ViewChange(ctx context.Context, signedViewChangeMessage
 	viewNumber := viewChangeMessage.ViewNumber
 
 	// Verify signature
-
-	ok := crypto.Verify(viewChangeMessage, n.Peers[viewChangeMessage.NodeID].PublicKey, signedViewChangeMessage.Signature)
+	ok := crypto.Verify(viewChangeMessage, n.GetPublicKey(viewChangeMessage.NodeID), signedViewChangeMessage.Signature)
 	if !ok {
 		log.Warnf("Rejected: %s; invalid signature", utils.LoggingString(viewChangeMessage))
-		// return nil, status.Errorf(codes.InvalidArgument, "invalid signature")
-		return nil, nil
+		return nil, status.Errorf(codes.Unauthenticated, "invalid signature")
 	}
 
 	// Verify view number
 	if viewNumber <= n.ViewNumber {
-		return &emptypb.Empty{}, nil
+		log.Warnf("Rejected: %s; lower view number (expected: %d)", utils.LoggingString(viewChangeMessage), n.ViewNumber)
+		return nil, status.Errorf(codes.FailedPrecondition, "invalid view number")
 	}
 
 	// Verify prepare set
 	for _, prepareProof := range viewChangeMessage.PreparedSet {
+		// Get signed preprepare message and prepare messages
 		signedPrePrepareMessage := prepareProof.SignedPrePrepareMessage
 		prePrepareMessage := signedPrePrepareMessage.Message
 		signedPrepareMessages := prepareProof.SignedPrepareMessages
 
+		// Get view number, sequence number and digest
 		viewNumber := prePrepareMessage.ViewNumber
 		sequenceNum := prePrepareMessage.SequenceNum
 		digest := prePrepareMessage.Digest
 
 		// Verify preprepare message signature
-		leaderID := utils.ViewNumberToLeaderID(viewNumber, n.N)
-		var leaderPublicKey []byte
-		if leaderID == n.ID {
-			leaderPublicKey = n.PublicKey
-		} else {
-			leaderPublicKey = n.Peers[leaderID].PublicKey
-		}
-		ok := crypto.Verify(prePrepareMessage, leaderPublicKey, signedPrePrepareMessage.Signature)
+		proposerID := utils.ViewNumberToLeaderID(viewNumber, n.N)
+		ok := crypto.Verify(prePrepareMessage, n.GetPublicKey(proposerID), signedPrePrepareMessage.Signature)
 		if !ok {
-			// log.Warnf("Rejected: %s; invalid signature", utils.LoggingString(preprepareMessage))
-			// continue
-			return nil, nil
+			log.Warnf("Rejected: %s; invalid signature on prepare message", utils.LoggingString(viewChangeMessage))
+			return nil, status.Errorf(codes.FailedPrecondition, "invalid signature on preprepare message")
 		}
 
 		// Verify preprepare message digest
@@ -141,31 +138,23 @@ func (n *LinearPBFTNode) ViewChange(ctx context.Context, signedViewChangeMessage
 		// Verify prepare messages signatures
 		for _, signedPrepareMessage := range signedPrepareMessages {
 			prepareMessage := signedPrepareMessage.Message
-			// Verify signature
-			var publicKey []byte
-			if prepareMessage.NodeID == n.ID {
-				publicKey = n.PublicKey
-			} else {
-				publicKey = n.Peers[prepareMessage.NodeID].PublicKey
-			}
-			ok := crypto.Verify(prepareMessage, publicKey, signedPrepareMessage.Signature)
+			ok := crypto.Verify(prepareMessage, n.GetPublicKey(prepareMessage.NodeID), signedPrepareMessage.Signature)
 			if !ok {
-				// log.Warnf("Rejected: %s; invalid signature", utils.LoggingString(prepareMessage))
-				return nil, nil
+				log.Warnf("Rejected: %s; invalid signature on prepare message", utils.LoggingString(viewChangeMessage))
+				return nil, status.Errorf(codes.FailedPrecondition, "invalid signature on prepare message")
 			}
 
 			// Verify prepare message digest, view number and sequence number
 			if prepareMessage.ViewNumber != viewNumber ||
 				prepareMessage.SequenceNum != sequenceNum ||
 				!cmp.Equal(prepareMessage.Digest, digest) {
-				// log.Warnf("Rejected: %s; invalid digest", utils.LoggingString(prepareMessage))
-				return nil, nil
+				return nil, status.Errorf(codes.FailedPrecondition, "invalid digest on prepare message")
 			}
 		}
 	}
 
 	// Log the view change message
-	log.Infof("Logged view change message: %s", utils.LoggingString(viewChangeMessage))
+	log.Infof("Logged: %s", utils.LoggingString(viewChangeMessage))
 	if _, ok := n.ViewChangeMessageLog[viewNumber]; !ok {
 		n.ViewChangeMessageLog[viewNumber] = make(map[string]*pb.SignedViewChangeMessage)
 	}
@@ -179,14 +168,19 @@ func (n *LinearPBFTNode) ViewChange(ctx context.Context, signedViewChangeMessage
 		go n.SendViewChange()
 	}
 
-	// If 2f + 1 view change messages are collected, go if next primary then send new view message
-	if len(viewChangeMessageLog) >= int(2*n.F+1) && utils.ViewNumberToLeaderID(viewNumber, n.N) == n.ID {
-		go n.SendNewView(viewNumber)
+	// If 2f + 1 view change messages are collected and next primary then send new view message
+	if len(viewChangeMessageLog) >= int(2*n.F+1) {
+		if utils.ViewNumberToLeaderID(viewNumber, n.N) == n.ID {
+			go n.SendNewView(viewNumber)
+		} else {
+			n.SafeTimer.IncrementWaitCountOrStart()
+		}
 	}
 
 	return &emptypb.Empty{}, nil
 }
 
+// NewViewRoutine is a routine that handles sending new view messages to all nodes
 func (n *LinearPBFTNode) NewViewRoutine(ctx context.Context) {
 	n.SendNewView(n.ViewNumber)
 }
@@ -194,6 +188,7 @@ func (n *LinearPBFTNode) NewViewRoutine(ctx context.Context) {
 func (n *LinearPBFTNode) NewView(signedNewViewMessage *pb.SignedNewViewMessage, stream pb.LinearPBFTNode_NewViewServer) error {
 	n.Mutex.Lock()
 	defer n.Mutex.Unlock()
+	// Reset timer
 	newViewMessage := signedNewViewMessage.Message
 	signedViewChangeMessages := newViewMessage.SignedViewChangeMessages
 	// viewNumber := newViewMessage.ViewNumber
@@ -245,7 +240,8 @@ func (n *LinearPBFTNode) NewView(signedNewViewMessage *pb.SignedNewViewMessage, 
 
 	log.Infof("Logged new view message: %s", utils.LoggingString(newViewMessage))
 
-	// Update view number
+	// Cleanup timer and update view number
+	n.SafeTimer.Cleanup()
 	n.ViewNumber = newViewMessage.ViewNumber
 	n.ViewChangePhase = false
 
@@ -263,6 +259,7 @@ func (n *LinearPBFTNode) NewView(signedNewViewMessage *pb.SignedNewViewMessage, 
 	return nil
 }
 
+// SendNewView sends a new view message to all nodes
 func (n *LinearPBFTNode) SendNewView(viewNumber int64) {
 	n.Mutex.Lock()
 	defer n.Mutex.Unlock()
@@ -272,18 +269,18 @@ func (n *LinearPBFTNode) SendNewView(viewNumber int64) {
 	n.ViewChangePhase = false
 
 	// Get view change messages from view change message log
-	viewChangeMessageLog := n.ViewChangeMessageLog[viewNumber]
+	signedViewChangeMessageLog := n.ViewChangeMessageLog[viewNumber]
 	signedViewChangeMessages := make([]*pb.SignedViewChangeMessage, 0)
-	for _, viewChangeMessage := range viewChangeMessageLog {
-		signedViewChangeMessages = append(signedViewChangeMessages, viewChangeMessage)
+	for _, signedViewChangeMessage := range signedViewChangeMessageLog {
+		signedViewChangeMessages = append(signedViewChangeMessages, signedViewChangeMessage)
 	}
 
-	// TODO: later get this from stable checkpoint
+	// TODO: later get this from stable checkpoint in the new view message
 	lowerSequenceNum := int64(0)
 
-	// Aggregate preprepare messages from view change messages
+	// Aggregate preprepare messages from view change messages and create preprepare message with current view number
 	signedPrePrepareMessages := make(map[int64]*pb.SignedPrePrepareMessage)
-	for _, signedViewChangeMessage := range viewChangeMessageLog {
+	for _, signedViewChangeMessage := range signedViewChangeMessageLog {
 		viewChangeMessage := signedViewChangeMessage.Message
 
 		// Loop through prepare proofs and add to signed preprepare messages if not already added
@@ -291,6 +288,7 @@ func (n *LinearPBFTNode) SendNewView(viewNumber int64) {
 			prePrepareMessage := prepareProof.SignedPrePrepareMessage.Message
 			sequenceNum := prePrepareMessage.SequenceNum
 
+			// If preprepare message is already in the map, then continue
 			if _, ok := signedPrePrepareMessages[sequenceNum]; ok {
 				continue
 			}
@@ -307,10 +305,12 @@ func (n *LinearPBFTNode) SendNewView(viewNumber int64) {
 			}
 		}
 	}
-	// Order signed preprepare messages by sequence number and add no op preprepare message if sequence number is not in the log record
+
+	// Order signed preprepare messages by sequence number
 	sortedSignedPrePrepareMessages := make([]*pb.SignedPrePrepareMessage, 0)
 	maxSequenceNum := utils.Max(utils.Keys(signedPrePrepareMessages))
 	for sequenceNum := lowerSequenceNum + 1; sequenceNum <= maxSequenceNum; sequenceNum++ {
+		// If preprepare message is not in the map, then create a new no op preprepare message and add to the map
 		var newSignedPrePrepareMessage *pb.SignedPrePrepareMessage
 		if _, ok := signedPrePrepareMessages[sequenceNum]; !ok {
 			newPrePrepareMessage := &pb.PrePrepareMessage{
@@ -326,7 +326,6 @@ func (n *LinearPBFTNode) SendNewView(viewNumber int64) {
 			newSignedPrePrepareMessage = signedPrePrepareMessages[sequenceNum]
 		}
 		sortedSignedPrePrepareMessages = append(sortedSignedPrePrepareMessages, newSignedPrePrepareMessage)
-		continue
 	}
 
 	// Create new view message and sign it
@@ -346,7 +345,7 @@ func (n *LinearPBFTNode) SendNewView(viewNumber int64) {
 		go func() {
 			_, err := (*peer.Client).NewView(context.Background(), signedNewViewMessage)
 			if err != nil {
-				log.Fatal(err)
+				return
 			}
 		}()
 	}
