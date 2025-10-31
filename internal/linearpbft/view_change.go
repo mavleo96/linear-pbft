@@ -78,7 +78,7 @@ func (n *LinearPBFTNode) SendViewChange() error {
 	log.Infof("Sending view change message to all nodes: %s", utils.LoggingString(viewChangeMessage))
 	for _, peer := range n.Peers {
 		go func() {
-			_, err := (*peer.Client).ViewChange(context.Background(), signedViewChangeMessage)
+			_, err := (*peer.Client).ViewChangeRequest(context.Background(), signedViewChangeMessage)
 			if err != nil {
 				// log.Fatal(err)
 				return
@@ -91,7 +91,7 @@ func (n *LinearPBFTNode) SendViewChange() error {
 }
 
 // ViewChange handles incoming view change messages from nodes
-func (n *LinearPBFTNode) ViewChange(ctx context.Context, signedViewChangeMessage *pb.SignedViewChangeMessage) (*emptypb.Empty, error) {
+func (n *LinearPBFTNode) ViewChangeRequest(ctx context.Context, signedViewChangeMessage *pb.SignedViewChangeMessage) (*emptypb.Empty, error) {
 	n.Mutex.Lock()
 	defer n.Mutex.Unlock()
 	viewChangeMessage := signedViewChangeMessage.Message
@@ -185,7 +185,7 @@ func (n *LinearPBFTNode) NewViewRoutine(ctx context.Context) {
 	n.SendNewView(n.ViewNumber)
 }
 
-func (n *LinearPBFTNode) NewView(signedNewViewMessage *pb.SignedNewViewMessage, stream pb.LinearPBFTNode_NewViewServer) error {
+func (n *LinearPBFTNode) NewViewRequest(ctx context.Context, signedNewViewMessage *pb.SignedNewViewMessage) (*emptypb.Empty, error) {
 	n.Mutex.Lock()
 	defer n.Mutex.Unlock()
 	// Reset timer
@@ -195,7 +195,7 @@ func (n *LinearPBFTNode) NewView(signedNewViewMessage *pb.SignedNewViewMessage, 
 
 	// Check if view number is less than current view number
 	if newViewMessage.ViewNumber < n.ViewNumber {
-		return status.Errorf(codes.FailedPrecondition, "view number is less than current view number")
+		return nil, status.Errorf(codes.FailedPrecondition, "view number is less than current view number")
 	}
 
 	// Verify signature
@@ -209,7 +209,7 @@ func (n *LinearPBFTNode) NewView(signedNewViewMessage *pb.SignedNewViewMessage, 
 	ok := crypto.Verify(newViewMessage, leaderPublicKey, signedNewViewMessage.Signature)
 	if !ok {
 		log.Warnf("Rejected: %s; invalid signature", utils.LoggingString(newViewMessage))
-		return status.Errorf(codes.InvalidArgument, "invalid signature")
+		return nil, status.Errorf(codes.InvalidArgument, "invalid signature")
 	}
 
 	// Verify view change messages signatures
@@ -225,7 +225,7 @@ func (n *LinearPBFTNode) NewView(signedNewViewMessage *pb.SignedNewViewMessage, 
 		ok := crypto.Verify(viewChangeMessage, publicKey, signedViewChangeMessage.Signature)
 		if !ok {
 			log.Warnf("Rejected: %s; invalid signature", utils.LoggingString(viewChangeMessage))
-			return status.Errorf(codes.InvalidArgument, "invalid signature")
+			return nil, status.Errorf(codes.InvalidArgument, "invalid signature")
 		}
 	}
 	// Verify preprepare messages signatures
@@ -234,7 +234,7 @@ func (n *LinearPBFTNode) NewView(signedNewViewMessage *pb.SignedNewViewMessage, 
 		ok := crypto.Verify(prePrepareMessage, leaderPublicKey, signedPrePrepareMessage.Signature)
 		if !ok {
 			log.Warnf("Rejected: %s; invalid signature", utils.LoggingString(prePrepareMessage))
-			return status.Errorf(codes.InvalidArgument, "invalid signature")
+			return nil, status.Errorf(codes.InvalidArgument, "invalid signature")
 		}
 	}
 
@@ -256,7 +256,7 @@ func (n *LinearPBFTNode) NewView(signedNewViewMessage *pb.SignedNewViewMessage, 
 	// 	}
 	// }
 
-	return nil
+	return &emptypb.Empty{}, nil
 }
 
 // SendNewView sends a new view message to all nodes
@@ -343,7 +343,7 @@ func (n *LinearPBFTNode) SendNewView(viewNumber int64) {
 	log.Infof("Sending new view message for view number %d: %s", viewNumber, utils.LoggingString(newViewMessage))
 	for _, peer := range n.Peers {
 		go func() {
-			_, err := (*peer.Client).NewView(context.Background(), signedNewViewMessage)
+			_, err := (*peer.Client).NewViewRequest(context.Background(), signedNewViewMessage)
 			if err != nil {
 				return
 			}

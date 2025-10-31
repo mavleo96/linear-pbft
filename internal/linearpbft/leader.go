@@ -29,7 +29,7 @@ func (n *LinearPBFTNode) SendPrePrepare(signedPreprepare *pb.SignedPrePrepareMes
 	wg := sync.WaitGroup{}
 	for _, peer := range n.Peers {
 		wg.Go(func() {
-			signedPrepareMsg, err := (*peer.Client).PrePrepare(context.Background(), signedPreprepare)
+			signedPrepareMsg, err := (*peer.Client).PrePrepareRequest(context.Background(), signedPreprepare)
 			if err != nil {
 				// log.Fatal(err)
 				return
@@ -121,7 +121,7 @@ func (n *LinearPBFTNode) SendPrepare(signedPrepareMessages []*pb.SignedPrepareMe
 			if (peer.ID == "n2" && sequenceNum == 2) || (peer.ID == "n3" && sequenceNum == 6) || (peer.ID == "n4" && sequenceNum == 7) {
 				time.Sleep(2 * time.Second)
 			}
-			signedCommitMsg, err := (*peer.Client).Prepare(context.Background(), collectedSignedPrepareMessage)
+			signedCommitMsg, err := (*peer.Client).PrepareRequest(context.Background(), collectedSignedPrepareMessage)
 			if err != nil {
 				// log.Fatal(err)
 				return
@@ -207,7 +207,7 @@ func (n *LinearPBFTNode) SendCommit(signedCommitMessages []*pb.SignedCommitMessa
 	log.Infof("Sending commit message for sequence number %d", sequenceNum)
 	for _, peer := range n.Peers {
 		go func() {
-			_, err := (*peer.Client).Commit(context.Background(), collectedSignedCommitMessage)
+			_, err := (*peer.Client).CommitRequest(context.Background(), collectedSignedCommitMessage)
 			if err != nil {
 				// log.Fatal(err)
 				return

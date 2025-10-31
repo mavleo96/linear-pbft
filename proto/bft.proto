@@ -10,12 +10,12 @@ service LinearPBFTNode {
     rpc TransferRequest (SignedTransactionRequest) returns (google.protobuf.Empty);
     rpc ReadOnlyRequest (SignedTransactionRequest) returns (SignedTransactionResponse);
 
-    rpc PrePrepare (SignedPrePrepareMessage) returns (SignedPrepareMessage);
-    rpc Prepare (CollectedSignedPrepareMessage) returns (SignedCommitMessage);
-    rpc Commit (CollectedSignedCommitMessage) returns (google.protobuf.Empty);
+    rpc PrePrepareRequest (SignedPrePrepareMessage) returns (SignedPrepareMessage);
+    rpc PrepareRequest (CollectedSignedPrepareMessage) returns (SignedCommitMessage);
+    rpc CommitRequest (CollectedSignedCommitMessage) returns (google.protobuf.Empty);
 
-    rpc ViewChange (SignedViewChangeMessage) returns (google.protobuf.Empty);
-    rpc NewView (SignedNewViewMessage) returns (google.protobuf.Empty);
+    rpc ViewChangeRequest (SignedViewChangeMessage) returns (google.protobuf.Empty);
+    rpc NewViewRequest (SignedNewViewMessage) returns (google.protobuf.Empty);
 }
 
 service LinearPBFTClientApp {

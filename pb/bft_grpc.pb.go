@@ -20,13 +20,13 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	LinearPBFTNode_TransferRequest_FullMethodName = "/pb.LinearPBFTNode/TransferRequest"
-	LinearPBFTNode_ReadOnlyRequest_FullMethodName = "/pb.LinearPBFTNode/ReadOnlyRequest"
-	LinearPBFTNode_PrePrepare_FullMethodName      = "/pb.LinearPBFTNode/PrePrepare"
-	LinearPBFTNode_Prepare_FullMethodName         = "/pb.LinearPBFTNode/Prepare"
-	LinearPBFTNode_Commit_FullMethodName          = "/pb.LinearPBFTNode/Commit"
-	LinearPBFTNode_ViewChange_FullMethodName      = "/pb.LinearPBFTNode/ViewChange"
-	LinearPBFTNode_NewView_FullMethodName         = "/pb.LinearPBFTNode/NewView"
+	LinearPBFTNode_TransferRequest_FullMethodName   = "/pb.LinearPBFTNode/TransferRequest"
+	LinearPBFTNode_ReadOnlyRequest_FullMethodName   = "/pb.LinearPBFTNode/ReadOnlyRequest"
+	LinearPBFTNode_PrePrepareRequest_FullMethodName = "/pb.LinearPBFTNode/PrePrepareRequest"
+	LinearPBFTNode_PrepareRequest_FullMethodName    = "/pb.LinearPBFTNode/PrepareRequest"
+	LinearPBFTNode_CommitRequest_FullMethodName     = "/pb.LinearPBFTNode/CommitRequest"
+	LinearPBFTNode_ViewChangeRequest_FullMethodName = "/pb.LinearPBFTNode/ViewChangeRequest"
+	LinearPBFTNode_NewViewRequest_FullMethodName    = "/pb.LinearPBFTNode/NewViewRequest"
 )
 
 // LinearPBFTNodeClient is the client API for LinearPBFTNode service.
@@ -35,11 +35,11 @@ const (
 type LinearPBFTNodeClient interface {
 	TransferRequest(ctx context.Context, in *SignedTransactionRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	ReadOnlyRequest(ctx context.Context, in *SignedTransactionRequest, opts ...grpc.CallOption) (*SignedTransactionResponse, error)
-	PrePrepare(ctx context.Context, in *SignedPrePrepareMessage, opts ...grpc.CallOption) (*SignedPrepareMessage, error)
-	Prepare(ctx context.Context, in *CollectedSignedPrepareMessage, opts ...grpc.CallOption) (*SignedCommitMessage, error)
-	Commit(ctx context.Context, in *CollectedSignedCommitMessage, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	ViewChange(ctx context.Context, in *SignedViewChangeMessage, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	NewView(ctx context.Context, in *SignedNewViewMessage, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	PrePrepareRequest(ctx context.Context, in *SignedPrePrepareMessage, opts ...grpc.CallOption) (*SignedPrepareMessage, error)
+	PrepareRequest(ctx context.Context, in *CollectedSignedPrepareMessage, opts ...grpc.CallOption) (*SignedCommitMessage, error)
+	CommitRequest(ctx context.Context, in *CollectedSignedCommitMessage, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	ViewChangeRequest(ctx context.Context, in *SignedViewChangeMessage, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	NewViewRequest(ctx context.Context, in *SignedNewViewMessage, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
 type linearPBFTNodeClient struct {
@@ -68,45 +68,45 @@ func (c *linearPBFTNodeClient) ReadOnlyRequest(ctx context.Context, in *SignedTr
 	return out, nil
 }
 
-func (c *linearPBFTNodeClient) PrePrepare(ctx context.Context, in *SignedPrePrepareMessage, opts ...grpc.CallOption) (*SignedPrepareMessage, error) {
+func (c *linearPBFTNodeClient) PrePrepareRequest(ctx context.Context, in *SignedPrePrepareMessage, opts ...grpc.CallOption) (*SignedPrepareMessage, error) {
 	out := new(SignedPrepareMessage)
-	err := c.cc.Invoke(ctx, LinearPBFTNode_PrePrepare_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, LinearPBFTNode_PrePrepareRequest_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *linearPBFTNodeClient) Prepare(ctx context.Context, in *CollectedSignedPrepareMessage, opts ...grpc.CallOption) (*SignedCommitMessage, error) {
+func (c *linearPBFTNodeClient) PrepareRequest(ctx context.Context, in *CollectedSignedPrepareMessage, opts ...grpc.CallOption) (*SignedCommitMessage, error) {
 	out := new(SignedCommitMessage)
-	err := c.cc.Invoke(ctx, LinearPBFTNode_Prepare_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, LinearPBFTNode_PrepareRequest_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *linearPBFTNodeClient) Commit(ctx context.Context, in *CollectedSignedCommitMessage, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *linearPBFTNodeClient) CommitRequest(ctx context.Context, in *CollectedSignedCommitMessage, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, LinearPBFTNode_Commit_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, LinearPBFTNode_CommitRequest_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *linearPBFTNodeClient) ViewChange(ctx context.Context, in *SignedViewChangeMessage, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *linearPBFTNodeClient) ViewChangeRequest(ctx context.Context, in *SignedViewChangeMessage, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, LinearPBFTNode_ViewChange_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, LinearPBFTNode_ViewChangeRequest_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *linearPBFTNodeClient) NewView(ctx context.Context, in *SignedNewViewMessage, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *linearPBFTNodeClient) NewViewRequest(ctx context.Context, in *SignedNewViewMessage, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, LinearPBFTNode_NewView_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, LinearPBFTNode_NewViewRequest_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -119,11 +119,11 @@ func (c *linearPBFTNodeClient) NewView(ctx context.Context, in *SignedNewViewMes
 type LinearPBFTNodeServer interface {
 	TransferRequest(context.Context, *SignedTransactionRequest) (*emptypb.Empty, error)
 	ReadOnlyRequest(context.Context, *SignedTransactionRequest) (*SignedTransactionResponse, error)
-	PrePrepare(context.Context, *SignedPrePrepareMessage) (*SignedPrepareMessage, error)
-	Prepare(context.Context, *CollectedSignedPrepareMessage) (*SignedCommitMessage, error)
-	Commit(context.Context, *CollectedSignedCommitMessage) (*emptypb.Empty, error)
-	ViewChange(context.Context, *SignedViewChangeMessage) (*emptypb.Empty, error)
-	NewView(context.Context, *SignedNewViewMessage) (*emptypb.Empty, error)
+	PrePrepareRequest(context.Context, *SignedPrePrepareMessage) (*SignedPrepareMessage, error)
+	PrepareRequest(context.Context, *CollectedSignedPrepareMessage) (*SignedCommitMessage, error)
+	CommitRequest(context.Context, *CollectedSignedCommitMessage) (*emptypb.Empty, error)
+	ViewChangeRequest(context.Context, *SignedViewChangeMessage) (*emptypb.Empty, error)
+	NewViewRequest(context.Context, *SignedNewViewMessage) (*emptypb.Empty, error)
 	mustEmbedUnimplementedLinearPBFTNodeServer()
 }
 
@@ -137,20 +137,20 @@ func (UnimplementedLinearPBFTNodeServer) TransferRequest(context.Context, *Signe
 func (UnimplementedLinearPBFTNodeServer) ReadOnlyRequest(context.Context, *SignedTransactionRequest) (*SignedTransactionResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ReadOnlyRequest not implemented")
 }
-func (UnimplementedLinearPBFTNodeServer) PrePrepare(context.Context, *SignedPrePrepareMessage) (*SignedPrepareMessage, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method PrePrepare not implemented")
+func (UnimplementedLinearPBFTNodeServer) PrePrepareRequest(context.Context, *SignedPrePrepareMessage) (*SignedPrepareMessage, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method PrePrepareRequest not implemented")
 }
-func (UnimplementedLinearPBFTNodeServer) Prepare(context.Context, *CollectedSignedPrepareMessage) (*SignedCommitMessage, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Prepare not implemented")
+func (UnimplementedLinearPBFTNodeServer) PrepareRequest(context.Context, *CollectedSignedPrepareMessage) (*SignedCommitMessage, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method PrepareRequest not implemented")
 }
-func (UnimplementedLinearPBFTNodeServer) Commit(context.Context, *CollectedSignedCommitMessage) (*emptypb.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Commit not implemented")
+func (UnimplementedLinearPBFTNodeServer) CommitRequest(context.Context, *CollectedSignedCommitMessage) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CommitRequest not implemented")
 }
-func (UnimplementedLinearPBFTNodeServer) ViewChange(context.Context, *SignedViewChangeMessage) (*emptypb.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ViewChange not implemented")
+func (UnimplementedLinearPBFTNodeServer) ViewChangeRequest(context.Context, *SignedViewChangeMessage) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ViewChangeRequest not implemented")
 }
-func (UnimplementedLinearPBFTNodeServer) NewView(context.Context, *SignedNewViewMessage) (*emptypb.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method NewView not implemented")
+func (UnimplementedLinearPBFTNodeServer) NewViewRequest(context.Context, *SignedNewViewMessage) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method NewViewRequest not implemented")
 }
 func (UnimplementedLinearPBFTNodeServer) mustEmbedUnimplementedLinearPBFTNodeServer() {}
 
@@ -201,92 +201,92 @@ func _LinearPBFTNode_ReadOnlyRequest_Handler(srv interface{}, ctx context.Contex
 	return interceptor(ctx, in, info, handler)
 }
 
-func _LinearPBFTNode_PrePrepare_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _LinearPBFTNode_PrePrepareRequest_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(SignedPrePrepareMessage)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(LinearPBFTNodeServer).PrePrepare(ctx, in)
+		return srv.(LinearPBFTNodeServer).PrePrepareRequest(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: LinearPBFTNode_PrePrepare_FullMethodName,
+		FullMethod: LinearPBFTNode_PrePrepareRequest_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(LinearPBFTNodeServer).PrePrepare(ctx, req.(*SignedPrePrepareMessage))
+		return srv.(LinearPBFTNodeServer).PrePrepareRequest(ctx, req.(*SignedPrePrepareMessage))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _LinearPBFTNode_Prepare_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _LinearPBFTNode_PrepareRequest_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(CollectedSignedPrepareMessage)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(LinearPBFTNodeServer).Prepare(ctx, in)
+		return srv.(LinearPBFTNodeServer).PrepareRequest(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: LinearPBFTNode_Prepare_FullMethodName,
+		FullMethod: LinearPBFTNode_PrepareRequest_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(LinearPBFTNodeServer).Prepare(ctx, req.(*CollectedSignedPrepareMessage))
+		return srv.(LinearPBFTNodeServer).PrepareRequest(ctx, req.(*CollectedSignedPrepareMessage))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _LinearPBFTNode_Commit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _LinearPBFTNode_CommitRequest_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(CollectedSignedCommitMessage)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(LinearPBFTNodeServer).Commit(ctx, in)
+		return srv.(LinearPBFTNodeServer).CommitRequest(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: LinearPBFTNode_Commit_FullMethodName,
+		FullMethod: LinearPBFTNode_CommitRequest_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(LinearPBFTNodeServer).Commit(ctx, req.(*CollectedSignedCommitMessage))
+		return srv.(LinearPBFTNodeServer).CommitRequest(ctx, req.(*CollectedSignedCommitMessage))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _LinearPBFTNode_ViewChange_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _LinearPBFTNode_ViewChangeRequest_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(SignedViewChangeMessage)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(LinearPBFTNodeServer).ViewChange(ctx, in)
+		return srv.(LinearPBFTNodeServer).ViewChangeRequest(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: LinearPBFTNode_ViewChange_FullMethodName,
+		FullMethod: LinearPBFTNode_ViewChangeRequest_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(LinearPBFTNodeServer).ViewChange(ctx, req.(*SignedViewChangeMessage))
+		return srv.(LinearPBFTNodeServer).ViewChangeRequest(ctx, req.(*SignedViewChangeMessage))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _LinearPBFTNode_NewView_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _LinearPBFTNode_NewViewRequest_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(SignedNewViewMessage)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(LinearPBFTNodeServer).NewView(ctx, in)
+		return srv.(LinearPBFTNodeServer).NewViewRequest(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: LinearPBFTNode_NewView_FullMethodName,
+		FullMethod: LinearPBFTNode_NewViewRequest_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(LinearPBFTNodeServer).NewView(ctx, req.(*SignedNewViewMessage))
+		return srv.(LinearPBFTNodeServer).NewViewRequest(ctx, req.(*SignedNewViewMessage))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -307,24 +307,24 @@ var LinearPBFTNode_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _LinearPBFTNode_ReadOnlyRequest_Handler,
 		},
 		{
-			MethodName: "PrePrepare",
-			Handler:    _LinearPBFTNode_PrePrepare_Handler,
+			MethodName: "PrePrepareRequest",
+			Handler:    _LinearPBFTNode_PrePrepareRequest_Handler,
 		},
 		{
-			MethodName: "Prepare",
-			Handler:    _LinearPBFTNode_Prepare_Handler,
+			MethodName: "PrepareRequest",
+			Handler:    _LinearPBFTNode_PrepareRequest_Handler,
 		},
 		{
-			MethodName: "Commit",
-			Handler:    _LinearPBFTNode_Commit_Handler,
+			MethodName: "CommitRequest",
+			Handler:    _LinearPBFTNode_CommitRequest_Handler,
 		},
 		{
-			MethodName: "ViewChange",
-			Handler:    _LinearPBFTNode_ViewChange_Handler,
+			MethodName: "ViewChangeRequest",
+			Handler:    _LinearPBFTNode_ViewChangeRequest_Handler,
 		},
 		{
-			MethodName: "NewView",
-			Handler:    _LinearPBFTNode_NewView_Handler,
+			MethodName: "NewViewRequest",
+			Handler:    _LinearPBFTNode_NewViewRequest_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
