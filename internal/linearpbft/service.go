@@ -16,6 +16,12 @@ import (
 func (n *LinearPBFTNode) TransferRequest(ctx context.Context, signedRequest *pb.SignedTransactionRequest) (*emptypb.Empty, error) {
 	request := signedRequest.Request
 
+	// Ignore request if in view change phase
+	if n.ViewChangePhase {
+		log.Infof("Ignore request for view change phase: %s", utils.LoggingString(request))
+		return &emptypb.Empty{}, nil
+	}
+
 	// Verify client signature
 	ok := crypto.Verify(request, n.Clients[request.Sender].PublicKey, signedRequest.Signature)
 	if !ok {
@@ -27,12 +33,6 @@ func (n *LinearPBFTNode) TransferRequest(ctx context.Context, signedRequest *pb.
 	if n.LastReply.Get(request.Sender) != nil && request.Timestamp == n.LastReply.Get(request.Sender).Timestamp {
 		log.Infof("Received duplicate request from client %s for request %s, sending reply", request.Sender, utils.LoggingString(request))
 		go n.SendReply(n.AssignSequenceNumber(request), request, n.LastReply.Get(request.Sender).Result)
-		return &emptypb.Empty{}, nil
-	}
-
-	// Ignore request if in view change phase
-	if n.ViewChangePhase {
-		log.Infof("Ignore request for view change phase: %s", utils.LoggingString(request))
 		return &emptypb.Empty{}, nil
 	}
 
@@ -59,7 +59,7 @@ func (n *LinearPBFTNode) TransferRequest(ctx context.Context, signedRequest *pb.
 		return &emptypb.Empty{}, nil
 	}
 
-	// Create preprepare message
+	// Create signed preprepare message and add to log record
 	preprepare := &pb.PrePrepareMessage{
 		ViewNumber:  n.ViewNumber,
 		SequenceNum: sequenceNum,
@@ -74,32 +74,20 @@ func (n *LinearPBFTNode) TransferRequest(ctx context.Context, signedRequest *pb.
 
 	// Send preprepare message to all nodes and collect prepare messages
 	prepareMsgs, err := n.SendPrePrepare(signedPreprepare, sequenceNum)
-	if err != nil {
-		// return nil, status.Errorf(codes.Internal, err.Error())
-		return nil, nil
-	}
-	if prepareMsgs == nil {
+	if err != nil || prepareMsgs == nil {
 		return &emptypb.Empty{}, nil
 	}
 
 	// Send prepare message to all nodes and collect commit messages
 	commitMsgs, err := n.SendPrepare(prepareMsgs, sequenceNum)
-	if err != nil {
-		// return nil, status.Errorf(codes.Internal, err.Error())
-		return nil, nil
-	}
-	if commitMsgs == nil {
+	if err != nil || commitMsgs == nil {
 		return &emptypb.Empty{}, nil
 	}
 
 	// Send commit message to all nodes
-	committed, err := n.SendCommit(commitMsgs, sequenceNum)
+	err = n.SendCommit(commitMsgs, sequenceNum)
 	if err != nil {
-		// return nil, status.Errorf(codes.Internal, err.Error())
-		return nil, nil
-	}
-	if !committed {
-		return nil, nil
+		return &emptypb.Empty{}, nil
 	}
 
 	// Execute transaction
@@ -108,15 +96,10 @@ func (n *LinearPBFTNode) TransferRequest(ctx context.Context, signedRequest *pb.
 	return &emptypb.Empty{}, nil
 }
 
+// ReadOnlyRequest handles incoming read only transaction requests from clients
+// This function replies to the client in the same RPC call directly instead of a separate RPC call to the client
 func (n *LinearPBFTNode) ReadOnlyRequest(ctx context.Context, signedRequest *pb.SignedTransactionRequest) (*pb.SignedTransactionResponse, error) {
 	request := signedRequest.Request
-
-	// Verify client signature
-	ok := crypto.Verify(request, n.Clients[request.Sender].PublicKey, signedRequest.Signature)
-	if !ok {
-		log.Warnf("Invalid client signature for request %s", request.String())
-		return nil, status.Errorf(codes.Unauthenticated, "invalid signature")
-	}
 
 	// Ignore request if in view change phase
 	if n.ViewChangePhase {
@@ -124,10 +107,20 @@ func (n *LinearPBFTNode) ReadOnlyRequest(ctx context.Context, signedRequest *pb.
 		return nil, status.Errorf(codes.Unavailable, "view change phase")
 	}
 
+	// Verify client signature
+	ok := crypto.Verify(request, n.Clients[request.Sender].PublicKey, signedRequest.Signature)
+	if !ok {
+		log.Warnf("Invalid client signature for request %s", utils.LoggingString(request))
+		return nil, status.Errorf(codes.Unauthenticated, "invalid signature")
+	}
+
+	// Get balance from database
 	balance, err := n.DB.GetBalance(request.Sender)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "%s", err.Error())
 	}
+
+	// Create signed transaction response message
 	message := &pb.TransactionResponse{
 		ViewNumber: n.ViewNumber,
 		Timestamp:  request.Timestamp,
@@ -139,12 +132,13 @@ func (n *LinearPBFTNode) ReadOnlyRequest(ctx context.Context, signedRequest *pb.
 		Message:   message,
 		Signature: crypto.Sign(message, n.PrivateKey),
 	}
-	log.Infof("Node %s: Read only request %s -> %d", n.ID, request.String(), balance)
+	log.Infof("Node %s: Read only request %s -> %d", n.ID, utils.LoggingString(request), balance)
 	return signedMessage, nil
 }
 
+// SendReply sends a reply to a client
 func (n *LinearPBFTNode) SendReply(sequenceNum int64, request *pb.TransactionRequest, result int64) {
-	// Send reply to clients
+	// Create signed transaction response message
 	reply := &pb.TransactionResponse{
 		ViewNumber: n.ViewNumber,
 		Timestamp:  request.Timestamp,
@@ -156,22 +150,24 @@ func (n *LinearPBFTNode) SendReply(sequenceNum int64, request *pb.TransactionReq
 		Message:   reply,
 		Signature: crypto.Sign(reply, n.PrivateKey),
 	}
+
+	// Update last reply
 	n.LastReply.Update(request.Sender, reply)
+
+	// Send reply to client
 	_, err := (*n.Clients[request.Sender].Client).ReceiveReply(context.Background(), signedReply)
 	if err != nil {
 		log.Fatal(err)
-		return
 	}
 }
 
+// ForwardRequest forwards a transaction request to the leader
 func (n *LinearPBFTNode) ForwardRequest(ctx context.Context, signedRequest *pb.SignedTransactionRequest) {
 	// Forward request to leader
 	leaderID := utils.ViewNumberToLeaderID(n.ViewNumber, n.N)
-	leader := n.Peers[leaderID]
 	log.Infof("Forwarding to leader %s: %s", leaderID, utils.LoggingString(signedRequest.Request))
-	_, err := (*leader.Client).TransferRequest(context.Background(), signedRequest)
+	_, err := (*n.Peers[leaderID].Client).TransferRequest(context.Background(), signedRequest)
 	if err != nil {
 		log.Fatal(err)
-		return
 	}
 }

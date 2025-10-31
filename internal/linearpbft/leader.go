@@ -12,6 +12,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// SendPrePrepare sends a preprepare message to all nodes
 func (n *LinearPBFTNode) SendPrePrepare(signedPreprepare *pb.SignedPrePrepareMessage, sequenceNum int64) ([]*pb.SignedPrepareMessage, error) {
 	preprepare := signedPreprepare.Message
 
@@ -30,7 +31,8 @@ func (n *LinearPBFTNode) SendPrePrepare(signedPreprepare *pb.SignedPrePrepareMes
 		wg.Go(func() {
 			signedPrepareMsg, err := (*peer.Client).PrePrepare(context.Background(), signedPreprepare)
 			if err != nil {
-				log.Fatal(err)
+				// log.Fatal(err)
+				return
 			}
 			responseCh <- signedPrepareMsg
 		})
@@ -89,14 +91,18 @@ func (n *LinearPBFTNode) SendPrePrepare(signedPreprepare *pb.SignedPrePrepareMes
 	return nil, nil
 }
 
+// SendPrepare sends a prepare message to all nodes
 func (n *LinearPBFTNode) SendPrepare(signedPrepareMessages []*pb.SignedPrepareMessage, sequenceNum int64) ([]*pb.SignedCommitMessage, error) {
-	// Get preprepare record from preprepare log
+	// Get record from log record
 	n.Mutex.Lock()
 	record := n.LogRecords[sequenceNum]
-	n.Mutex.Unlock()
 	if record == nil || !record.IsPrePrepared() {
-		log.Fatal("Preprepare record is nil")
+		log.Fatal("Log record is not preprepared")
 	}
+
+	// Add to prepared log
+	record.AddPrepareMessages(signedPrepareMessages)
+	n.Mutex.Unlock()
 
 	// Create collected signed prepare message
 	collectedSignedPrepareMessage := &pb.CollectedSignedPrepareMessage{
@@ -117,7 +123,8 @@ func (n *LinearPBFTNode) SendPrepare(signedPrepareMessages []*pb.SignedPrepareMe
 			}
 			signedCommitMsg, err := (*peer.Client).Prepare(context.Background(), collectedSignedPrepareMessage)
 			if err != nil {
-				log.Fatal(err)
+				// log.Fatal(err)
+				return
 			}
 			responseCh <- signedCommitMsg
 		})
@@ -127,13 +134,8 @@ func (n *LinearPBFTNode) SendPrepare(signedPrepareMessages []*pb.SignedPrepareMe
 		close(responseCh)
 	}()
 
+	// Create signed commit messages including self
 	signedCommitMsgs := make([]*pb.SignedCommitMessage, 0)
-
-	n.Mutex.Lock()
-	record.AddPrepareMessages(signedPrepareMessages)
-	n.Mutex.Unlock()
-
-	// Create commit message and sign it
 	commitMessage := &pb.CommitMessage{
 		ViewNumber:  n.ViewNumber,
 		SequenceNum: sequenceNum,
@@ -176,17 +178,22 @@ func (n *LinearPBFTNode) SendPrepare(signedPrepareMessages []*pb.SignedPrepareMe
 			return signedCommitMsgs, nil
 		}
 	}
+	log.Infof("Commit messages not collected for sequence number %d", sequenceNum)
 	return nil, nil
 }
 
-func (n *LinearPBFTNode) SendCommit(signedCommitMessages []*pb.SignedCommitMessage, sequenceNum int64) (bool, error) {
-	// Get prepared record from prepared log
+// SendCommit sends a commit message to all nodes
+func (n *LinearPBFTNode) SendCommit(signedCommitMessages []*pb.SignedCommitMessage, sequenceNum int64) error {
+	// Get record from log record
 	n.Mutex.Lock()
 	record := n.LogRecords[sequenceNum]
-	n.Mutex.Unlock()
 	if record == nil || !record.IsPrepared() {
-		log.Fatal("Prepared record is nil")
+		log.Fatal("Log record is not prepared")
 	}
+
+	// Add to committed log
+	record.AddCommitMessages(signedCommitMessages)
+	n.Mutex.Unlock()
 
 	// Create collected signed commit message
 	collectedSignedCommitMessage := &pb.CollectedSignedCommitMessage{
@@ -202,14 +209,11 @@ func (n *LinearPBFTNode) SendCommit(signedCommitMessages []*pb.SignedCommitMessa
 		go func() {
 			_, err := (*peer.Client).Commit(context.Background(), collectedSignedCommitMessage)
 			if err != nil {
-				log.Fatal(err)
+				// log.Fatal(err)
+				return
 			}
 		}()
 	}
 
-	// Add to committed log
-	n.Mutex.Lock()
-	record.AddCommitMessages(signedCommitMessages)
-	n.Mutex.Unlock()
-	return true, nil
+	return nil
 }

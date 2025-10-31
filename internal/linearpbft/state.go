@@ -11,32 +11,41 @@ import (
 
 // LinearPBFTNode represents a LinearPBFT node
 type LinearPBFTNode struct {
+	// Node information
 	*models.Node
 	PrivateKey []byte
 	DB         *database.Database
 
-	Peers   map[string]*models.Node
-	F       int64
-	N       int64
+	// Peer nodes and their information
+	Peers map[string]*models.Node
+	F     int64
+	N     int64
+
+	// Clients and their information
 	Clients map[string]*models.Client
 
+	// State variables and mutex for synchronizing access to shared resources
 	Mutex                   sync.Mutex
 	ViewNumber              int64
 	LogRecords              map[int64]*LogRecord
 	LastExecutedSequenceNum int64
 	LastReply               *LastReply
+	ViewChangePhase         bool
 
+	// Timer instance
 	SafeTimer *SafeTimer
+
 	// ExecuteSignalCh chan int64
 	// Flag bool
 
-	ViewChangePhase      bool
 	ViewChangeMessageLog map[int64]map[string]*pb.SignedViewChangeMessage // v -> (id -> msg)
 	ForwardedRequestsLog []*pb.SignedTransactionRequest
 
+	// UnimplementedLinearPBFTNodeServer is the server interface for the LinearPBFT node
 	*pb.UnimplementedLinearPBFTNodeServer
 }
 
+// CreateLinearPBFTNode creates a new LinearPBFT node
 func CreateLinearPBFTNode(selfNode *models.Node, peerNodes map[string]*models.Node, clientMap map[string]*models.Client, bankDB *database.Database, privateKey []byte) *LinearPBFTNode {
 	return &LinearPBFTNode{
 		Node:                    selfNode,
@@ -49,10 +58,10 @@ func CreateLinearPBFTNode(selfNode *models.Node, peerNodes map[string]*models.No
 		Mutex:                   sync.Mutex{},
 		ViewNumber:              0,
 		LogRecords:              make(map[int64]*LogRecord),
-		LastReply:               &LastReply{Mutex: sync.RWMutex{}, ReplyMap: make(map[string]*pb.TransactionResponse)},
 		LastExecutedSequenceNum: 0,
-		SafeTimer:               CreateSafeTimer(500 * time.Millisecond),
+		LastReply:               &LastReply{Mutex: sync.RWMutex{}, ReplyMap: make(map[string]*pb.TransactionResponse)},
 		ViewChangePhase:         false,
+		SafeTimer:               CreateSafeTimer(500 * time.Millisecond),
 		ViewChangeMessageLog:    make(map[int64]map[string]*pb.SignedViewChangeMessage),
 		ForwardedRequestsLog:    make([]*pb.SignedTransactionRequest, 0),
 		// Flag:                    false,

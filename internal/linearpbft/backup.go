@@ -13,56 +13,59 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
+// PrePrepare handles incoming preprepare messages
 func (n *LinearPBFTNode) PrePrepare(ctx context.Context, signedMessage *pb.SignedPrePrepareMessage) (*pb.SignedPrepareMessage, error) {
-	preprepareMessage := signedMessage.Message
+	prePrepareMessage := signedMessage.Message
 	request := signedMessage.Request
-
-	// // Verify View Number
-	// // TODO: acquire lock on view number
-	// if preprepareMessage.ViewNumber != n.ViewNumber {
-	// 	log.Warnf("Rejected: %s; invalid view number (expected: %d)", utils.LoggingString(preprepareMessage, request), n.ViewNumber)
-	// 	return nil, status.Errorf(codes.InvalidArgument, "invalid view number")
-	// }
 
 	// Ignore if already in view change
 	if n.ViewChangePhase {
-		log.Infof("Ignored: %s; already in view change", utils.LoggingString(preprepareMessage, request))
-		return nil, nil
+		log.Infof("Ignored: %s; view change phase", utils.LoggingString(prePrepareMessage, request))
+		return nil, status.Errorf(codes.Unavailable, "view change phase")
 	}
 
 	// Verify Node's signature
 	currentLeaderID := utils.ViewNumberToLeaderID(n.ViewNumber, n.N)
-	ok := crypto.Verify(preprepareMessage, n.Peers[currentLeaderID].PublicKey, signedMessage.Signature)
+	ok := crypto.Verify(prePrepareMessage, n.Peers[currentLeaderID].PublicKey, signedMessage.Signature)
 	if !ok {
-		log.Warnf("Rejected: %s; invalid signature", utils.LoggingString(preprepareMessage, request))
-		return nil, status.Errorf(codes.InvalidArgument, "invalid signature")
+		log.Warnf("Rejected: %s; invalid signature", utils.LoggingString(prePrepareMessage, request))
+		return nil, status.Errorf(codes.Unauthenticated, "invalid signature")
 	}
 
-	// Verify Digest and View Number
-	if n.ViewNumber == preprepareMessage.ViewNumber &&
-		!cmp.Equal(preprepareMessage.Digest, crypto.Digest(request)) {
-		log.Warnf("Rejected: %s; invalid digest or view number", utils.LoggingString(preprepareMessage, request))
-		return nil, status.Errorf(codes.InvalidArgument, "invalid digest or view number")
+	// Verify View Number
+	if prePrepareMessage.ViewNumber != n.ViewNumber {
+		log.Warnf("Rejected: %s; invalid view number (expected: %d)", utils.LoggingString(prePrepareMessage, request), n.ViewNumber)
+		return nil, status.Errorf(codes.InvalidArgument, "invalid view number")
+	}
+
+	// Verify Digest
+	if !cmp.Equal(prePrepareMessage.Digest, crypto.Digest(request)) {
+		log.Warnf("Rejected: %s; invalid digest", utils.LoggingString(prePrepareMessage, request))
+		return nil, status.Errorf(codes.InvalidArgument, "invalid digest")
 	}
 
 	// Verify if previously accepted preprepare message with different digest
 	n.Mutex.Lock()
-	record, ok := n.LogRecords[preprepareMessage.SequenceNum]
+	record, ok := n.LogRecords[prePrepareMessage.SequenceNum]
 	if ok {
-		if record.IsPrePrepared() && !cmp.Equal(record.Digest, preprepareMessage.Digest) {
-			log.Warnf("Rejected: %s; previously accepted preprepare message with different digest", utils.LoggingString(preprepareMessage, request))
-			return nil, status.Errorf(codes.InvalidArgument, "previously accepted preprepare message with different digest")
+		// Reject if some other request was previously assigned to this sequence number
+		// TODO: what if something was preprepared only but now i get a null message from new view message
+		if record.IsPrePrepared() && !cmp.Equal(record.Digest, prePrepareMessage.Digest) {
+			log.Warnf("Rejected: %s; previously accepted %s", utils.LoggingString(prePrepareMessage, request), utils.LoggingString(record.Request))
+			return nil, status.Errorf(codes.FailedPrecondition, "previously accepted preprepare message with different digest")
 		}
 		record.AddPrePrepareMessage(signedMessage)
 	} else {
-		record = CreateLogRecord(preprepareMessage.ViewNumber, preprepareMessage.SequenceNum, crypto.Digest(request))
-		n.LogRecords[preprepareMessage.SequenceNum] = record
+		// Create new log record if no record exists for this sequence number
+		record = CreateLogRecord(prePrepareMessage.ViewNumber, prePrepareMessage.SequenceNum, crypto.Digest(request))
+		n.LogRecords[prePrepareMessage.SequenceNum] = record
 		record.AddPrePrepareMessage(signedMessage)
 
+		//  TODO: check if safety issue here and if code can be improved
 		// Check if the request is in the forwarded requests log
 		inForwardedRequestsLog := false
 		for _, forwardedRequest := range n.ForwardedRequestsLog {
-			if cmp.Equal(crypto.Digest(forwardedRequest.Request), preprepareMessage.Digest) {
+			if cmp.Equal(crypto.Digest(forwardedRequest.Request), prePrepareMessage.Digest) {
 				inForwardedRequestsLog = true
 				break
 			}
@@ -75,9 +78,9 @@ func (n *LinearPBFTNode) PrePrepare(ctx context.Context, signedMessage *pb.Signe
 
 	// Create prepare message and sign it
 	prepareMessage := &pb.PrepareMessage{
-		ViewNumber:  preprepareMessage.ViewNumber,
-		SequenceNum: preprepareMessage.SequenceNum,
-		Digest:      preprepareMessage.Digest,
+		ViewNumber:  prePrepareMessage.ViewNumber,
+		SequenceNum: prePrepareMessage.SequenceNum,
+		Digest:      prePrepareMessage.Digest,
 		NodeID:      n.ID,
 	}
 	signedPrepareMessage := &pb.SignedPrepareMessage{
@@ -85,26 +88,26 @@ func (n *LinearPBFTNode) PrePrepare(ctx context.Context, signedMessage *pb.Signe
 		Signature: crypto.Sign(prepareMessage, n.PrivateKey),
 	}
 
-	go n.TryExecute(preprepareMessage.SequenceNum)
+	go n.TryExecute(prePrepareMessage.SequenceNum)
 
 	return signedPrepareMessage, nil
 }
 
+// Prepare handles incoming prepare messages
 func (n *LinearPBFTNode) Prepare(ctx context.Context, signedPrepareMessages *pb.CollectedSignedPrepareMessage) (*pb.SignedCommitMessage, error) {
 	viewNumber := signedPrepareMessages.ViewNumber
 	sequenceNum := signedPrepareMessages.SequenceNum
 
 	// Ignore if already in view change
 	if n.ViewChangePhase {
-		log.Infof("Ignored: %s; already in view change", utils.LoggingString(signedPrepareMessages))
-		return nil, nil
+		log.Infof("Ignored: %s; view change phase", utils.LoggingString(signedPrepareMessages))
+		return nil, status.Errorf(codes.Unavailable, "view change phase")
 	}
 
 	// Verify View Number
 	if viewNumber != n.ViewNumber {
-		// log.Warnf("Rejected: %s; invalid view number (expected: %d)", utils.LoggingString(signedPrepareMessages, n.TransactionMap[utils.To32Bytes(signedPrepareMessages.Digest)]), n.ViewNumber)
-		// return nil, status.Errorf(codes.InvalidArgument, "invalid view number")
-		return nil, nil
+		log.Warnf("Rejected: %s; invalid view number (expected: %d)", utils.LoggingString(signedPrepareMessages), n.ViewNumber)
+		return nil, status.Errorf(codes.InvalidArgument, "invalid view number")
 	}
 
 	// Get the record from log record or create new one
@@ -132,29 +135,24 @@ func (n *LinearPBFTNode) Prepare(ctx context.Context, signedPrepareMessages *pb.
 	// Verify Prepare Messages
 	verifiedCount := 0
 	for _, signedPrepareMessage := range signedPrepareMessages.Messages {
+		// TODO: remove this check later if we are sure that the prepare messages are not nil
 		if signedPrepareMessage == nil {
 			log.Fatal("Signed prepare message is nil")
 		}
 		prepareMessage := signedPrepareMessage.Message
 
 		// Verify Signature
-		var publicKey []byte
-		if prepareMessage.NodeID == n.ID {
-			publicKey = n.PublicKey
-		} else {
-			publicKey = n.Peers[prepareMessage.NodeID].PublicKey
-		}
-		ok := crypto.Verify(prepareMessage, publicKey, signedPrepareMessage.Signature)
+		ok := crypto.Verify(prepareMessage, n.GetPublicKey(prepareMessage.NodeID), signedPrepareMessage.Signature)
 		if !ok {
-			log.Warnf("Rejected: %s; invalid signature", utils.LoggingString(prepareMessage, record.Request))
+			// log.Warnf("Rejected: %s; invalid signature", utils.LoggingString(prepareMessage, record.Request))
 			continue
 		}
 
-		// Check if the prepare message matches preprepare message
+		// Check if the prepare message matches preprepare message (here actually the view number in log record)
 		if prepareMessage.ViewNumber != record.ViewNumber ||
 			prepareMessage.SequenceNum != record.SequenceNum ||
 			!cmp.Equal(prepareMessage.Digest, record.Digest) {
-			log.Warnf("Rejected: %s; invalid digest", utils.LoggingString(prepareMessage, record.Request))
+			// log.Warnf("Rejected: %s; does not match log record", utils.LoggingString(prepareMessage, record.Request))
 			continue
 		}
 
@@ -165,7 +163,7 @@ func (n *LinearPBFTNode) Prepare(ctx context.Context, signedPrepareMessages *pb.
 	// If verified count is less than 2f + 1 then return nil
 	if verifiedCount < int(2*n.F+1) {
 		log.Warnf("Ignored: %d; not enough prepare messages (verified: %d)", sequenceNum, verifiedCount)
-		return nil, nil
+		return nil, status.Errorf(codes.FailedPrecondition, "not enough prepare messages")
 	}
 
 	// Log the prepare message
@@ -190,25 +188,28 @@ func (n *LinearPBFTNode) Prepare(ctx context.Context, signedPrepareMessages *pb.
 	return signedCommitMessage, nil
 }
 
+// Commit handles incoming commit messages
 func (n *LinearPBFTNode) Commit(ctx context.Context, signedCommitMessages *pb.CollectedSignedCommitMessage) (*emptypb.Empty, error) {
 	viewNumber := signedCommitMessages.ViewNumber
 	sequenceNum := signedCommitMessages.SequenceNum
 
 	// Ignore if already in view change
 	if n.ViewChangePhase {
-		log.Infof("Ignored: %s; already in view change", utils.LoggingString(signedCommitMessages))
-		return nil, nil
+		log.Infof("Ignored: %s; view change phase", utils.LoggingString(signedCommitMessages))
+		return nil, status.Errorf(codes.Unavailable, "view change phase")
 	}
 
 	// Verify View Number
 	if viewNumber != n.ViewNumber {
-		return nil, nil
+		log.Warnf("Rejected: %s; invalid view number (expected: %d)", utils.LoggingString(signedCommitMessages), n.ViewNumber)
+		return nil, status.Errorf(codes.InvalidArgument, "invalid view number")
 	}
 
-	// Get the prepared record from prepared log
+	// Get the record from log record or create new one
 	n.Mutex.Lock()
 	record, ok := n.LogRecords[sequenceNum]
 	if !ok {
+		// Create new log record if no record exists for this sequence number
 		record = CreateLogRecord(viewNumber, sequenceNum, signedCommitMessages.Digest)
 		n.LogRecords[sequenceNum] = record
 
@@ -230,22 +231,16 @@ func (n *LinearPBFTNode) Commit(ctx context.Context, signedCommitMessages *pb.Co
 	// Verify Commit Messages
 	verifiedCount := 0
 	for _, signedCommitMessage := range signedCommitMessages.Messages {
+		// TODO: remove this check later if we are sure that the commit messages are not nil
 		if signedCommitMessage == nil {
 			log.Fatal("Signed commit message is nil")
 		}
 		commitMessage := signedCommitMessage.Message
 
 		// Verify Signature
-		var publicKey []byte
-		log.Debug(commitMessage.String())
-		if commitMessage.NodeID == n.ID {
-			publicKey = n.PublicKey
-		} else {
-			publicKey = n.Peers[commitMessage.NodeID].PublicKey
-		}
-		ok := crypto.Verify(commitMessage, publicKey, signedCommitMessage.Signature)
+		ok := crypto.Verify(commitMessage, n.GetPublicKey(commitMessage.NodeID), signedCommitMessage.Signature)
 		if !ok {
-			log.Warnf("Rejected: %s; invalid signature", utils.LoggingString(commitMessage, record.Request))
+			// log.Warnf("Rejected: %s; invalid signature", utils.LoggingString(commitMessage, record.Request))
 			continue
 		}
 
@@ -253,7 +248,7 @@ func (n *LinearPBFTNode) Commit(ctx context.Context, signedCommitMessages *pb.Co
 		if commitMessage.ViewNumber != record.ViewNumber ||
 			commitMessage.SequenceNum != record.SequenceNum ||
 			!cmp.Equal(commitMessage.Digest, record.Digest) {
-			log.Warnf("Rejected: %s; invalid digest", utils.LoggingString(commitMessage, record.Request))
+			// log.Warnf("Rejected: %s; does not match log record", utils.LoggingString(commitMessage, record.Request))
 			continue
 		}
 
@@ -263,8 +258,8 @@ func (n *LinearPBFTNode) Commit(ctx context.Context, signedCommitMessages *pb.Co
 
 	// If verified count is less than 2f + 1 then return nil
 	if verifiedCount < int(2*n.F+1) {
-		log.Warnf("Not enough commit messages to commit message (v: %d, s: %d)", n.ViewNumber, sequenceNum)
-		return nil, nil
+		log.Warnf("Ignored: %d; not enough commit messages (verified: %d)", sequenceNum, verifiedCount)
+		return nil, status.Errorf(codes.FailedPrecondition, "not enough commit messages")
 	}
 
 	// Log the commit message

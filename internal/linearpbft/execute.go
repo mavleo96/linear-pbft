@@ -5,14 +5,15 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// TryExecute tries to execute a transaction
 func (n *LinearPBFTNode) TryExecute(sequenceNum int64) {
-	// Check if sequence number is in executed log
+	// Get the record from log record or create new one
 	n.Mutex.Lock()
 	defer n.Mutex.Unlock()
 	record := n.LogRecords[sequenceNum]
 
+	// If record is not nil and already executed, send reply if timestamp is same as last reply
 	if record != nil && record.IsExecuted() {
-		// Send reply if timestamp is same as last reply
 		request := record.Request
 		lastReply := n.LastReply.Get(request.Sender)
 		if lastReply != nil && request.Timestamp == lastReply.Timestamp {
@@ -52,7 +53,7 @@ func (n *LinearPBFTNode) TryExecute(sequenceNum int64) {
 			log.Fatal(err)
 		}
 
-		// Add to executed log
+		// Add to executed log and send reply if transaction is not null
 		record.SetExecuted()
 		// TODO: make this elegant since leader doesn't have a safe timer running
 		n.SafeTimer.DecrementWaitCountAndResetOrStopIfZero()

@@ -104,6 +104,7 @@ func CreateLogRecord(viewNumber int64, sequenceNumber int64, digest []byte) *Log
 }
 
 // updateLogState updates the log state
+// TODO: should maybe ensure everthing is in same view number
 func (l *LogRecord) updateLogState() {
 	if l.prePrepareMessage == nil {
 		return
