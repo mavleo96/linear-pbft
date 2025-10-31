@@ -104,7 +104,7 @@ func processReadOnlyTransaction(request *pb.SignedTransactionRequest, clientID s
 			resultMap[message.Result]++
 
 			// Check if we have enough matches
-			maxVal, maxCnt := tempCounterFunction(resultMap)
+			maxVal, maxCnt := utils.MaxByValue(resultMap)
 			if maxCnt >= 5 {
 				return maxVal, nil
 			}
@@ -112,16 +112,4 @@ func processReadOnlyTransaction(request *pb.SignedTransactionRequest, clientID s
 			return 0, errors.New("timed out")
 		}
 	}
-}
-
-func tempCounterFunction(m map[int64]int64) (int64, int64) {
-	maxVal := int64(0)
-	maxCnt := int64(0)
-	for k, v := range m {
-		if v > maxCnt {
-			maxVal = k
-			maxCnt = v
-		}
-	}
-	return maxVal, maxCnt
 }

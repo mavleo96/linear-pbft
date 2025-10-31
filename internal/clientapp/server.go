@@ -79,7 +79,7 @@ func (s *ClientAppServer) ClientReceiveRoutine(ctx context.Context) {
 
 			// Check if f+1 matching values have been received
 			// and respond on result channel with the value
-			maxVal, maxCnt := CounterFunction(replyMap)
+			maxVal, maxCnt := utils.MaxByValue(utils.CountMap(utils.Values(replyMap)))
 			if maxCnt >= s.F+1 {
 				majorityReached = true
 				s.ResultCh <- maxVal
@@ -153,23 +153,6 @@ func (s *ClientAppServer) ReceiveReply(ctx context.Context, resp *pb.SignedTrans
 	s.ResponseCh <- message
 
 	return &emptypb.Empty{}, nil
-}
-
-// Max return the key whose value is maximum
-func CounterFunction(m map[string]int64) (int64, int64) {
-	count := make(map[int64]int64)
-	for _, v := range m {
-		count[v]++
-	}
-	maxVal := int64(0)
-	maxCnt := int64(0)
-	for k, v := range count {
-		if v > maxCnt {
-			maxVal = k
-			maxCnt = v
-		}
-	}
-	return maxVal, maxCnt
 }
 
 func CreateClientAppServer(ctx context.Context, client *models.Client, nodes map[string]*models.Node) (chan *TestSet, error) {
