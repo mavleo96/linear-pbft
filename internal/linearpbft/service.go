@@ -30,6 +30,12 @@ func (n *LinearPBFTNode) TransferRequest(ctx context.Context, signedRequest *pb.
 		return &emptypb.Empty{}, nil
 	}
 
+	// Ignore request if in view change phase
+	if n.ViewChangePhase {
+		log.Infof("Ignore request for view change phase: %s", utils.LoggingString(request))
+		return &emptypb.Empty{}, nil
+	}
+
 	// Forward request to leader if not leader
 	if n.ID != utils.ViewNumberToLeaderID(n.ViewNumber, n.N) {
 		n.SafeTimer.IncrementWaitCountOrStart()
@@ -111,6 +117,13 @@ func (n *LinearPBFTNode) ReadOnlyRequest(ctx context.Context, signedRequest *pb.
 		log.Warnf("Invalid client signature for request %s", request.String())
 		return nil, status.Errorf(codes.Unauthenticated, "invalid signature")
 	}
+
+	// Ignore request if in view change phase
+	if n.ViewChangePhase {
+		log.Infof("Ignore request for view change phase: %s", utils.LoggingString(request))
+		return nil, status.Errorf(codes.Unavailable, "view change phase")
+	}
+
 	balance, err := n.DB.GetBalance(request.Sender)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "%s", err.Error())

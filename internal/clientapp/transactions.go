@@ -72,7 +72,9 @@ func processReadOnlyTransaction(request *pb.SignedTransactionRequest, clientID s
 			defer wg.Done()
 			resp, err := nClient.ReadOnlyRequest(context.Background(), r)
 			if err != nil {
-				log.Fatal(err)
+				// log.Fatal(err)
+				// log.Warnf("Error reading only request: %s", err.Error())
+				return
 			}
 			responseCh <- resp
 		}(request, node.ID, *node.Client)
@@ -94,7 +96,7 @@ func processReadOnlyTransaction(request *pb.SignedTransactionRequest, clientID s
 
 			// verify signature
 			if !security.Verify(message, nodeMap[message.NodeID].PublicKey, signedResponse.Signature) {
-				log.Warnf("Invalid signature from node: %s", message.NodeID)
+				// log.Warnf("Invalid signature from node: %s", message.NodeID)
 				continue
 			}
 

@@ -18,9 +18,9 @@ func Keys[K comparable, V any](m map[K]V) []K {
 	return keys
 }
 
-func Max[T cmp.Ordered](slice []T) *T {
+func Max[T cmp.Ordered](slice []T) T {
 	if len(slice) == 0 {
-		return nil
+		return *new(T)
 	}
 	max := slice[0]
 	for _, v := range slice {
@@ -28,5 +28,5 @@ func Max[T cmp.Ordered](slice []T) *T {
 			max = v
 		}
 	}
-	return &max
+	return max
 }

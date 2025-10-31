@@ -44,7 +44,7 @@ type LinearPBFTNode struct {
 	// ExecuteSignalCh chan int64
 	// Flag bool
 
-	SentViewChange       bool
+	ViewChangePhase      bool
 	ViewChangeMessageLog map[int64]map[string]*pb.SignedViewChangeMessage // v -> (id -> msg)
 	ForwardedRequestsLog []*pb.SignedTransactionRequest
 
@@ -85,10 +85,7 @@ func (n *LinearPBFTNode) TryExecute(sequenceNum int64) {
 	}
 
 	// Get max sequence number in log record
-	maxSequenceNum := int64(0)
-	if utils.Max(utils.Keys(n.LogRecords)) != nil {
-		maxSequenceNum = *utils.Max(utils.Keys(n.LogRecords))
-	}
+	maxSequenceNum := utils.Max(utils.Keys(n.LogRecords))
 
 	// Try to execute as many transactions as possible
 	for i := n.LastExecutedSequenceNum + 1; i <= maxSequenceNum; i++ {
@@ -158,6 +155,7 @@ func CreateLinearPBFTNode(selfNode *models.Node, peerNodes map[string]*models.No
 		LastReply:               &LastReply{Mutex: sync.RWMutex{}, ReplyMap: make(map[string]*pb.TransactionResponse)},
 		LastExecutedSequenceNum: 0,
 		SafeTimer:               CreateSafeTimer(500 * time.Millisecond),
+		ViewChangePhase:         false,
 		ViewChangeMessageLog:    make(map[int64]map[string]*pb.SignedViewChangeMessage),
 		ForwardedRequestsLog:    make([]*pb.SignedTransactionRequest, 0),
 		// Flag:                    false,

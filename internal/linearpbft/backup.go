@@ -25,7 +25,7 @@ func (n *LinearPBFTNode) PrePrepare(ctx context.Context, signedMessage *pb.Signe
 	// }
 
 	// Ignore if already in view change
-	if n.SentViewChange {
+	if n.ViewChangePhase {
 		log.Infof("Ignored: %s; already in view change", utils.LoggingString(preprepareMessage, request))
 		return nil, nil
 	}
@@ -95,7 +95,7 @@ func (n *LinearPBFTNode) Prepare(ctx context.Context, signedPrepareMessages *pb.
 	sequenceNum := signedPrepareMessages.SequenceNum
 
 	// Ignore if already in view change
-	if n.SentViewChange {
+	if n.ViewChangePhase {
 		log.Infof("Ignored: %s; already in view change", utils.LoggingString(signedPrepareMessages))
 		return nil, nil
 	}
@@ -195,7 +195,7 @@ func (n *LinearPBFTNode) Commit(ctx context.Context, signedCommitMessages *pb.Co
 	sequenceNum := signedCommitMessages.SequenceNum
 
 	// Ignore if already in view change
-	if n.SentViewChange {
+	if n.ViewChangePhase {
 		log.Infof("Ignored: %s; already in view change", utils.LoggingString(signedCommitMessages))
 		return nil, nil
 	}
@@ -282,14 +282,13 @@ func (n *LinearPBFTNode) SendViewChange() error {
 	n.Mutex.Lock()
 	defer n.Mutex.Unlock()
 
-	// Set sent view change flag to true
-	n.SentViewChange = true
+	// Set sent view change flag to true and view number to current view number + 1
+	// TODO: need to send view change for smallest view number of the logged view change messages or current view number + 1
+	n.ViewChangePhase = true
+	n.ViewNumber = n.ViewNumber + 1
 
 	// Get max sequence number in log record
-	maxSequenceNum := int64(0)
-	if utils.Max(utils.Keys(n.LogRecords)) != nil {
-		maxSequenceNum = *utils.Max(utils.Keys(n.LogRecords))
-	}
+	maxSequenceNum := utils.Max(utils.Keys(n.LogRecords))
 	// TODO: later get this from stable checkpoint
 	lowerSequenceNum := int64(0)
 
@@ -307,7 +306,7 @@ func (n *LinearPBFTNode) SendViewChange() error {
 
 	// Create signed view change message
 	viewChangeMessage := &pb.ViewChangeMessage{
-		ViewNumber:  n.ViewNumber + 1,
+		ViewNumber:  n.ViewNumber,
 		SequenceNum: lowerSequenceNum,
 		PreparedSet: preparedSet,
 		NodeID:      n.ID,
@@ -336,6 +335,8 @@ func (n *LinearPBFTNode) SendViewChange() error {
 			}
 		}()
 	}
+
+	// TODO: Need to start timer here for view change timeout
 	return nil
 }
 
@@ -426,7 +427,7 @@ func (n *LinearPBFTNode) ViewChange(ctx context.Context, signedViewChangeMessage
 	}
 
 	// Send view change message to all nodes if f + 1 view change messages are collected
-	if !n.SentViewChange && len(viewChangeMessageLog) >= int(n.F+1) {
+	if !n.ViewChangePhase && len(viewChangeMessageLog) >= int(n.F+1) {
 		go n.SendViewChange()
 	}
 
@@ -438,12 +439,21 @@ func (n *LinearPBFTNode) ViewChange(ctx context.Context, signedViewChangeMessage
 	return &emptypb.Empty{}, nil
 }
 
-func (n *LinearPBFTNode) NewView(ctx context.Context, signedNewViewMessage *pb.SignedNewViewMessage) (*emptypb.Empty, error) {
+func (n *LinearPBFTNode) NewViewRoutine(ctx context.Context) {
+	n.SendNewView(n.ViewNumber)
+}
+
+func (n *LinearPBFTNode) NewView(signedNewViewMessage *pb.SignedNewViewMessage, stream pb.LinearPBFTNode_NewViewServer) error {
 	n.Mutex.Lock()
 	defer n.Mutex.Unlock()
 	newViewMessage := signedNewViewMessage.Message
 	signedViewChangeMessages := newViewMessage.SignedViewChangeMessages
 	// viewNumber := newViewMessage.ViewNumber
+
+	// Check if view number is less than current view number
+	if newViewMessage.ViewNumber < n.ViewNumber {
+		return status.Errorf(codes.FailedPrecondition, "view number is less than current view number")
+	}
 
 	// Verify signature
 	leaderID := utils.ViewNumberToLeaderID(newViewMessage.ViewNumber, n.N)
@@ -456,7 +466,7 @@ func (n *LinearPBFTNode) NewView(ctx context.Context, signedNewViewMessage *pb.S
 	ok := security.Verify(newViewMessage, leaderPublicKey, signedNewViewMessage.Signature)
 	if !ok {
 		log.Warnf("Rejected: %s; invalid signature", utils.LoggingString(newViewMessage))
-		return nil, status.Errorf(codes.InvalidArgument, "invalid signature")
+		return status.Errorf(codes.InvalidArgument, "invalid signature")
 	}
 
 	// Verify view change messages signatures
@@ -472,7 +482,7 @@ func (n *LinearPBFTNode) NewView(ctx context.Context, signedNewViewMessage *pb.S
 		ok := security.Verify(viewChangeMessage, publicKey, signedViewChangeMessage.Signature)
 		if !ok {
 			log.Warnf("Rejected: %s; invalid signature", utils.LoggingString(viewChangeMessage))
-			return nil, status.Errorf(codes.InvalidArgument, "invalid signature")
+			return status.Errorf(codes.InvalidArgument, "invalid signature")
 		}
 	}
 	// Verify preprepare messages signatures
@@ -481,7 +491,7 @@ func (n *LinearPBFTNode) NewView(ctx context.Context, signedNewViewMessage *pb.S
 		ok := security.Verify(prePrepareMessage, leaderPublicKey, signedPrePrepareMessage.Signature)
 		if !ok {
 			log.Warnf("Rejected: %s; invalid signature", utils.LoggingString(prePrepareMessage))
-			return nil, status.Errorf(codes.InvalidArgument, "invalid signature")
+			return status.Errorf(codes.InvalidArgument, "invalid signature")
 		}
 	}
 
@@ -489,7 +499,18 @@ func (n *LinearPBFTNode) NewView(ctx context.Context, signedNewViewMessage *pb.S
 
 	// Update view number
 	n.ViewNumber = newViewMessage.ViewNumber
-	n.SentViewChange = false
+	n.ViewChangePhase = false
 
-	return &emptypb.Empty{}, nil
+	// // Stream prepare messages to client
+	// for _, signedPrePrepareMessage := range newViewMessage.SignedPrePrepareMessages {
+	// 	signedPrepareMessage, err := n.PrePrepare(context.Background(), signedPrePrepareMessage)
+	// 	if err != nil {
+	// 		log.Fatal(err)
+	// 	}
+	// 	if err := stream.Send(signedPrepareMessage); err != nil {
+	// 		log.Fatal(err)
+	// 	}
+	// }
+
+	return nil
 }

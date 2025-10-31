@@ -216,7 +216,7 @@ func (n *LinearPBFTNode) SendNewView(viewNumber int64) {
 
 	// Update view number
 	n.ViewNumber = viewNumber
-	n.SentViewChange = false
+	n.ViewChangePhase = false
 
 	// Get view change messages from view change message log
 	viewChangeMessageLog := n.ViewChangeMessageLog[viewNumber]
@@ -256,10 +256,7 @@ func (n *LinearPBFTNode) SendNewView(viewNumber int64) {
 	}
 	// Order signed preprepare messages by sequence number and add no op preprepare message if sequence number is not in the log record
 	sortedSignedPrePrepareMessages := make([]*pb.SignedPrePrepareMessage, 0)
-	maxSequenceNum := int64(0)
-	if utils.Max(utils.Keys(signedPrePrepareMessages)) != nil {
-		maxSequenceNum = *utils.Max(utils.Keys(signedPrePrepareMessages))
-	}
+	maxSequenceNum := utils.Max(utils.Keys(signedPrePrepareMessages))
 	for sequenceNum := lowerSequenceNum + 1; sequenceNum <= maxSequenceNum; sequenceNum++ {
 		var newSignedPrePrepareMessage *pb.SignedPrePrepareMessage
 		if _, ok := signedPrePrepareMessages[sequenceNum]; !ok {

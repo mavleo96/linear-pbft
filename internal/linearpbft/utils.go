@@ -26,13 +26,7 @@ func (n *LinearPBFTNode) AssignSequenceNumber(request *pb.TransactionRequest) in
 	}
 
 	// If request is not in log record, assign new sequence number
-	sequenceNum := int64(0)
-	maxSequenceNum := utils.Max(utils.Keys(n.LogRecords))
-	if maxSequenceNum == nil {
-		sequenceNum = int64(1)
-	} else {
-		sequenceNum = *maxSequenceNum + 1
-	}
+	sequenceNum := utils.Max(utils.Keys(n.LogRecords)) + 1
 
 	// Add to log record and transaction map and return sequence number
 	n.LogRecords[sequenceNum] = CreateLogRecord(n.ViewNumber, sequenceNum, digest)
