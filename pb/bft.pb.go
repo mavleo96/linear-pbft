@@ -10,7 +10,6 @@ import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
-	wrapperspb "google.golang.org/protobuf/types/known/wrapperspb"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -1112,11 +1111,63 @@ func (x *SignedNewViewMessage) GetSignature() []byte {
 	return nil
 }
 
+type GetRequestMessage struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SequenceNum   int64                  `protobuf:"varint,1,opt,name=sequenceNum,proto3" json:"sequenceNum,omitempty"`
+	NodeID        string                 `protobuf:"bytes,2,opt,name=nodeID,proto3" json:"nodeID,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetRequestMessage) Reset() {
+	*x = GetRequestMessage{}
+	mi := &file_bft_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetRequestMessage) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetRequestMessage) ProtoMessage() {}
+
+func (x *GetRequestMessage) ProtoReflect() protoreflect.Message {
+	mi := &file_bft_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetRequestMessage.ProtoReflect.Descriptor instead.
+func (*GetRequestMessage) Descriptor() ([]byte, []int) {
+	return file_bft_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *GetRequestMessage) GetSequenceNum() int64 {
+	if x != nil {
+		return x.SequenceNum
+	}
+	return 0
+}
+
+func (x *GetRequestMessage) GetNodeID() string {
+	if x != nil {
+		return x.NodeID
+	}
+	return ""
+}
+
 var File_bft_proto protoreflect.FileDescriptor
 
 const file_bft_proto_rawDesc = "" +
 	"\n" +
-	"\tbft.proto\x12\x02pb\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1egoogle/protobuf/wrappers.proto\"\x9b\x01\n" +
+	"\tbft.proto\x12\x02pb\x1a\x1bgoogle/protobuf/empty.proto\"\x9b\x01\n" +
 	"\x13TransactionResponse\x12\x1e\n" +
 	"\n" +
 	"viewNumber\x18\x01 \x01(\x03R\n" +
@@ -1205,7 +1256,10 @@ const file_bft_proto_rawDesc = "" +
 	"\x18signedPrePrepareMessages\x18\x03 \x03(\v2\x1b.pb.SignedPrePrepareMessageR\x18signedPrePrepareMessages\"b\n" +
 	"\x14SignedNewViewMessage\x12,\n" +
 	"\amessage\x18\x01 \x01(\v2\x12.pb.NewViewMessageR\amessage\x12\x1c\n" +
-	"\tsignature\x18\x02 \x01(\fR\tsignature2\xe9\x04\n" +
+	"\tsignature\x18\x02 \x01(\fR\tsignature\"M\n" +
+	"\x11GetRequestMessage\x12 \n" +
+	"\vsequenceNum\x18\x01 \x01(\x03R\vsequenceNum\x12\x16\n" +
+	"\x06nodeID\x18\x02 \x01(\tR\x06nodeID2\xe3\x04\n" +
 	"\x0eLinearPBFTNode\x12G\n" +
 	"\x0fTransferRequest\x12\x1c.pb.SignedTransactionRequest\x1a\x16.google.protobuf.Empty\x12N\n" +
 	"\x0fReadOnlyRequest\x12\x1c.pb.SignedTransactionRequest\x1a\x1d.pb.SignedTransactionResponse\x12J\n" +
@@ -1213,9 +1267,9 @@ const file_bft_proto_rawDesc = "" +
 	"\x0ePrepareRequest\x12!.pb.CollectedSignedPrepareMessage\x1a\x17.pb.SignedCommitMessage\x12I\n" +
 	"\rCommitRequest\x12 .pb.CollectedSignedCommitMessage\x1a\x16.google.protobuf.Empty\x12H\n" +
 	"\x11ViewChangeRequest\x12\x1b.pb.SignedViewChangeMessage\x1a\x16.google.protobuf.Empty\x12F\n" +
-	"\x0eNewViewRequest\x12\x18.pb.SignedNewViewMessage\x1a\x18.pb.SignedPrepareMessage0\x01\x12G\n" +
+	"\x0eNewViewRequest\x12\x18.pb.SignedNewViewMessage\x1a\x18.pb.SignedPrepareMessage0\x01\x12A\n" +
 	"\n" +
-	"GetRequest\x12\x1b.google.protobuf.Int64Value\x1a\x1c.pb.SignedTransactionRequest2\\\n" +
+	"GetRequest\x12\x15.pb.GetRequestMessage\x1a\x1c.pb.SignedTransactionRequest2\\\n" +
 	"\x13LinearPBFTClientApp\x12E\n" +
 	"\fReceiveReply\x12\x1d.pb.SignedTransactionResponse\x1a\x16.google.protobuf.EmptyB%Z#github.com/mavleo96/bft-mavleo96/pbb\x06proto3"
 
@@ -1231,7 +1285,7 @@ func file_bft_proto_rawDescGZIP() []byte {
 	return file_bft_proto_rawDescData
 }
 
-var file_bft_proto_msgTypes = make([]protoimpl.MessageInfo, 18)
+var file_bft_proto_msgTypes = make([]protoimpl.MessageInfo, 19)
 var file_bft_proto_goTypes = []any{
 	(*TransactionResponse)(nil),           // 0: pb.TransactionResponse
 	(*SignedTransactionResponse)(nil),     // 1: pb.SignedTransactionResponse
@@ -1251,7 +1305,7 @@ var file_bft_proto_goTypes = []any{
 	(*SignedViewChangeMessage)(nil),       // 15: pb.SignedViewChangeMessage
 	(*NewViewMessage)(nil),                // 16: pb.NewViewMessage
 	(*SignedNewViewMessage)(nil),          // 17: pb.SignedNewViewMessage
-	(*wrapperspb.Int64Value)(nil),         // 18: google.protobuf.Int64Value
+	(*GetRequestMessage)(nil),             // 18: pb.GetRequestMessage
 	(*emptypb.Empty)(nil),                 // 19: google.protobuf.Empty
 }
 var file_bft_proto_depIdxs = []int32{
@@ -1278,7 +1332,7 @@ var file_bft_proto_depIdxs = []int32{
 	12, // 20: pb.LinearPBFTNode.CommitRequest:input_type -> pb.CollectedSignedCommitMessage
 	15, // 21: pb.LinearPBFTNode.ViewChangeRequest:input_type -> pb.SignedViewChangeMessage
 	17, // 22: pb.LinearPBFTNode.NewViewRequest:input_type -> pb.SignedNewViewMessage
-	18, // 23: pb.LinearPBFTNode.GetRequest:input_type -> google.protobuf.Int64Value
+	18, // 23: pb.LinearPBFTNode.GetRequest:input_type -> pb.GetRequestMessage
 	1,  // 24: pb.LinearPBFTClientApp.ReceiveReply:input_type -> pb.SignedTransactionResponse
 	19, // 25: pb.LinearPBFTNode.TransferRequest:output_type -> google.protobuf.Empty
 	1,  // 26: pb.LinearPBFTNode.ReadOnlyRequest:output_type -> pb.SignedTransactionResponse
@@ -1307,7 +1361,7 @@ func file_bft_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_bft_proto_rawDesc), len(file_bft_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   18,
+			NumMessages:   19,
 			NumExtensions: 0,
 			NumServices:   2,
 		},

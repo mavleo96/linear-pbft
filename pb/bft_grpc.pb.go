@@ -12,7 +12,6 @@ import (
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
-	wrapperspb "google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 // This is a compile-time assertion to ensure that this generated file
@@ -42,7 +41,7 @@ type LinearPBFTNodeClient interface {
 	CommitRequest(ctx context.Context, in *CollectedSignedCommitMessage, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	ViewChangeRequest(ctx context.Context, in *SignedViewChangeMessage, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	NewViewRequest(ctx context.Context, in *SignedNewViewMessage, opts ...grpc.CallOption) (LinearPBFTNode_NewViewRequestClient, error)
-	GetRequest(ctx context.Context, in *wrapperspb.Int64Value, opts ...grpc.CallOption) (*SignedTransactionRequest, error)
+	GetRequest(ctx context.Context, in *GetRequestMessage, opts ...grpc.CallOption) (*SignedTransactionRequest, error)
 }
 
 type linearPBFTNodeClient struct {
@@ -139,7 +138,7 @@ func (x *linearPBFTNodeNewViewRequestClient) Recv() (*SignedPrepareMessage, erro
 	return m, nil
 }
 
-func (c *linearPBFTNodeClient) GetRequest(ctx context.Context, in *wrapperspb.Int64Value, opts ...grpc.CallOption) (*SignedTransactionRequest, error) {
+func (c *linearPBFTNodeClient) GetRequest(ctx context.Context, in *GetRequestMessage, opts ...grpc.CallOption) (*SignedTransactionRequest, error) {
 	out := new(SignedTransactionRequest)
 	err := c.cc.Invoke(ctx, LinearPBFTNode_GetRequest_FullMethodName, in, out, opts...)
 	if err != nil {
@@ -159,7 +158,7 @@ type LinearPBFTNodeServer interface {
 	CommitRequest(context.Context, *CollectedSignedCommitMessage) (*emptypb.Empty, error)
 	ViewChangeRequest(context.Context, *SignedViewChangeMessage) (*emptypb.Empty, error)
 	NewViewRequest(*SignedNewViewMessage, LinearPBFTNode_NewViewRequestServer) error
-	GetRequest(context.Context, *wrapperspb.Int64Value) (*SignedTransactionRequest, error)
+	GetRequest(context.Context, *GetRequestMessage) (*SignedTransactionRequest, error)
 	mustEmbedUnimplementedLinearPBFTNodeServer()
 }
 
@@ -188,7 +187,7 @@ func (UnimplementedLinearPBFTNodeServer) ViewChangeRequest(context.Context, *Sig
 func (UnimplementedLinearPBFTNodeServer) NewViewRequest(*SignedNewViewMessage, LinearPBFTNode_NewViewRequestServer) error {
 	return status.Errorf(codes.Unimplemented, "method NewViewRequest not implemented")
 }
-func (UnimplementedLinearPBFTNodeServer) GetRequest(context.Context, *wrapperspb.Int64Value) (*SignedTransactionRequest, error) {
+func (UnimplementedLinearPBFTNodeServer) GetRequest(context.Context, *GetRequestMessage) (*SignedTransactionRequest, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetRequest not implemented")
 }
 func (UnimplementedLinearPBFTNodeServer) mustEmbedUnimplementedLinearPBFTNodeServer() {}
@@ -334,7 +333,7 @@ func (x *linearPBFTNodeNewViewRequestServer) Send(m *SignedPrepareMessage) error
 }
 
 func _LinearPBFTNode_GetRequest_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(wrapperspb.Int64Value)
+	in := new(GetRequestMessage)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -346,7 +345,7 @@ func _LinearPBFTNode_GetRequest_Handler(srv interface{}, ctx context.Context, de
 		FullMethod: LinearPBFTNode_GetRequest_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(LinearPBFTNodeServer).GetRequest(ctx, req.(*wrapperspb.Int64Value))
+		return srv.(LinearPBFTNodeServer).GetRequest(ctx, req.(*GetRequestMessage))
 	}
 	return interceptor(ctx, in, info, handler)
 }

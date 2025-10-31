@@ -13,13 +13,26 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
-	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 // PrePrepare handles incoming preprepare messages
 func (n *LinearPBFTNode) PrePrepareRequest(ctx context.Context, signedMessage *pb.SignedPrePrepareMessage) (*pb.SignedPrepareMessage, error) {
 	prePrepareMessage := signedMessage.Message
 	signedRequest := signedMessage.Request
+
+	// Ignore if already in view change
+	if n.ViewChangePhase {
+		log.Infof("Ignored: %s; view change phase", utils.LoggingString(prePrepareMessage))
+		return nil, status.Errorf(codes.Unavailable, "view change phase")
+	}
+
+	// Verify Node's signature
+	currentLeaderID := utils.ViewNumberToLeaderID(n.ViewNumber, n.N)
+	ok := crypto.Verify(prePrepareMessage, n.GetPublicKey(currentLeaderID), signedMessage.Signature)
+	if !ok {
+		log.Warnf("Rejected: %s; invalid signature", utils.LoggingString(prePrepareMessage))
+		return nil, status.Errorf(codes.Unauthenticated, "invalid signature")
+	}
 
 	// If request is nil then try getting it from log record or send get request rpc
 	if signedRequest == nil {
@@ -30,27 +43,13 @@ func (n *LinearPBFTNode) PrePrepareRequest(ctx context.Context, signedMessage *p
 			// If request is not in log record then send get request rpc
 			response, err := n.SendGetRequest(prePrepareMessage.SequenceNum)
 			if err != nil || response == nil {
-				// return nil, err
-				log.Fatal("Request not found in log record and get request rpc failed")
+				log.Warnf("Rejected: %s; request could not be retrieved", utils.LoggingString(prePrepareMessage))
+				return nil, status.Errorf(codes.FailedPrecondition, "request could not be retrieved")
 			}
 			signedRequest = response
 		}
 	}
 	request := signedRequest.Request
-
-	// Ignore if already in view change
-	if n.ViewChangePhase {
-		log.Infof("Ignored: %s; view change phase", utils.LoggingString(prePrepareMessage, request))
-		return nil, status.Errorf(codes.Unavailable, "view change phase")
-	}
-
-	// Verify Node's signature
-	currentLeaderID := utils.ViewNumberToLeaderID(n.ViewNumber, n.N)
-	ok := crypto.Verify(prePrepareMessage, n.Peers[currentLeaderID].PublicKey, signedMessage.Signature)
-	if !ok {
-		log.Warnf("Rejected: %s; invalid signature", utils.LoggingString(prePrepareMessage, request))
-		return nil, status.Errorf(codes.Unauthenticated, "invalid signature")
-	}
 
 	// Verify client signature
 	ok = crypto.Verify(request, n.Clients[request.Sender].PublicKey, signedRequest.Signature)
@@ -304,6 +303,11 @@ func (n *LinearPBFTNode) CommitRequest(ctx context.Context, signedCommitMessages
 
 // SendGetRequest sends a get request to all nodes for a given sequence number
 func (n *LinearPBFTNode) SendGetRequest(sequenceNum int64) (*pb.SignedTransactionRequest, error) {
+	getRequestMessage := &pb.GetRequestMessage{
+		SequenceNum: sequenceNum,
+		NodeID:      n.ID,
+	}
+
 	// Multicast get request to all nodes
 	responseCh := make(chan *pb.SignedTransactionRequest, len(n.Peers))
 	wg := sync.WaitGroup{}
@@ -312,7 +316,7 @@ func (n *LinearPBFTNode) SendGetRequest(sequenceNum int64) (*pb.SignedTransactio
 		wg.Add(1)
 		go func(peer *models.Node) {
 			defer wg.Done()
-			signedRequest, err := (*peer.Client).GetRequest(context.Background(), wrapperspb.Int64(sequenceNum))
+			signedRequest, err := (*peer.Client).GetRequest(context.Background(), getRequestMessage)
 			if err != nil {
 				return
 			}
@@ -357,18 +361,21 @@ func (n *LinearPBFTNode) SendGetRequest(sequenceNum int64) (*pb.SignedTransactio
 
 		return signedRequest, nil
 	}
+	log.Warnf("Missing request for sequence number %d could not be retrieved from any node", sequenceNum)
 	return nil, status.Errorf(codes.NotFound, "request not found")
 }
 
 // GetRequest gets a request from the log record for a given sequence number
-func (n *LinearPBFTNode) GetRequest(ctx context.Context, sequenceNum *wrapperspb.Int64Value) (*pb.SignedTransactionRequest, error) {
+func (n *LinearPBFTNode) GetRequest(ctx context.Context, getRequestMessage *pb.GetRequestMessage) (*pb.SignedTransactionRequest, error) {
 	n.Mutex.Lock()
 	defer n.Mutex.Unlock()
 
-	record, ok := n.LogRecords[sequenceNum.Value]
-	if !ok {
+	sequenceNum := getRequestMessage.SequenceNum
+	record, ok := n.LogRecords[sequenceNum]
+	if !ok || record.Request == nil {
+		log.Warnf("Rejected: %s; sequence number not found", utils.LoggingString(getRequestMessage))
 		return nil, status.Errorf(codes.NotFound, "sequence number not found")
 	}
-
+	log.Infof("Sent request for %s: request %s", utils.LoggingString(getRequestMessage), utils.LoggingString(record.Request))
 	return record.Request, nil
 }

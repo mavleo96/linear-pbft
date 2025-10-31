@@ -29,6 +29,8 @@ func LoggingString(t any, request ...*pb.TransactionRequest) string {
 		return transactionRequestString(v)
 	case *pb.Transaction:
 		return transactionString(v)
+	case *pb.GetRequestMessage:
+		return getRequestMessageString(v)
 	default:
 		return fmt.Sprintf("<%T>", t)
 	}
@@ -79,6 +81,9 @@ func prepareMessageString(p *pb.PrepareMessage, request *pb.TransactionRequest) 
 }
 
 func prePrepareMessageString(p *pb.PrePrepareMessage, request *pb.TransactionRequest) string {
+	if request == nil {
+		return fmt.Sprintf("<PREPREPARE, %d, %d, D(message)>", p.ViewNumber, p.SequenceNum)
+	}
 	return fmt.Sprintf("<PREPREPARE, %d, %d, D(%s)>", p.ViewNumber, p.SequenceNum, transactionRequestString(request))
 }
 
@@ -94,4 +99,8 @@ func transactionString(t *pb.Transaction) string {
 		return fmt.Sprintf("(%s)", t.Sender)
 	}
 	return fmt.Sprintf("(%s, %s, %d)", t.Sender, t.Receiver, t.Amount)
+}
+
+func getRequestMessageString(g *pb.GetRequestMessage) string {
+	return fmt.Sprintf("<GETREQUEST, %d, %s>", g.SequenceNum, g.NodeID)
 }
