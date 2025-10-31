@@ -32,7 +32,7 @@ type LogRecord struct {
 	prePrepareMessage *pb.SignedPrePrepareMessage
 	prepareMessages   []*pb.SignedPrepareMessage
 	commitMessages    []*pb.SignedCommitMessage
-	Request           *pb.TransactionRequest
+	Request           *pb.SignedTransactionRequest
 }
 
 // IsPrePrepared returns true if the log record is preprepared
@@ -63,7 +63,7 @@ func (l *LogRecord) SetExecuted() {
 // AddPrePrepareMessage adds a preprepare message to the log record
 func (l *LogRecord) AddPrePrepareMessage(signedPrePrepareMessage *pb.SignedPrePrepareMessage) {
 	l.prePrepareMessage = signedPrePrepareMessage
-	l.Request = signedPrePrepareMessage.Request
+	// l.Request = signedPrePrepareMessage.Request
 	l.updateLogState()
 }
 
@@ -77,6 +77,11 @@ func (l *LogRecord) AddPrepareMessages(signedPrepareMessages []*pb.SignedPrepare
 func (l *LogRecord) AddCommitMessages(signedCommitMessages []*pb.SignedCommitMessage) {
 	l.commitMessages = signedCommitMessages
 	l.updateLogState()
+}
+
+// AddRequest adds a request to the log record
+func (l *LogRecord) AddRequest(request *pb.SignedTransactionRequest) {
+	l.Request = request
 }
 
 // GetPrepareProof returns the prepare proof for the log record
@@ -110,17 +115,17 @@ func (l *LogRecord) updateLogState() {
 		return
 	}
 	l.prePrepared = true
-	log.Infof("Preprepared (v: %d, s: %d): %s", l.ViewNumber, l.SequenceNum, utils.LoggingString(l.Request))
+	log.Infof("Preprepared (v: %d, s: %d): %s", l.ViewNumber, l.SequenceNum, utils.LoggingString(l.Request.Request))
 	if len(l.prepareMessages) == 0 {
 		return
 	}
 	l.prepared = true
-	log.Infof("Prepared (v: %d, s: %d): %s", l.ViewNumber, l.SequenceNum, utils.LoggingString(l.Request))
+	log.Infof("Prepared (v: %d, s: %d): %s", l.ViewNumber, l.SequenceNum, utils.LoggingString(l.Request.Request))
 	if len(l.commitMessages) == 0 {
 		return
 	}
 	l.committed = true
-	log.Infof("Committed (v: %d, s: %d): %s", l.ViewNumber, l.SequenceNum, utils.LoggingString(l.Request))
+	log.Infof("Committed (v: %d, s: %d): %s", l.ViewNumber, l.SequenceNum, utils.LoggingString(l.Request.Request))
 }
 
 // LastReply represents a map of sender to last sent reply with a mutex

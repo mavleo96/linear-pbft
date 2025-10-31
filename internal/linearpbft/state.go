@@ -31,6 +31,7 @@ type LinearPBFTNode struct {
 	LastExecutedSequenceNum int64
 	LastReply               *LastReply
 	ViewChangePhase         bool
+	ViewChangeViewNumber    int64
 
 	// Timer instance
 	SafeTimer *SafeTimer

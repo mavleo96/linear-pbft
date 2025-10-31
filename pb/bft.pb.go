@@ -10,6 +10,7 @@ import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
+	wrapperspb "google.golang.org/protobuf/types/known/wrapperspb"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -391,10 +392,10 @@ func (x *PrePrepareMessage) GetDigest() []byte {
 }
 
 type SignedPrePrepareMessage struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Message       *PrePrepareMessage     `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
-	Signature     []byte                 `protobuf:"bytes,2,opt,name=signature,proto3" json:"signature,omitempty"`
-	Request       *TransactionRequest    `protobuf:"bytes,3,opt,name=request,proto3" json:"request,omitempty"`
+	state         protoimpl.MessageState    `protogen:"open.v1"`
+	Message       *PrePrepareMessage        `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
+	Signature     []byte                    `protobuf:"bytes,2,opt,name=signature,proto3" json:"signature,omitempty"`
+	Request       *SignedTransactionRequest `protobuf:"bytes,3,opt,name=request,proto3" json:"request,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -443,7 +444,7 @@ func (x *SignedPrePrepareMessage) GetSignature() []byte {
 	return nil
 }
 
-func (x *SignedPrePrepareMessage) GetRequest() *TransactionRequest {
+func (x *SignedPrePrepareMessage) GetRequest() *SignedTransactionRequest {
 	if x != nil {
 		return x.Request
 	}
@@ -1115,7 +1116,7 @@ var File_bft_proto protoreflect.FileDescriptor
 
 const file_bft_proto_rawDesc = "" +
 	"\n" +
-	"\tbft.proto\x12\x02pb\x1a\x1bgoogle/protobuf/empty.proto\"\x9b\x01\n" +
+	"\tbft.proto\x12\x02pb\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1egoogle/protobuf/wrappers.proto\"\x9b\x01\n" +
 	"\x13TransactionResponse\x12\x1e\n" +
 	"\n" +
 	"viewNumber\x18\x01 \x01(\x03R\n" +
@@ -1144,11 +1145,11 @@ const file_bft_proto_rawDesc = "" +
 	"viewNumber\x18\x01 \x01(\x03R\n" +
 	"viewNumber\x12 \n" +
 	"\vsequenceNum\x18\x02 \x01(\x03R\vsequenceNum\x12\x16\n" +
-	"\x06digest\x18\x03 \x01(\fR\x06digest\"\x9a\x01\n" +
+	"\x06digest\x18\x03 \x01(\fR\x06digest\"\xa0\x01\n" +
 	"\x17SignedPrePrepareMessage\x12/\n" +
 	"\amessage\x18\x01 \x01(\v2\x15.pb.PrePrepareMessageR\amessage\x12\x1c\n" +
-	"\tsignature\x18\x02 \x01(\fR\tsignature\x120\n" +
-	"\arequest\x18\x03 \x01(\v2\x16.pb.TransactionRequestR\arequest\"\x82\x01\n" +
+	"\tsignature\x18\x02 \x01(\fR\tsignature\x126\n" +
+	"\arequest\x18\x03 \x01(\v2\x1c.pb.SignedTransactionRequestR\arequest\"\x82\x01\n" +
 	"\x0ePrepareMessage\x12\x1e\n" +
 	"\n" +
 	"viewNumber\x18\x01 \x01(\x03R\n" +
@@ -1204,15 +1205,17 @@ const file_bft_proto_rawDesc = "" +
 	"\x18signedPrePrepareMessages\x18\x03 \x03(\v2\x1b.pb.SignedPrePrepareMessageR\x18signedPrePrepareMessages\"b\n" +
 	"\x14SignedNewViewMessage\x12,\n" +
 	"\amessage\x18\x01 \x01(\v2\x12.pb.NewViewMessageR\amessage\x12\x1c\n" +
-	"\tsignature\x18\x02 \x01(\fR\tsignature2\x9c\x04\n" +
+	"\tsignature\x18\x02 \x01(\fR\tsignature2\xe9\x04\n" +
 	"\x0eLinearPBFTNode\x12G\n" +
 	"\x0fTransferRequest\x12\x1c.pb.SignedTransactionRequest\x1a\x16.google.protobuf.Empty\x12N\n" +
 	"\x0fReadOnlyRequest\x12\x1c.pb.SignedTransactionRequest\x1a\x1d.pb.SignedTransactionResponse\x12J\n" +
 	"\x11PrePrepareRequest\x12\x1b.pb.SignedPrePrepareMessage\x1a\x18.pb.SignedPrepareMessage\x12L\n" +
 	"\x0ePrepareRequest\x12!.pb.CollectedSignedPrepareMessage\x1a\x17.pb.SignedCommitMessage\x12I\n" +
 	"\rCommitRequest\x12 .pb.CollectedSignedCommitMessage\x1a\x16.google.protobuf.Empty\x12H\n" +
-	"\x11ViewChangeRequest\x12\x1b.pb.SignedViewChangeMessage\x1a\x16.google.protobuf.Empty\x12B\n" +
-	"\x0eNewViewRequest\x12\x18.pb.SignedNewViewMessage\x1a\x16.google.protobuf.Empty2\\\n" +
+	"\x11ViewChangeRequest\x12\x1b.pb.SignedViewChangeMessage\x1a\x16.google.protobuf.Empty\x12F\n" +
+	"\x0eNewViewRequest\x12\x18.pb.SignedNewViewMessage\x1a\x18.pb.SignedPrepareMessage0\x01\x12G\n" +
+	"\n" +
+	"GetRequest\x12\x1b.google.protobuf.Int64Value\x1a\x1c.pb.SignedTransactionRequest2\\\n" +
 	"\x13LinearPBFTClientApp\x12E\n" +
 	"\fReceiveReply\x12\x1d.pb.SignedTransactionResponse\x1a\x16.google.protobuf.EmptyB%Z#github.com/mavleo96/bft-mavleo96/pbb\x06proto3"
 
@@ -1248,14 +1251,15 @@ var file_bft_proto_goTypes = []any{
 	(*SignedViewChangeMessage)(nil),       // 15: pb.SignedViewChangeMessage
 	(*NewViewMessage)(nil),                // 16: pb.NewViewMessage
 	(*SignedNewViewMessage)(nil),          // 17: pb.SignedNewViewMessage
-	(*emptypb.Empty)(nil),                 // 18: google.protobuf.Empty
+	(*wrapperspb.Int64Value)(nil),         // 18: google.protobuf.Int64Value
+	(*emptypb.Empty)(nil),                 // 19: google.protobuf.Empty
 }
 var file_bft_proto_depIdxs = []int32{
 	0,  // 0: pb.SignedTransactionResponse.message:type_name -> pb.TransactionResponse
 	4,  // 1: pb.TransactionRequest.transaction:type_name -> pb.Transaction
 	2,  // 2: pb.SignedTransactionRequest.request:type_name -> pb.TransactionRequest
 	5,  // 3: pb.SignedPrePrepareMessage.message:type_name -> pb.PrePrepareMessage
-	2,  // 4: pb.SignedPrePrepareMessage.request:type_name -> pb.TransactionRequest
+	3,  // 4: pb.SignedPrePrepareMessage.request:type_name -> pb.SignedTransactionRequest
 	7,  // 5: pb.SignedPrepareMessage.message:type_name -> pb.PrepareMessage
 	8,  // 6: pb.CollectedSignedPrepareMessage.messages:type_name -> pb.SignedPrepareMessage
 	10, // 7: pb.SignedCommitMessage.message:type_name -> pb.CommitMessage
@@ -1274,17 +1278,19 @@ var file_bft_proto_depIdxs = []int32{
 	12, // 20: pb.LinearPBFTNode.CommitRequest:input_type -> pb.CollectedSignedCommitMessage
 	15, // 21: pb.LinearPBFTNode.ViewChangeRequest:input_type -> pb.SignedViewChangeMessage
 	17, // 22: pb.LinearPBFTNode.NewViewRequest:input_type -> pb.SignedNewViewMessage
-	1,  // 23: pb.LinearPBFTClientApp.ReceiveReply:input_type -> pb.SignedTransactionResponse
-	18, // 24: pb.LinearPBFTNode.TransferRequest:output_type -> google.protobuf.Empty
-	1,  // 25: pb.LinearPBFTNode.ReadOnlyRequest:output_type -> pb.SignedTransactionResponse
-	8,  // 26: pb.LinearPBFTNode.PrePrepareRequest:output_type -> pb.SignedPrepareMessage
-	11, // 27: pb.LinearPBFTNode.PrepareRequest:output_type -> pb.SignedCommitMessage
-	18, // 28: pb.LinearPBFTNode.CommitRequest:output_type -> google.protobuf.Empty
-	18, // 29: pb.LinearPBFTNode.ViewChangeRequest:output_type -> google.protobuf.Empty
-	18, // 30: pb.LinearPBFTNode.NewViewRequest:output_type -> google.protobuf.Empty
-	18, // 31: pb.LinearPBFTClientApp.ReceiveReply:output_type -> google.protobuf.Empty
-	24, // [24:32] is the sub-list for method output_type
-	16, // [16:24] is the sub-list for method input_type
+	18, // 23: pb.LinearPBFTNode.GetRequest:input_type -> google.protobuf.Int64Value
+	1,  // 24: pb.LinearPBFTClientApp.ReceiveReply:input_type -> pb.SignedTransactionResponse
+	19, // 25: pb.LinearPBFTNode.TransferRequest:output_type -> google.protobuf.Empty
+	1,  // 26: pb.LinearPBFTNode.ReadOnlyRequest:output_type -> pb.SignedTransactionResponse
+	8,  // 27: pb.LinearPBFTNode.PrePrepareRequest:output_type -> pb.SignedPrepareMessage
+	11, // 28: pb.LinearPBFTNode.PrepareRequest:output_type -> pb.SignedCommitMessage
+	19, // 29: pb.LinearPBFTNode.CommitRequest:output_type -> google.protobuf.Empty
+	19, // 30: pb.LinearPBFTNode.ViewChangeRequest:output_type -> google.protobuf.Empty
+	8,  // 31: pb.LinearPBFTNode.NewViewRequest:output_type -> pb.SignedPrepareMessage
+	3,  // 32: pb.LinearPBFTNode.GetRequest:output_type -> pb.SignedTransactionRequest
+	19, // 33: pb.LinearPBFTClientApp.ReceiveReply:output_type -> google.protobuf.Empty
+	25, // [25:34] is the sub-list for method output_type
+	16, // [16:25] is the sub-list for method input_type
 	16, // [16:16] is the sub-list for extension type_name
 	16, // [16:16] is the sub-list for extension extendee
 	0,  // [0:16] is the sub-list for field type_name

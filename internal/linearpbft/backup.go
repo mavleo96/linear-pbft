@@ -2,21 +2,41 @@ package linearpbft
 
 import (
 	"context"
+	"sync"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/mavleo96/bft-mavleo96/internal/crypto"
+	"github.com/mavleo96/bft-mavleo96/internal/models"
 	"github.com/mavleo96/bft-mavleo96/internal/utils"
 	"github.com/mavleo96/bft-mavleo96/pb"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 // PrePrepare handles incoming preprepare messages
 func (n *LinearPBFTNode) PrePrepareRequest(ctx context.Context, signedMessage *pb.SignedPrePrepareMessage) (*pb.SignedPrepareMessage, error) {
 	prePrepareMessage := signedMessage.Message
-	request := signedMessage.Request
+	signedRequest := signedMessage.Request
+
+	// If request is nil then try getting it from log record or send get request rpc
+	if signedRequest == nil {
+		// Try getting request from log record
+		if record, ok := n.LogRecords[prePrepareMessage.SequenceNum]; ok && record.Request != nil {
+			signedRequest = record.Request
+		} else {
+			// If request is not in log record then send get request rpc
+			response, err := n.SendGetRequest(prePrepareMessage.SequenceNum)
+			if err != nil || response == nil {
+				// return nil, err
+				log.Fatal("Request not found in log record and get request rpc failed")
+			}
+			signedRequest = response
+		}
+	}
+	request := signedRequest.Request
 
 	// Ignore if already in view change
 	if n.ViewChangePhase {
@@ -30,6 +50,13 @@ func (n *LinearPBFTNode) PrePrepareRequest(ctx context.Context, signedMessage *p
 	if !ok {
 		log.Warnf("Rejected: %s; invalid signature", utils.LoggingString(prePrepareMessage, request))
 		return nil, status.Errorf(codes.Unauthenticated, "invalid signature")
+	}
+
+	// Verify client signature
+	ok = crypto.Verify(request, n.Clients[request.Sender].PublicKey, signedRequest.Signature)
+	if !ok {
+		log.Warnf("Rejected: %s; invalid signature on request", utils.LoggingString(request))
+		return nil, status.Errorf(codes.Unauthenticated, "invalid signature on request")
 	}
 
 	// Verify View Number
@@ -54,11 +81,13 @@ func (n *LinearPBFTNode) PrePrepareRequest(ctx context.Context, signedMessage *p
 			log.Warnf("Rejected: %s; previously accepted %s", utils.LoggingString(prePrepareMessage, request), utils.LoggingString(record.Request))
 			return nil, status.Errorf(codes.FailedPrecondition, "previously accepted preprepare message with different digest")
 		}
+		record.AddRequest(signedRequest)
 		record.AddPrePrepareMessage(signedMessage)
 	} else {
 		// Create new log record if no record exists for this sequence number
 		record = CreateLogRecord(prePrepareMessage.ViewNumber, prePrepareMessage.SequenceNum, crypto.Digest(request))
 		n.LogRecords[prePrepareMessage.SequenceNum] = record
+		record.AddRequest(signedRequest)
 		record.AddPrePrepareMessage(signedMessage)
 
 		//  TODO: check if safety issue here and if code can be improved
@@ -271,4 +300,70 @@ func (n *LinearPBFTNode) CommitRequest(ctx context.Context, signedCommitMessages
 	go n.TryExecute(sequenceNum)
 
 	return &emptypb.Empty{}, nil
+}
+
+// SendGetRequest sends a get request to all nodes for a given sequence number
+func (n *LinearPBFTNode) SendGetRequest(sequenceNum int64) (*pb.SignedTransactionRequest, error) {
+	// Multicast get request to all nodes
+	responseCh := make(chan *pb.SignedTransactionRequest, len(n.Peers))
+	wg := sync.WaitGroup{}
+	log.Infof("Sending get request to all nodes for sequence number %d", sequenceNum)
+	for _, peer := range n.Peers {
+		wg.Add(1)
+		go func(peer *models.Node) {
+			defer wg.Done()
+			signedRequest, err := (*peer.Client).GetRequest(context.Background(), wrapperspb.Int64(sequenceNum))
+			if err != nil {
+				return
+			}
+			responseCh <- signedRequest
+		}(peer)
+	}
+	go func() {
+		wg.Wait()
+		close(responseCh)
+	}()
+
+	// Return the first valid response
+	for signedRequest := range responseCh {
+		request := signedRequest.Request
+
+		if request == nil {
+			continue
+		}
+
+		// Verify client signature
+		ok := crypto.Verify(request, n.Clients[request.Sender].PublicKey, signedRequest.Signature)
+		if !ok {
+			log.Warnf("Rejected: %s; invalid signature on request", utils.LoggingString(request))
+			continue
+		}
+
+		// Verify if digest is same as in log record
+		if !cmp.Equal(crypto.Digest(request), n.LogRecords[sequenceNum].Digest) {
+			log.Warnf("Rejected: %s; invalid digest on request", utils.LoggingString(request))
+			continue
+		}
+
+		// Add request to log record
+		n.Mutex.Lock()
+		n.LogRecords[sequenceNum].Request = signedRequest
+		n.Mutex.Unlock()
+
+		return signedRequest, nil
+	}
+	return nil, status.Errorf(codes.NotFound, "request not found")
+}
+
+// GetRequest gets a request from the log record for a given sequence number
+func (n *LinearPBFTNode) GetRequest(ctx context.Context, sequenceNum *wrapperspb.Int64Value) (*pb.SignedTransactionRequest, error) {
+	n.Mutex.Lock()
+	defer n.Mutex.Unlock()
+
+	record, ok := n.LogRecords[sequenceNum.Value]
+	if !ok {
+		return nil, status.Errorf(codes.NotFound, "sequence number not found")
+	}
+
+	return record.Request, nil
 }

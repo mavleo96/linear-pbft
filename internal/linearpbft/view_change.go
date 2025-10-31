@@ -22,19 +22,31 @@ func (n *LinearPBFTNode) ViewChangeRoutine(ctx context.Context) {
 			return
 		case <-n.SafeTimer.TimeoutCh:
 			log.Infof("View change routine: Timer expired")
-			go n.SendViewChange()
+
+			// Get smallest view number of the logged view change messages which is higher than latest sent view change message view number
+			n.Mutex.Lock()
+			viewNumber := n.ViewChangeViewNumber + 1
+			maxViewNumber := utils.Max(utils.Keys(n.ViewChangeMessageLog))
+			for v := viewNumber; v <= maxViewNumber; v++ {
+				if _, ok := n.ViewChangeMessageLog[v]; ok {
+					viewNumber = v
+					break
+				}
+			}
+			n.Mutex.Unlock()
+			go n.SendViewChange(viewNumber)
 		}
 	}
 }
 
 // SendViewChange sends a view change message to all nodes
-func (n *LinearPBFTNode) SendViewChange() error {
+func (n *LinearPBFTNode) SendViewChange(viewNumber int64) error {
 	n.Mutex.Lock()
 	defer n.Mutex.Unlock()
 
 	// Set sent view change flag to true
-	// TODO: need to send view change for smallest view number of the logged view change messages or current view number + 1
 	n.ViewChangePhase = true
+	n.ViewChangeViewNumber = viewNumber
 
 	// Get max sequence number in log record
 	maxSequenceNum := utils.Max(utils.Keys(n.LogRecords))
@@ -55,7 +67,7 @@ func (n *LinearPBFTNode) SendViewChange() error {
 
 	// Create signed view change message
 	viewChangeMessage := &pb.ViewChangeMessage{
-		ViewNumber:  n.ViewNumber + 1,
+		ViewNumber:  viewNumber,
 		SequenceNum: lowerSequenceNum,
 		PreparedSet: preparedSet,
 		NodeID:      n.ID,
@@ -66,10 +78,10 @@ func (n *LinearPBFTNode) SendViewChange() error {
 	}
 
 	// Log the view change message
-	if _, ok := n.ViewChangeMessageLog[viewChangeMessage.ViewNumber]; !ok {
-		n.ViewChangeMessageLog[viewChangeMessage.ViewNumber] = make(map[string]*pb.SignedViewChangeMessage)
+	if _, ok := n.ViewChangeMessageLog[viewNumber]; !ok {
+		n.ViewChangeMessageLog[viewNumber] = make(map[string]*pb.SignedViewChangeMessage)
 	}
-	viewChangeMessageLog := n.ViewChangeMessageLog[viewChangeMessage.ViewNumber]
+	viewChangeMessageLog := n.ViewChangeMessageLog[viewNumber]
 	if _, ok := viewChangeMessageLog[viewChangeMessage.NodeID]; !ok {
 		viewChangeMessageLog[viewChangeMessage.NodeID] = signedViewChangeMessage
 	}
@@ -80,13 +92,10 @@ func (n *LinearPBFTNode) SendViewChange() error {
 		go func() {
 			_, err := (*peer.Client).ViewChangeRequest(context.Background(), signedViewChangeMessage)
 			if err != nil {
-				// log.Fatal(err)
 				return
 			}
 		}()
 	}
-
-	// TODO: Need to start timer here for view change timeout
 	return nil
 }
 
@@ -165,7 +174,7 @@ func (n *LinearPBFTNode) ViewChangeRequest(ctx context.Context, signedViewChange
 
 	// Send view change message to all nodes if f + 1 view change messages are collected
 	if !n.ViewChangePhase && len(viewChangeMessageLog) >= int(n.F+1) {
-		go n.SendViewChange()
+		go n.SendViewChange(viewNumber)
 	}
 
 	// If 2f + 1 view change messages are collected and next primary then send new view message
@@ -185,78 +194,70 @@ func (n *LinearPBFTNode) NewViewRoutine(ctx context.Context) {
 	n.SendNewView(n.ViewNumber)
 }
 
-func (n *LinearPBFTNode) NewViewRequest(ctx context.Context, signedNewViewMessage *pb.SignedNewViewMessage) (*emptypb.Empty, error) {
+func (n *LinearPBFTNode) NewViewRequest(signedNewViewMessage *pb.SignedNewViewMessage, stream pb.LinearPBFTNode_NewViewRequestServer) error {
 	n.Mutex.Lock()
-	defer n.Mutex.Unlock()
-	// Reset timer
 	newViewMessage := signedNewViewMessage.Message
 	signedViewChangeMessages := newViewMessage.SignedViewChangeMessages
-	// viewNumber := newViewMessage.ViewNumber
+	signedPrePrepareMessages := newViewMessage.SignedPrePrepareMessages
+	viewNumber := newViewMessage.ViewNumber
 
-	// Check if view number is less than current view number
-	if newViewMessage.ViewNumber < n.ViewNumber {
-		return nil, status.Errorf(codes.FailedPrecondition, "view number is less than current view number")
+	// Check if view number matches latest sent view change message view number
+	if viewNumber != n.ViewChangeViewNumber {
+		n.Mutex.Unlock()
+		log.Warnf("Rejected: %s; view number does not match latest sent view change message view number", utils.LoggingString(newViewMessage))
+		return status.Errorf(codes.FailedPrecondition, "view number does not match latest sent view change message view number")
 	}
 
 	// Verify signature
-	leaderID := utils.ViewNumberToLeaderID(newViewMessage.ViewNumber, n.N)
-	var leaderPublicKey []byte
-	if leaderID == n.ID {
-		leaderPublicKey = n.PublicKey
-	} else {
-		leaderPublicKey = n.Peers[leaderID].PublicKey
-	}
-	ok := crypto.Verify(newViewMessage, leaderPublicKey, signedNewViewMessage.Signature)
+	leaderID := utils.ViewNumberToLeaderID(viewNumber, n.N)
+	ok := crypto.Verify(newViewMessage, n.GetPublicKey(leaderID), signedNewViewMessage.Signature)
 	if !ok {
+		n.Mutex.Unlock()
 		log.Warnf("Rejected: %s; invalid signature", utils.LoggingString(newViewMessage))
-		return nil, status.Errorf(codes.InvalidArgument, "invalid signature")
+		return status.Errorf(codes.Unauthenticated, "invalid signature")
 	}
 
 	// Verify view change messages signatures
 	for _, signedViewChangeMessage := range signedViewChangeMessages {
 		viewChangeMessage := signedViewChangeMessage.Message
-
-		var publicKey []byte
-		if viewChangeMessage.NodeID == n.ID {
-			publicKey = n.PublicKey
-		} else {
-			publicKey = n.Peers[viewChangeMessage.NodeID].PublicKey
-		}
-		ok := crypto.Verify(viewChangeMessage, publicKey, signedViewChangeMessage.Signature)
+		ok := crypto.Verify(viewChangeMessage, n.GetPublicKey(viewChangeMessage.NodeID), signedViewChangeMessage.Signature)
 		if !ok {
-			log.Warnf("Rejected: %s; invalid signature", utils.LoggingString(viewChangeMessage))
-			return nil, status.Errorf(codes.InvalidArgument, "invalid signature")
+			n.Mutex.Unlock()
+			log.Warnf("Rejected: %s; invalid signature on view change message", utils.LoggingString(newViewMessage))
+			return status.Errorf(codes.Unauthenticated, "invalid signature on view change message")
 		}
 	}
+
 	// Verify preprepare messages signatures
-	for _, signedPrePrepareMessage := range newViewMessage.SignedPrePrepareMessages {
+	for _, signedPrePrepareMessage := range signedPrePrepareMessages {
 		prePrepareMessage := signedPrePrepareMessage.Message
-		ok := crypto.Verify(prePrepareMessage, leaderPublicKey, signedPrePrepareMessage.Signature)
+		ok := crypto.Verify(prePrepareMessage, n.GetPublicKey(leaderID), signedPrePrepareMessage.Signature)
 		if !ok {
-			log.Warnf("Rejected: %s; invalid signature", utils.LoggingString(prePrepareMessage))
-			return nil, status.Errorf(codes.InvalidArgument, "invalid signature")
+			n.Mutex.Unlock()
+			log.Warnf("Rejected: %s; invalid signature on preprepare message", utils.LoggingString(newViewMessage))
+			return status.Errorf(codes.Unauthenticated, "invalid signature on preprepare message")
 		}
 	}
-
-	log.Infof("Logged new view message: %s", utils.LoggingString(newViewMessage))
 
 	// Cleanup timer and update view number
 	n.SafeTimer.Cleanup()
-	n.ViewNumber = newViewMessage.ViewNumber
+	n.ViewNumber = viewNumber
 	n.ViewChangePhase = false
+	log.Infof("Accepted %s", utils.LoggingString(newViewMessage))
+	n.Mutex.Unlock()
 
-	// // Stream prepare messages to client
-	// for _, signedPrePrepareMessage := range newViewMessage.SignedPrePrepareMessages {
-	// 	signedPrepareMessage, err := n.PrePrepare(context.Background(), signedPrePrepareMessage)
-	// 	if err != nil {
-	// 		log.Fatal(err)
-	// 	}
-	// 	if err := stream.Send(signedPrepareMessage); err != nil {
-	// 		log.Fatal(err)
-	// 	}
-	// }
-
-	return &emptypb.Empty{}, nil
+	// Stream prepare messages to client
+	for _, signedPrePrepareMessage := range signedPrePrepareMessages {
+		signedPrepareMessage, err := n.PrePrepareRequest(context.Background(), signedPrePrepareMessage)
+		if err != nil {
+			log.Fatal(err)
+		}
+		if err := stream.Send(signedPrepareMessage); err != nil {
+			log.Fatal(err)
+		}
+	}
+	log.Infof("Streamed prepares messages for view number %d", viewNumber)
+	return nil
 }
 
 // SendNewView sends a new view message to all nodes

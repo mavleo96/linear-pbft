@@ -68,8 +68,9 @@ func (n *LinearPBFTNode) TransferRequest(ctx context.Context, signedRequest *pb.
 	signedPreprepare := &pb.SignedPrePrepareMessage{
 		Message:   preprepare,
 		Signature: crypto.Sign(preprepare, n.PrivateKey),
-		Request:   request,
+		Request:   signedRequest,
 	}
+	record.AddRequest(signedRequest)
 	record.AddPrePrepareMessage(signedPreprepare)
 
 	// Send preprepare message to all nodes and collect prepare messages
@@ -91,7 +92,7 @@ func (n *LinearPBFTNode) TransferRequest(ctx context.Context, signedRequest *pb.
 	}
 
 	// Execute transaction
-	go n.TryExecute(n.AssignSequenceNumber(request))
+	go n.TryExecute(n.AssignSequenceNumber(signedRequest.Request))
 
 	return &emptypb.Empty{}, nil
 }
