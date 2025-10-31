@@ -1,14 +1,14 @@
-package security
+package crypto
 
 // TODO: maybe rename this to crypto
 
 import (
 	"crypto/ed25519"
 	"fmt"
-	"log"
 	"strings"
 
 	"github.com/mavleo96/bft-mavleo96/pb"
+	log "github.com/sirupsen/logrus"
 )
 
 func Sign[T any](message T, privateKey []byte) []byte {

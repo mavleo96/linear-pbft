@@ -1,27 +1,13 @@
 package linearpbft
 
 import (
-	"context"
 	"sync"
 	"time"
 
 	"github.com/mavleo96/bft-mavleo96/internal/database"
 	"github.com/mavleo96/bft-mavleo96/internal/models"
-	"github.com/mavleo96/bft-mavleo96/internal/utils"
 	"github.com/mavleo96/bft-mavleo96/pb"
-	log "github.com/sirupsen/logrus"
 )
-
-var NoOpTransactionRequest = &pb.TransactionRequest{
-	Transaction: &pb.Transaction{
-		Type:     "null",
-		Sender:   "null",
-		Receiver: "null",
-		Amount:   0,
-	},
-	Timestamp: 0,
-	Sender:    "null",
-}
 
 // LinearPBFTNode represents a LinearPBFT node
 type LinearPBFTNode struct {
@@ -49,95 +35,6 @@ type LinearPBFTNode struct {
 	ForwardedRequestsLog []*pb.SignedTransactionRequest
 
 	*pb.UnimplementedLinearPBFTNodeServer
-}
-
-type LastReply struct {
-	Mutex    sync.RWMutex
-	ReplyMap map[string]*pb.TransactionResponse
-}
-
-func (l *LastReply) Get(sender string) *pb.TransactionResponse {
-	l.Mutex.RLock()
-	defer l.Mutex.RUnlock()
-	return l.ReplyMap[sender]
-}
-
-func (l *LastReply) Update(sender string, reply *pb.TransactionResponse) {
-	l.Mutex.Lock()
-	defer l.Mutex.Unlock()
-	l.ReplyMap[sender] = reply
-}
-
-func (n *LinearPBFTNode) TryExecute(sequenceNum int64) {
-	// Check if sequence number is in executed log
-	n.Mutex.Lock()
-	defer n.Mutex.Unlock()
-	record := n.LogRecords[sequenceNum]
-
-	if record != nil && record.IsExecuted() {
-		// Send reply if timestamp is same as last reply
-		request := record.Request
-		lastReply := n.LastReply.Get(request.Sender)
-		if lastReply != nil && request.Timestamp == lastReply.Timestamp {
-			go n.SendReply(sequenceNum, request, lastReply.Result)
-		}
-		log.Infof("Sequence number %d already executed", sequenceNum)
-	}
-
-	// Get max sequence number in log record
-	maxSequenceNum := utils.Max(utils.Keys(n.LogRecords))
-
-	// Try to execute as many transactions as possible
-	for i := n.LastExecutedSequenceNum + 1; i <= maxSequenceNum; i++ {
-		// Check if sequence is committed
-		record := n.LogRecords[i]
-		if record == nil || !record.IsCommitted() {
-			log.Warnf("Sequence number %d not committed", i)
-			break
-		}
-
-		// Execute transaction
-		request := record.Request
-		var result int64
-		var err error
-		switch request.Transaction.Type {
-		case "read":
-			result, err = n.DB.GetBalance(request.Transaction.Sender)
-			log.Infof("Read transaction result: %d", result)
-		case "send":
-			var success bool
-			success, err = n.DB.UpdateDB(request.Transaction)
-			result = utils.BoolToInt64(success)
-		default:
-			continue
-		}
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		// Add to executed log
-		record.SetExecuted()
-		// TODO: make this elegant since leader doesn't have a safe timer running
-		n.SafeTimer.DecrementWaitCountAndResetOrStopIfZero()
-		log.Infof("Executed (v: %d, s: %d): %s", n.ViewNumber, i, utils.LoggingString(request.Transaction))
-		if request.Transaction.Type != "null" {
-			go n.SendReply(i, request, result)
-		}
-		n.LastExecutedSequenceNum = i
-	}
-}
-
-func (n *LinearPBFTNode) ViewChangeRoutine(ctx context.Context) {
-	log.Infof("Starting view change routine for %s", n.ID)
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-n.SafeTimer.TimeoutCh:
-			log.Infof("View change routine: Timer expired")
-			go n.SendViewChange()
-		}
-	}
 }
 
 func CreateLinearPBFTNode(selfNode *models.Node, peerNodes map[string]*models.Node, clientMap map[string]*models.Client, bankDB *database.Database, privateKey []byte) *LinearPBFTNode {

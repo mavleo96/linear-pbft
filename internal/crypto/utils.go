@@ -1,4 +1,4 @@
-package security
+package crypto
 
 import (
 	"crypto/ed25519"

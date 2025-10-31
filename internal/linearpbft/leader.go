@@ -3,9 +3,10 @@ package linearpbft
 import (
 	"context"
 	"sync"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/mavleo96/bft-mavleo96/internal/security"
+	"github.com/mavleo96/bft-mavleo96/internal/crypto"
 	"github.com/mavleo96/bft-mavleo96/internal/utils"
 	"github.com/mavleo96/bft-mavleo96/pb"
 	log "github.com/sirupsen/logrus"
@@ -49,7 +50,7 @@ func (n *LinearPBFTNode) SendPrePrepare(signedPreprepare *pb.SignedPrePrepareMes
 	}
 	signedPrepareMsgs = append(signedPrepareMsgs, &pb.SignedPrepareMessage{
 		Message:   prepareMessage,
-		Signature: security.Sign(prepareMessage, n.PrivateKey),
+		Signature: crypto.Sign(prepareMessage, n.PrivateKey),
 	})
 
 	// Collect 2f + 1 matching prepare messages including self
@@ -61,7 +62,7 @@ func (n *LinearPBFTNode) SendPrePrepare(signedPreprepare *pb.SignedPrePrepareMes
 		}
 
 		// Verify signature
-		ok := security.Verify(signedPrepareMsg.Message, n.Peers[signedPrepareMsg.Message.NodeID].PublicKey, signedPrepareMsg.Signature)
+		ok := crypto.Verify(signedPrepareMsg.Message, n.Peers[signedPrepareMsg.Message.NodeID].PublicKey, signedPrepareMsg.Signature)
 		if !ok {
 			continue
 		}
@@ -111,6 +112,9 @@ func (n *LinearPBFTNode) SendPrepare(signedPrepareMessages []*pb.SignedPrepareMe
 	wg := sync.WaitGroup{}
 	for _, peer := range n.Peers {
 		wg.Go(func() {
+			if (peer.ID == "n2" && sequenceNum == 2) || (peer.ID == "n3" && sequenceNum == 6) || (peer.ID == "n4" && sequenceNum == 7) {
+				time.Sleep(2 * time.Second)
+			}
 			signedCommitMsg, err := (*peer.Client).Prepare(context.Background(), collectedSignedPrepareMessage)
 			if err != nil {
 				log.Fatal(err)
@@ -138,7 +142,7 @@ func (n *LinearPBFTNode) SendPrepare(signedPrepareMessages []*pb.SignedPrepareMe
 	}
 	signedCommitMsgs = append(signedCommitMsgs, &pb.SignedCommitMessage{
 		Message:   commitMessage,
-		Signature: security.Sign(commitMessage, n.PrivateKey),
+		Signature: crypto.Sign(commitMessage, n.PrivateKey),
 	})
 
 	// Collect 2f + 1 matching commit messages including self
@@ -150,7 +154,7 @@ func (n *LinearPBFTNode) SendPrepare(signedPrepareMessages []*pb.SignedPrepareMe
 
 		// Verify signature
 		// log.Infof("Signed commit message: %s", signedCommitMsg.Message.String())
-		ok := security.Verify(signedCommitMsg.Message, n.Peers[signedCommitMsg.Message.NodeID].PublicKey, signedCommitMsg.Signature)
+		ok := crypto.Verify(signedCommitMsg.Message, n.Peers[signedCommitMsg.Message.NodeID].PublicKey, signedCommitMsg.Signature)
 		if !ok {
 			continue
 		}
@@ -208,93 +212,4 @@ func (n *LinearPBFTNode) SendCommit(signedCommitMessages []*pb.SignedCommitMessa
 	record.AddCommitMessages(signedCommitMessages)
 	n.Mutex.Unlock()
 	return true, nil
-}
-
-func (n *LinearPBFTNode) SendNewView(viewNumber int64) {
-	n.Mutex.Lock()
-	defer n.Mutex.Unlock()
-
-	// Update view number
-	n.ViewNumber = viewNumber
-	n.ViewChangePhase = false
-
-	// Get view change messages from view change message log
-	viewChangeMessageLog := n.ViewChangeMessageLog[viewNumber]
-	signedViewChangeMessages := make([]*pb.SignedViewChangeMessage, 0)
-	for _, viewChangeMessage := range viewChangeMessageLog {
-		signedViewChangeMessages = append(signedViewChangeMessages, viewChangeMessage)
-	}
-
-	// TODO: later get this from stable checkpoint
-	lowerSequenceNum := int64(0)
-
-	// Aggregate preprepare messages from view change messages
-	signedPrePrepareMessages := make(map[int64]*pb.SignedPrePrepareMessage)
-	for _, signedViewChangeMessage := range viewChangeMessageLog {
-		viewChangeMessage := signedViewChangeMessage.Message
-
-		// Loop through prepare proofs and add to signed preprepare messages if not already added
-		for _, prepareProof := range viewChangeMessage.PreparedSet {
-			prePrepareMessage := prepareProof.SignedPrePrepareMessage.Message
-			sequenceNum := prePrepareMessage.SequenceNum
-
-			if _, ok := signedPrePrepareMessages[sequenceNum]; ok {
-				continue
-			}
-
-			// Create new preprepare message and add to signed preprepare messages
-			newPrePrepareMessage := &pb.PrePrepareMessage{
-				ViewNumber:  viewNumber,
-				SequenceNum: sequenceNum,
-				Digest:      prePrepareMessage.Digest,
-			}
-			signedPrePrepareMessages[sequenceNum] = &pb.SignedPrePrepareMessage{
-				Message:   newPrePrepareMessage,
-				Signature: security.Sign(newPrePrepareMessage, n.PrivateKey),
-			}
-		}
-	}
-	// Order signed preprepare messages by sequence number and add no op preprepare message if sequence number is not in the log record
-	sortedSignedPrePrepareMessages := make([]*pb.SignedPrePrepareMessage, 0)
-	maxSequenceNum := utils.Max(utils.Keys(signedPrePrepareMessages))
-	for sequenceNum := lowerSequenceNum + 1; sequenceNum <= maxSequenceNum; sequenceNum++ {
-		var newSignedPrePrepareMessage *pb.SignedPrePrepareMessage
-		if _, ok := signedPrePrepareMessages[sequenceNum]; !ok {
-			newPrePrepareMessage := &pb.PrePrepareMessage{
-				ViewNumber:  viewNumber,
-				SequenceNum: sequenceNum,
-				Digest:      security.Digest(NoOpTransactionRequest),
-			}
-			newSignedPrePrepareMessage = &pb.SignedPrePrepareMessage{
-				Message:   newPrePrepareMessage,
-				Signature: security.Sign(newPrePrepareMessage, n.PrivateKey),
-			}
-		} else {
-			newSignedPrePrepareMessage = signedPrePrepareMessages[sequenceNum]
-		}
-		sortedSignedPrePrepareMessages = append(sortedSignedPrePrepareMessages, newSignedPrePrepareMessage)
-		continue
-	}
-
-	// Create new view message and sign it
-	newViewMessage := &pb.NewViewMessage{
-		ViewNumber:               viewNumber,
-		SignedViewChangeMessages: signedViewChangeMessages,
-		SignedPrePrepareMessages: sortedSignedPrePrepareMessages,
-	}
-	signedNewViewMessage := &pb.SignedNewViewMessage{
-		Message:   newViewMessage,
-		Signature: security.Sign(newViewMessage, n.PrivateKey),
-	}
-
-	// Multicast new view message to all nodes
-	log.Infof("Sending new view message for view number %d: %s", viewNumber, utils.LoggingString(newViewMessage))
-	for _, peer := range n.Peers {
-		go func() {
-			_, err := (*peer.Client).NewView(context.Background(), signedNewViewMessage)
-			if err != nil {
-				log.Fatal(err)
-			}
-		}()
-	}
 }

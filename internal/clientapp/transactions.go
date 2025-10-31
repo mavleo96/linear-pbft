@@ -6,8 +6,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/mavleo96/bft-mavleo96/internal/crypto"
 	"github.com/mavleo96/bft-mavleo96/internal/models"
-	"github.com/mavleo96/bft-mavleo96/internal/security"
 	"github.com/mavleo96/bft-mavleo96/internal/utils"
 	"github.com/mavleo96/bft-mavleo96/pb"
 	log "github.com/sirupsen/logrus"
@@ -95,7 +95,7 @@ func processReadOnlyTransaction(request *pb.SignedTransactionRequest, clientID s
 			message := signedResponse.Message
 
 			// verify signature
-			if !security.Verify(message, nodeMap[message.NodeID].PublicKey, signedResponse.Signature) {
+			if !crypto.Verify(message, nodeMap[message.NodeID].PublicKey, signedResponse.Signature) {
 				// log.Warnf("Invalid signature from node: %s", message.NodeID)
 				continue
 			}

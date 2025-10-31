@@ -3,7 +3,7 @@ package linearpbft
 import (
 	"context"
 
-	"github.com/mavleo96/bft-mavleo96/internal/security"
+	"github.com/mavleo96/bft-mavleo96/internal/crypto"
 	"github.com/mavleo96/bft-mavleo96/internal/utils"
 	"github.com/mavleo96/bft-mavleo96/pb"
 	log "github.com/sirupsen/logrus"
@@ -17,7 +17,7 @@ func (n *LinearPBFTNode) TransferRequest(ctx context.Context, signedRequest *pb.
 	request := signedRequest.Request
 
 	// Verify client signature
-	ok := security.Verify(request, n.Clients[request.Sender].PublicKey, signedRequest.Signature)
+	ok := crypto.Verify(request, n.Clients[request.Sender].PublicKey, signedRequest.Signature)
 	if !ok {
 		log.Warnf("Invalid client signature for request %s", request.String())
 		return nil, status.Errorf(codes.Unauthenticated, "invalid signature")
@@ -63,11 +63,11 @@ func (n *LinearPBFTNode) TransferRequest(ctx context.Context, signedRequest *pb.
 	preprepare := &pb.PrePrepareMessage{
 		ViewNumber:  n.ViewNumber,
 		SequenceNum: sequenceNum,
-		Digest:      security.Digest(request),
+		Digest:      crypto.Digest(request),
 	}
 	signedPreprepare := &pb.SignedPrePrepareMessage{
 		Message:   preprepare,
-		Signature: security.Sign(preprepare, n.PrivateKey),
+		Signature: crypto.Sign(preprepare, n.PrivateKey),
 		Request:   request,
 	}
 	record.AddPrePrepareMessage(signedPreprepare)
@@ -112,7 +112,7 @@ func (n *LinearPBFTNode) ReadOnlyRequest(ctx context.Context, signedRequest *pb.
 	request := signedRequest.Request
 
 	// Verify client signature
-	ok := security.Verify(request, n.Clients[request.Sender].PublicKey, signedRequest.Signature)
+	ok := crypto.Verify(request, n.Clients[request.Sender].PublicKey, signedRequest.Signature)
 	if !ok {
 		log.Warnf("Invalid client signature for request %s", request.String())
 		return nil, status.Errorf(codes.Unauthenticated, "invalid signature")
@@ -137,7 +137,7 @@ func (n *LinearPBFTNode) ReadOnlyRequest(ctx context.Context, signedRequest *pb.
 	}
 	signedMessage := &pb.SignedTransactionResponse{
 		Message:   message,
-		Signature: security.Sign(message, n.PrivateKey),
+		Signature: crypto.Sign(message, n.PrivateKey),
 	}
 	log.Infof("Node %s: Read only request %s -> %d", n.ID, request.String(), balance)
 	return signedMessage, nil
@@ -154,7 +154,7 @@ func (n *LinearPBFTNode) SendReply(sequenceNum int64, request *pb.TransactionReq
 	}
 	signedReply := &pb.SignedTransactionResponse{
 		Message:   reply,
-		Signature: security.Sign(reply, n.PrivateKey),
+		Signature: crypto.Sign(reply, n.PrivateKey),
 	}
 	n.LastReply.Update(request.Sender, reply)
 	_, err := (*n.Clients[request.Sender].Client).ReceiveReply(context.Background(), signedReply)

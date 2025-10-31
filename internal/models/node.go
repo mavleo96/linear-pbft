@@ -4,7 +4,7 @@ import (
 	"path/filepath"
 
 	"github.com/mavleo96/bft-mavleo96/internal/config"
-	"github.com/mavleo96/bft-mavleo96/internal/security"
+	"github.com/mavleo96/bft-mavleo96/internal/crypto"
 	"github.com/mavleo96/bft-mavleo96/internal/utils"
 	"github.com/mavleo96/bft-mavleo96/pb"
 )
@@ -30,7 +30,7 @@ func GetNodeMap(nodeConfig map[string]*config.NodeEntry) (map[string]*Node, erro
 	nodeMap := make(map[string]*Node)
 	for id, node := range nodeConfig {
 		// Read and store public key
-		publicKey, err := security.ReadPublicKey(filepath.Join("./keys", "node", id+".pub.pem"))
+		publicKey, err := crypto.ReadPublicKey(filepath.Join("./keys", "node", id+".pub.pem"))
 		if err != nil {
 			return nil, err
 		}
@@ -58,7 +58,7 @@ func GetClientMap(clientConfig map[string]*config.ClientEntry) (map[string]*Clie
 	clientMap := make(map[string]*Client)
 	for id, client := range clientConfig {
 		// Read and store public key
-		publicKey, err := security.ReadPublicKey(filepath.Join("./keys", "client", id+".pub.pem"))
+		publicKey, err := crypto.ReadPublicKey(filepath.Join("./keys", "client", id+".pub.pem"))
 		if err != nil {
 			return nil, err
 		}

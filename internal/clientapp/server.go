@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/mavleo96/bft-mavleo96/internal/crypto"
 	"github.com/mavleo96/bft-mavleo96/internal/models"
-	"github.com/mavleo96/bft-mavleo96/internal/security"
 	"github.com/mavleo96/bft-mavleo96/internal/utils"
 	"github.com/mavleo96/bft-mavleo96/pb"
 	log "github.com/sirupsen/logrus"
@@ -109,7 +109,7 @@ func (s *ClientAppServer) ClientSendRoutine(ctx context.Context) {
 				}
 				signedRequest := &pb.SignedTransactionRequest{
 					Request:   request,
-					Signature: security.Sign(request, s.PrivateKey),
+					Signature: crypto.Sign(request, s.PrivateKey),
 				}
 				// TODO: processTransaction functions error design is not good
 				if t.Type == "read" {
@@ -143,7 +143,7 @@ func (s *ClientAppServer) ReceiveReply(ctx context.Context, resp *pb.SignedTrans
 	message := resp.Message
 
 	// Verify signature and ignore replies with invalid signature
-	ok := security.Verify(message, s.Nodes[message.NodeID].PublicKey, resp.Signature)
+	ok := crypto.Verify(message, s.Nodes[message.NodeID].PublicKey, resp.Signature)
 	if !ok {
 		log.Warnf("Invalid signature for reply from node %s", message.NodeID)
 		return &emptypb.Empty{}, nil
@@ -173,7 +173,7 @@ func CounterFunction(m map[string]int64) (int64, int64) {
 }
 
 func CreateClientAppServer(ctx context.Context, client *models.Client, nodes map[string]*models.Node) (chan *TestSet, error) {
-	privateKey, err := security.ReadPrivateKey(filepath.Join("./keys", "client", client.ID+".pem"))
+	privateKey, err := crypto.ReadPrivateKey(filepath.Join("./keys", "client", client.ID+".pem"))
 	if err != nil {
 		log.Fatal(err)
 	}

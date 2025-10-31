@@ -8,10 +8,10 @@ import (
 	"sync"
 
 	"github.com/mavleo96/bft-mavleo96/internal/config"
+	"github.com/mavleo96/bft-mavleo96/internal/crypto"
 	"github.com/mavleo96/bft-mavleo96/internal/database"
 	"github.com/mavleo96/bft-mavleo96/internal/linearpbft"
 	"github.com/mavleo96/bft-mavleo96/internal/models"
-	"github.com/mavleo96/bft-mavleo96/internal/security"
 	"github.com/mavleo96/bft-mavleo96/internal/utils"
 	"github.com/mavleo96/bft-mavleo96/pb"
 	log "github.com/sirupsen/logrus"
@@ -78,7 +78,7 @@ func main() {
 }
 
 func CreateServer(selfNode *models.Node, peerNodes map[string]*models.Node, clientMap map[string]*models.Client, dbDir string, initBalance int) (*grpc.Server, error) {
-	privateKey, err := security.ReadPrivateKey(filepath.Join("./keys", "node", selfNode.ID+".pem"))
+	privateKey, err := crypto.ReadPrivateKey(filepath.Join("./keys", "node", selfNode.ID+".pem"))
 	if err != nil {
 		log.Fatal(err)
 	}
