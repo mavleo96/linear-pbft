@@ -44,7 +44,7 @@ func (t *SafeTimer) IncrementWaitCountOrStart() {
 		t.running = true
 	}
 	t.waitCount++
-	log.Infof("SafeTimer: Incremented wait count to %d", t.waitCount)
+	log.Infof("SafeTimer: Incremented wait count: %d, running: %t", t.waitCount, t.running)
 }
 
 // DecrementWaitCountAndResetOrStopIfZero decrements the wait count and resets/stops the timer.
@@ -63,7 +63,7 @@ func (t *SafeTimer) DecrementWaitCountAndResetOrStopIfZero() {
 	} else {
 		t.timer.Reset(t.timeout)
 	}
-	log.Infof("SafeTimer: Decremented wait count to %d", t.waitCount)
+	log.Infof("SafeTimer: Decremented wait count: %d, running: %t", t.waitCount, t.running)
 }
 
 // Cleanup resets the timer and clears all counters.
@@ -76,6 +76,7 @@ func (t *SafeTimer) Cleanup() {
 	t.waitCount = 0
 	t.cancel()
 	t.ctx, t.cancel = context.WithCancel(context.Background())
+	log.Infof("SafeTimer: Cleanup wait count: %d, running: %t", t.waitCount, t.running)
 }
 
 // run is the internal goroutine that handles timeout events.
