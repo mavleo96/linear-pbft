@@ -339,16 +339,21 @@ func (n *LinearPBFTNode) SendGetRequest(sequenceNum int64) (*pb.SignedTransactio
 			continue
 		}
 
+		// Check if record exists for this sequence number
+		n.Mutex.Lock()
+		record, ok := n.LogRecords[sequenceNum]
+		if !ok {
+			record = CreateLogRecord(n.ViewNumber, sequenceNum, crypto.Digest(request))
+			n.LogRecords[sequenceNum] = record
+			record.AddRequest(signedRequest)
+		}
+		n.Mutex.Unlock()
+
 		// Verify if digest is same as in log record
-		if !cmp.Equal(crypto.Digest(request), n.LogRecords[sequenceNum].Digest) {
+		if !cmp.Equal(crypto.Digest(request), record.Digest) {
 			log.Warnf("Rejected: %s; invalid digest on request", utils.LoggingString(request))
 			continue
 		}
-
-		// Add request to log record
-		n.Mutex.Lock()
-		n.LogRecords[sequenceNum].Request = signedRequest
-		n.Mutex.Unlock()
 
 		return signedRequest, nil
 	}
