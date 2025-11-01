@@ -1165,11 +1165,18 @@ func (x *GetRequestMessage) GetNodeID() string {
 }
 
 type ChangeStatusMessage struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Alive         bool                   `protobuf:"varint,1,opt,name=alive,proto3" json:"alive,omitempty"`
-	Byzantine     bool                   `protobuf:"varint,2,opt,name=byzantine,proto3" json:"byzantine,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state                   protoimpl.MessageState `protogen:"open.v1"`
+	Alive                   bool                   `protobuf:"varint,1,opt,name=alive,proto3" json:"alive,omitempty"`
+	Byzantine               bool                   `protobuf:"varint,2,opt,name=byzantine,proto3" json:"byzantine,omitempty"`
+	SignAttack              bool                   `protobuf:"varint,3,opt,name=signAttack,proto3" json:"signAttack,omitempty"`
+	CrashAttack             bool                   `protobuf:"varint,4,opt,name=crashAttack,proto3" json:"crashAttack,omitempty"`
+	DarkAttack              bool                   `protobuf:"varint,5,opt,name=darkAttack,proto3" json:"darkAttack,omitempty"`
+	DarkAttackNodes         []string               `protobuf:"bytes,6,rep,name=darkAttackNodes,proto3" json:"darkAttackNodes,omitempty"`
+	TimeAttack              bool                   `protobuf:"varint,7,opt,name=timeAttack,proto3" json:"timeAttack,omitempty"`
+	EquivocationAttack      bool                   `protobuf:"varint,8,opt,name=equivocationAttack,proto3" json:"equivocationAttack,omitempty"`
+	EquivocationAttackNodes []string               `protobuf:"bytes,9,rep,name=equivocationAttackNodes,proto3" json:"equivocationAttackNodes,omitempty"`
+	unknownFields           protoimpl.UnknownFields
+	sizeCache               protoimpl.SizeCache
 }
 
 func (x *ChangeStatusMessage) Reset() {
@@ -1214,6 +1221,55 @@ func (x *ChangeStatusMessage) GetByzantine() bool {
 		return x.Byzantine
 	}
 	return false
+}
+
+func (x *ChangeStatusMessage) GetSignAttack() bool {
+	if x != nil {
+		return x.SignAttack
+	}
+	return false
+}
+
+func (x *ChangeStatusMessage) GetCrashAttack() bool {
+	if x != nil {
+		return x.CrashAttack
+	}
+	return false
+}
+
+func (x *ChangeStatusMessage) GetDarkAttack() bool {
+	if x != nil {
+		return x.DarkAttack
+	}
+	return false
+}
+
+func (x *ChangeStatusMessage) GetDarkAttackNodes() []string {
+	if x != nil {
+		return x.DarkAttackNodes
+	}
+	return nil
+}
+
+func (x *ChangeStatusMessage) GetTimeAttack() bool {
+	if x != nil {
+		return x.TimeAttack
+	}
+	return false
+}
+
+func (x *ChangeStatusMessage) GetEquivocationAttack() bool {
+	if x != nil {
+		return x.EquivocationAttack
+	}
+	return false
+}
+
+func (x *ChangeStatusMessage) GetEquivocationAttackNodes() []string {
+	if x != nil {
+		return x.EquivocationAttackNodes
+	}
+	return nil
 }
 
 var File_bft_proto protoreflect.FileDescriptor
@@ -1312,10 +1368,23 @@ const file_bft_proto_rawDesc = "" +
 	"\tsignature\x18\x02 \x01(\fR\tsignature\"C\n" +
 	"\x11GetRequestMessage\x12\x16\n" +
 	"\x06digest\x18\x01 \x01(\fR\x06digest\x12\x16\n" +
-	"\x06nodeID\x18\x02 \x01(\tR\x06nodeID\"I\n" +
+	"\x06nodeID\x18\x02 \x01(\tR\x06nodeID\"\xdf\x02\n" +
 	"\x13ChangeStatusMessage\x12\x14\n" +
 	"\x05alive\x18\x01 \x01(\bR\x05alive\x12\x1c\n" +
-	"\tbyzantine\x18\x02 \x01(\bR\tbyzantine2\xe2\x06\n" +
+	"\tbyzantine\x18\x02 \x01(\bR\tbyzantine\x12\x1e\n" +
+	"\n" +
+	"signAttack\x18\x03 \x01(\bR\n" +
+	"signAttack\x12 \n" +
+	"\vcrashAttack\x18\x04 \x01(\bR\vcrashAttack\x12\x1e\n" +
+	"\n" +
+	"darkAttack\x18\x05 \x01(\bR\n" +
+	"darkAttack\x12(\n" +
+	"\x0fdarkAttackNodes\x18\x06 \x03(\tR\x0fdarkAttackNodes\x12\x1e\n" +
+	"\n" +
+	"timeAttack\x18\a \x01(\bR\n" +
+	"timeAttack\x12.\n" +
+	"\x12equivocationAttack\x18\b \x01(\bR\x12equivocationAttack\x128\n" +
+	"\x17equivocationAttackNodes\x18\t \x03(\tR\x17equivocationAttackNodes2\xe2\x06\n" +
 	"\x0eLinearPBFTNode\x12G\n" +
 	"\x0fTransferRequest\x12\x1c.pb.SignedTransactionRequest\x1a\x16.google.protobuf.Empty\x12N\n" +
 	"\x0fReadOnlyRequest\x12\x1c.pb.SignedTransactionRequest\x1a\x1d.pb.SignedTransactionResponse\x12J\n" +

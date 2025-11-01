@@ -168,4 +168,11 @@ message GetRequestMessage {
 message ChangeStatusMessage {
     bool alive = 1;
     bool byzantine = 2;
+    bool signAttack = 3;
+    bool crashAttack = 4;
+    bool darkAttack = 5;
+    repeated string darkAttackNodes = 6;
+    bool timeAttack = 7;
+    bool equivocationAttack = 8;
+    repeated string equivocationAttackNodes = 9;
 }

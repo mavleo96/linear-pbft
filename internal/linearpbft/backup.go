@@ -2,6 +2,7 @@ package linearpbft
 
 import (
 	"context"
+	"slices"
 	"sync"
 
 	"github.com/google/go-cmp/cmp"
@@ -132,8 +133,19 @@ func (n *LinearPBFTNode) PrePrepareRequest(ctx context.Context, signedMessage *p
 		Message:   prepareMessage,
 		Signature: crypto.Sign(prepareMessage, n.PrivateKey),
 	}
+	// Byzantine node behavior: sign attack
+	if n.Byzantine && n.SignAttack {
+		log.Infof("Node %s is Byzantine and is performing sign attack", n.ID)
+		signedPrepareMessage.Signature = []byte("invalid signature")
+	}
 
 	go n.TryExecute(prePrepareMessage.SequenceNum)
+
+	// Byzantine node behavior: dark attack
+	if n.Byzantine && n.DarkAttack && slices.Contains(n.DarkAttackNodes, n.ID) {
+		log.Infof("Node %s is Byzantine and is performing dark attack", n.ID)
+		return nil, status.Errorf(codes.Unavailable, "node not alive")
+	}
 
 	return signedPrepareMessage, nil
 }
@@ -237,8 +249,19 @@ func (n *LinearPBFTNode) PrepareRequest(ctx context.Context, signedPrepareMessag
 		Message:   commitMessage,
 		Signature: crypto.Sign(commitMessage, n.PrivateKey),
 	}
+	// Byzantine node behavior: sign attack
+	if n.Byzantine && n.SignAttack {
+		log.Infof("Node %s is Byzantine and is performing sign attack", n.ID)
+		signedCommitMessage.Signature = []byte("invalid signature")
+	}
 
 	go n.TryExecute(sequenceNum)
+
+	// Byzantine node behavior: dark attack
+	if n.Byzantine && n.DarkAttack && slices.Contains(n.DarkAttackNodes, n.ID) {
+		log.Infof("Node %s is Byzantine and is performing dark attack", n.ID)
+		return nil, status.Errorf(codes.Unavailable, "node not alive")
+	}
 
 	return signedCommitMessage, nil
 }
@@ -344,12 +367,6 @@ func (n *LinearPBFTNode) SendGetRequest(digest []byte) (*pb.SignedTransactionReq
 		NodeID: n.ID,
 	}
 
-	// Ignore if not alive
-	if !n.Alive {
-		log.Infof("Node %s is not alive", n.ID)
-		return nil, status.Errorf(codes.Unavailable, "node not alive")
-	}
-
 	// Multicast get request to all nodes
 	responseCh := make(chan *pb.SignedTransactionRequest, len(n.Peers))
 	wg := sync.WaitGroup{}
@@ -358,6 +375,11 @@ func (n *LinearPBFTNode) SendGetRequest(digest []byte) (*pb.SignedTransactionReq
 		wg.Add(1)
 		go func(peer *models.Node) {
 			defer wg.Done()
+			// Byzantine node behavior: dark attack
+			if n.Byzantine && n.DarkAttack && slices.Contains(n.DarkAttackNodes, peer.ID) {
+				log.Infof("Node %s is Byzantine and is performing dark attack", peer.ID)
+				return
+			}
 			signedRequest, err := (*peer.Client).GetRequest(context.Background(), getRequestMessage)
 			if err != nil {
 				return
@@ -414,6 +436,13 @@ func (n *LinearPBFTNode) GetRequest(ctx context.Context, getRequestMessage *pb.G
 		log.Warnf("Rejected: %s; request not found in transaction map", utils.LoggingString(getRequestMessage))
 		return nil, status.Errorf(codes.NotFound, "request not found in transaction map")
 	}
-	log.Infof("Sent request: %s: request %s", utils.LoggingString(getRequestMessage), utils.LoggingString(signedRequest.Request))
+
+	// Byzantine node behavior: dark attack
+	if n.Byzantine && n.DarkAttack && slices.Contains(n.DarkAttackNodes, n.ID) {
+		log.Infof("Node %s is Byzantine and is performing dark attack", n.ID)
+		return nil, status.Errorf(codes.Unavailable, "node not alive")
+	}
+
+	log.Infof("Get request: %s: request %s", utils.LoggingString(getRequestMessage), utils.LoggingString(signedRequest.Request))
 	return signedRequest, nil
 }

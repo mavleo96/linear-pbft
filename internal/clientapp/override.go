@@ -3,7 +3,6 @@ package clientapp
 import (
 	"context"
 	"slices"
-	"strings"
 
 	"github.com/mavleo96/bft-mavleo96/internal/models"
 	"github.com/mavleo96/bft-mavleo96/pb"
@@ -12,14 +11,41 @@ import (
 
 // ReconfigureNodes reconfigures the nodes based on the live, byzantine, and attack lists
 func ReconfigureNodes(nodeMap map[string]*models.Node, liveNodes []*models.Node, byzantineNodes []*models.Node, attacks []*Attack) {
-	log.Infof("Live nodes: %s", nodeListString(liveNodes))
-	log.Infof("Byzantine nodes: %s", nodeListString(byzantineNodes))
+	log.Infof("Live nodes: %s", nodeStringSlice(liveNodes))
+	log.Infof("Byzantine nodes: %s", nodeStringSlice(byzantineNodes))
 	log.Infof("Attacks: %v", attacks)
 
 	for _, node := range nodeMap {
 		changeStatusMessage := &pb.ChangeStatusMessage{
-			Alive:     slices.Contains(liveNodes, node),
-			Byzantine: slices.Contains(byzantineNodes, node),
+			Alive:                   slices.Contains(liveNodes, node),
+			Byzantine:               slices.Contains(byzantineNodes, node),
+			SignAttack:              false,
+			CrashAttack:             false,
+			DarkAttack:              false,
+			DarkAttackNodes:         make([]string, 0),
+			TimeAttack:              false,
+			EquivocationAttack:      false,
+			EquivocationAttackNodes: make([]string, 0),
+		}
+		for _, attack := range attacks {
+			if attack.Type == "sign" {
+				changeStatusMessage.SignAttack = true
+			}
+			if attack.Type == "crash" {
+				changeStatusMessage.CrashAttack = true
+			}
+			if attack.Type == "dark" {
+				changeStatusMessage.DarkAttack = true
+				log.Infof("Dark attack nodes: %s, count: %d", nodeStringSlice(attack.AttackNodes), len(attack.AttackNodes))
+				changeStatusMessage.DarkAttackNodes = nodeStringSlice(attack.AttackNodes)
+			}
+			if attack.Type == "time" {
+				changeStatusMessage.TimeAttack = true
+			}
+			if attack.Type == "equivocation" {
+				changeStatusMessage.EquivocationAttack = true
+				changeStatusMessage.EquivocationAttackNodes = nodeStringSlice(attack.AttackNodes)
+			}
 		}
 		_, err := (*node.Client).ReconfigureNode(context.Background(), changeStatusMessage)
 		if err != nil {
@@ -33,11 +59,11 @@ func SendResetCommand(nodeMap map[string]*models.Node) {
 	log.Info("Reset command received")
 }
 
-// nodeListString returns a string representation of a list of nodes
-func nodeListString(nodes []*models.Node) string {
-	nodesString := make([]string, 0)
+// nodeStringSlice returns a slice of strings representing the IDs of the nodes
+func nodeStringSlice(nodes []*models.Node) []string {
+	nodeStrings := make([]string, 0)
 	for _, node := range nodes {
-		nodesString = append(nodesString, node.ID)
+		nodeStrings = append(nodeStrings, node.ID)
 	}
-	return strings.Join(nodesString, ", ")
+	return nodeStrings
 }

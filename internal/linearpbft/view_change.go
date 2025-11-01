@@ -3,6 +3,7 @@ package linearpbft
 import (
 	"context"
 	"io"
+	"slices"
 	"sync"
 
 	"github.com/google/go-cmp/cmp"
@@ -24,7 +25,7 @@ func (n *LinearPBFTNode) ViewChangeRoutine(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-n.SafeTimer.TimeoutCh:
-			log.Infof("View change routine: Timer expired")
+			log.Infof("View change routine: Timer expired at v %d vc %d", n.ViewNumber, n.ViewChangeViewNumber)
 
 			// Get smallest view number of the logged view change messages which is higher than latest sent view change message view number
 			n.Mutex.Lock()
@@ -79,6 +80,11 @@ func (n *LinearPBFTNode) SendViewChange(viewNumber int64) error {
 		Message:   viewChangeMessage,
 		Signature: crypto.Sign(viewChangeMessage, n.PrivateKey),
 	}
+	// Byzantine node behavior: sign attack
+	if n.Byzantine && n.SignAttack {
+		log.Infof("Node %s is Byzantine and is performing sign attack", n.ID)
+		signedViewChangeMessage.Signature = []byte("invalid signature")
+	}
 
 	// Log the view change message
 	if _, ok := n.ViewChangeMessageLog[viewNumber]; !ok {
@@ -92,12 +98,17 @@ func (n *LinearPBFTNode) SendViewChange(viewNumber int64) error {
 	// Multicast view change message to all nodes
 	log.Infof("Sending view change message to all nodes: %s", utils.LoggingString(viewChangeMessage))
 	for _, peer := range n.Peers {
-		go func() {
+		go func(peer *models.Node) {
+			// Byzantine node behavior: dark attack
+			if n.Byzantine && n.DarkAttack && slices.Contains(n.DarkAttackNodes, peer.ID) {
+				log.Infof("Node %s is Byzantine and is performing dark attack", peer.ID)
+				return
+			}
 			_, err := (*peer.Client).ViewChangeRequest(context.Background(), signedViewChangeMessage)
 			if err != nil {
 				return
 			}
-		}()
+		}(peer)
 	}
 	return nil
 }
@@ -242,6 +253,11 @@ func (n *LinearPBFTNode) NewViewRoutine(ctx context.Context, viewNumber int64) {
 				Message:   newPrePrepareMessage,
 				Signature: crypto.Sign(newPrePrepareMessage, n.PrivateKey),
 			}
+			// Byzantine node behavior: sign attack
+			if n.Byzantine && n.SignAttack {
+				log.Infof("Node %s is Byzantine and is performing sign attack", n.ID)
+				signedPrePrepareMessages[sequenceNum].Signature = []byte("invalid signature")
+			}
 		}
 	}
 
@@ -260,6 +276,11 @@ func (n *LinearPBFTNode) NewViewRoutine(ctx context.Context, viewNumber int64) {
 			newSignedPrePrepareMessage = &pb.SignedPrePrepareMessage{
 				Message:   newPrePrepareMessage,
 				Signature: crypto.Sign(newPrePrepareMessage, n.PrivateKey),
+			}
+			// Byzantine node behavior: sign attack
+			if n.Byzantine && n.SignAttack {
+				log.Infof("Node %s is Byzantine and is performing sign attack", n.ID)
+				newSignedPrePrepareMessage.Signature = []byte("invalid signature")
 			}
 		} else {
 			newSignedPrePrepareMessage = signedPrePrepareMessages[sequenceNum]
@@ -309,6 +330,11 @@ func (n *LinearPBFTNode) NewViewRoutine(ctx context.Context, viewNumber int64) {
 		Message:   newViewMessage,
 		Signature: crypto.Sign(newViewMessage, n.PrivateKey),
 	}
+	// Byzantine node behavior: sign attack
+	if n.Byzantine && n.SignAttack {
+		log.Infof("Node %s is Byzantine and is performing sign attack", n.ID)
+		signedNewViewMessage.Signature = []byte("invalid signature")
+	}
 
 	collectedSignedPrepareMessages := n.SendNewView(signedNewViewMessage)
 
@@ -337,7 +363,6 @@ func (n *LinearPBFTNode) NewViewRoutine(ctx context.Context, viewNumber int64) {
 func (n *LinearPBFTNode) NewViewRequest(signedNewViewMessage *pb.SignedNewViewMessage, stream pb.LinearPBFTNode_NewViewRequestServer) error {
 	// Ignore if not alive
 	if !n.Alive {
-		n.Mutex.Unlock()
 		log.Infof("Node %s is not alive", n.ID)
 		return status.Errorf(codes.Unavailable, "node not alive")
 	}
@@ -393,7 +418,13 @@ func (n *LinearPBFTNode) NewViewRequest(signedNewViewMessage *pb.SignedNewViewMe
 	log.Infof("Accepted %s", utils.LoggingString(newViewMessage))
 	n.Mutex.Unlock()
 
-	// Stream prepare messages to client
+	// Byzantine node behavior: dark attack
+	if n.Byzantine && n.DarkAttack && slices.Contains(n.DarkAttackNodes, leaderID) {
+		log.Infof("Node %s is Byzantine and is performing dark attack", leaderID)
+		return status.Errorf(codes.Unavailable, "node not alive")
+	}
+
+	// Stream prepare messages to leader
 	for _, signedPrePrepareMessage := range signedPrePrepareMessages {
 		signedPrepareMessage, err := n.PrePrepareRequest(context.Background(), signedPrePrepareMessage)
 		if err != nil {
@@ -420,6 +451,12 @@ func (n *LinearPBFTNode) SendNewView(signedNewViewMessage *pb.SignedNewViewMessa
 		wg.Add(1)
 		go func(peer *models.Node) {
 			defer wg.Done()
+			// Byzantine node behavior: dark attack
+			if n.Byzantine && n.DarkAttack && slices.Contains(n.DarkAttackNodes, peer.ID) {
+				log.Infof("Node %s is Byzantine and is performing dark attack", peer.ID)
+				return
+			}
+
 			// Send new view message to peer
 			stream, err := (*peer.Client).NewViewRequest(context.Background(), signedNewViewMessage)
 			if err != nil {

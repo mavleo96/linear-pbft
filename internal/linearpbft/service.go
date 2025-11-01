@@ -2,6 +2,7 @@ package linearpbft
 
 import (
 	"context"
+	"slices"
 
 	"github.com/mavleo96/bft-mavleo96/internal/crypto"
 	"github.com/mavleo96/bft-mavleo96/internal/utils"
@@ -24,15 +25,15 @@ func (n *LinearPBFTNode) TransferRequest(ctx context.Context, signedRequest *pb.
 
 	// Ignore request if in view change phase
 	if n.ViewChangePhase {
-		log.Infof("Ignore request for view change phase: %s", utils.LoggingString(request))
-		return &emptypb.Empty{}, nil
+		log.Infof("Ignored: %s; view change phase", utils.LoggingString(request))
+		return &emptypb.Empty{}, status.Errorf(codes.Unavailable, "view change phase")
 	}
 
 	// Verify client signature
 	ok := crypto.Verify(request, n.Clients[request.Sender].PublicKey, signedRequest.Signature)
 	if !ok {
-		log.Warnf("Invalid client signature for request %s", request.String())
-		return nil, status.Errorf(codes.Unauthenticated, "invalid signature")
+		log.Warnf("Invalid client signature for request %s", utils.LoggingString(request))
+		return &emptypb.Empty{}, status.Errorf(codes.Unauthenticated, "invalid signature")
 	}
 
 	// Add request to transaction map
@@ -89,6 +90,11 @@ func (n *LinearPBFTNode) TransferRequest(ctx context.Context, signedRequest *pb.
 		Signature: crypto.Sign(preprepare, n.PrivateKey),
 		Request:   signedRequest,
 	}
+	// Byzantine node behavior: sign attack
+	if n.Byzantine && n.SignAttack {
+		log.Infof("Node %s is Byzantine and is performing sign attack", n.ID)
+		signedPreprepare.Signature = []byte("invalid signature")
+	}
 	record.AddPrePrepareMessage(signedPreprepare)
 
 	// Send preprepare message to all nodes and collect prepare messages
@@ -128,7 +134,7 @@ func (n *LinearPBFTNode) ReadOnlyRequest(ctx context.Context, signedRequest *pb.
 
 	// Ignore request if in view change phase
 	if n.ViewChangePhase {
-		log.Infof("Ignore request for view change phase: %s", utils.LoggingString(request))
+		log.Infof("Ignored: %s; view change phase", utils.LoggingString(request))
 		return nil, status.Errorf(codes.Unavailable, "view change phase")
 	}
 
@@ -157,6 +163,11 @@ func (n *LinearPBFTNode) ReadOnlyRequest(ctx context.Context, signedRequest *pb.
 		Message:   message,
 		Signature: crypto.Sign(message, n.PrivateKey),
 	}
+	// Byzantine node behavior: sign attack
+	if n.Byzantine && n.SignAttack {
+		log.Infof("Node %s is Byzantine and is performing sign attack", n.ID)
+		signedMessage.Signature = []byte("invalid signature")
+	}
 	log.Infof("Node %s: Read only request %s -> %d", n.ID, utils.LoggingString(request), balance)
 	return signedMessage, nil
 }
@@ -175,7 +186,11 @@ func (n *LinearPBFTNode) SendReply(sequenceNum int64, request *pb.TransactionReq
 		Message:   reply,
 		Signature: crypto.Sign(reply, n.PrivateKey),
 	}
-
+	// Byzantine node behavior: sign attack
+	if n.Byzantine && n.SignAttack {
+		log.Infof("Node %s is Byzantine and is performing sign attack", n.ID)
+		signedReply.Signature = []byte("invalid signature")
+	}
 	// Update last reply
 	n.LastReply.Update(request.Sender, reply)
 
@@ -190,9 +205,14 @@ func (n *LinearPBFTNode) SendReply(sequenceNum int64, request *pb.TransactionReq
 func (n *LinearPBFTNode) ForwardRequest(ctx context.Context, signedRequest *pb.SignedTransactionRequest) {
 	// Forward request to leader
 	leaderID := utils.ViewNumberToLeaderID(n.ViewNumber, n.N)
+	// Byzantine node behavior: dark attack
+	if n.Byzantine && n.DarkAttack && slices.Contains(n.DarkAttackNodes, leaderID) {
+		log.Infof("Node %s is Byzantine and is performing dark attack", leaderID)
+		return
+	}
 	log.Infof("Forwarding to leader %s: %s", leaderID, utils.LoggingString(signedRequest.Request))
 	_, err := (*n.Peers[leaderID].Client).TransferRequest(context.Background(), signedRequest)
 	if err != nil {
-		log.Fatal(err)
+		log.Warnf("Forwarding Failed: %s; %s", utils.LoggingString(signedRequest.Request), err.Error())
 	}
 }

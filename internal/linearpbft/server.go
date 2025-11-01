@@ -17,8 +17,15 @@ type LinearPBFTNode struct {
 	DB         *database.Database
 
 	// Node status
-	Alive     bool
-	Byzantine bool
+	Alive                   bool
+	Byzantine               bool
+	SignAttack              bool
+	CrashAttack             bool
+	DarkAttack              bool
+	DarkAttackNodes         []string
+	TimeAttack              bool
+	EquivocationAttack      bool
+	EquivocationAttackNodes []string
 
 	// Peer nodes and their information
 	Peers map[string]*models.Node
@@ -58,6 +65,13 @@ func CreateLinearPBFTNode(selfNode *models.Node, peerNodes map[string]*models.No
 		DB:                      bankDB,
 		Alive:                   true,
 		Byzantine:               false,
+		SignAttack:              false,
+		CrashAttack:             false,
+		DarkAttack:              false,
+		DarkAttackNodes:         make([]string, 0),
+		TimeAttack:              false,
+		EquivocationAttack:      false,
+		EquivocationAttackNodes: make([]string, 0),
 		PrivateKey:              privateKey,
 		Peers:                   peerNodes,
 		Clients:                 clientMap,

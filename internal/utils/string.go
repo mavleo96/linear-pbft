@@ -103,5 +103,5 @@ func transactionString(t *pb.Transaction) string {
 }
 
 func getRequestMessageString(g *pb.GetRequestMessage) string {
-	return fmt.Sprintf("<GETREQUEST, %s>", hex.EncodeToString(g.Digest))
+	return fmt.Sprintf("<GETREQUEST, %s, %s>", hex.EncodeToString(g.Digest), g.NodeID)
 }

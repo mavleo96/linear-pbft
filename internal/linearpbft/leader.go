@@ -2,11 +2,12 @@ package linearpbft
 
 import (
 	"context"
+	"slices"
 	"sync"
-	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/mavleo96/bft-mavleo96/internal/crypto"
+	"github.com/mavleo96/bft-mavleo96/internal/models"
 	"github.com/mavleo96/bft-mavleo96/internal/utils"
 	"github.com/mavleo96/bft-mavleo96/pb"
 	log "github.com/sirupsen/logrus"
@@ -29,6 +30,11 @@ func (n *LinearPBFTNode) SendPrePrepare(signedPreprepareMessage *pb.SignedPrePre
 	wg := sync.WaitGroup{}
 	for _, peer := range n.Peers {
 		wg.Go(func() {
+			// Byzantine node behavior: dark attack
+			if n.Byzantine && n.DarkAttack && slices.Contains(n.DarkAttackNodes, peer.ID) {
+				log.Infof("Node %s is Byzantine and is performing dark attack", peer.ID)
+				return
+			}
 			signedPrepareMsg, err := (*peer.Client).PrePrepareRequest(context.Background(), signedPreprepareMessage)
 			if err != nil {
 				// log.Fatal(err)
@@ -50,10 +56,16 @@ func (n *LinearPBFTNode) SendPrePrepare(signedPreprepareMessage *pb.SignedPrePre
 		Digest:      prePrepareMessage.Digest,
 		NodeID:      n.ID,
 	}
-	signedPrepareMsgs = append(signedPrepareMsgs, &pb.SignedPrepareMessage{
+	signedPrepareMessage := &pb.SignedPrepareMessage{
 		Message:   prepareMessage,
 		Signature: crypto.Sign(prepareMessage, n.PrivateKey),
-	})
+	}
+	// Byzantine node behavior: sign attack
+	if n.Byzantine && n.SignAttack {
+		log.Infof("Node %s is Byzantine and is performing sign attack", n.ID)
+		signedPrepareMessage.Signature = []byte("invalid signature")
+	}
+	signedPrepareMsgs = append(signedPrepareMsgs, signedPrepareMessage)
 
 	// Collect 2f + 1 matching prepare messages including self
 	// Note: leader is attaching his own prepare message to comply with TSS
@@ -118,8 +130,10 @@ func (n *LinearPBFTNode) SendPrepare(signedPrepareMessages []*pb.SignedPrepareMe
 	wg := sync.WaitGroup{}
 	for _, peer := range n.Peers {
 		wg.Go(func() {
-			if (peer.ID == "n2" && sequenceNum == 2) || (peer.ID == "n3" && sequenceNum == 6) || (peer.ID == "n4" && sequenceNum == 7) {
-				time.Sleep(2 * time.Second)
+			// Byzantine node behavior: dark attack
+			if n.Byzantine && n.DarkAttack && slices.Contains(n.DarkAttackNodes, peer.ID) {
+				log.Infof("Node %s is Byzantine and is performing dark attack", peer.ID)
+				return
 			}
 			signedCommitMsg, err := (*peer.Client).PrepareRequest(context.Background(), collectedSignedPrepareMessage)
 			if err != nil {
@@ -142,10 +156,16 @@ func (n *LinearPBFTNode) SendPrepare(signedPrepareMessages []*pb.SignedPrepareMe
 		Digest:      record.Digest,
 		NodeID:      n.ID,
 	}
-	signedCommitMsgs = append(signedCommitMsgs, &pb.SignedCommitMessage{
+	signedCommitMessage := &pb.SignedCommitMessage{
 		Message:   commitMessage,
 		Signature: crypto.Sign(commitMessage, n.PrivateKey),
-	})
+	}
+	// Byzantine node behavior: sign attack
+	if n.Byzantine && n.SignAttack {
+		log.Infof("Node %s is Byzantine and is performing sign attack", n.ID)
+		signedCommitMessage.Signature = []byte("invalid signature")
+	}
+	signedCommitMsgs = append(signedCommitMsgs, signedCommitMessage)
 
 	// Collect 2f + 1 matching commit messages including self
 	for range len(n.Peers) {
@@ -155,7 +175,6 @@ func (n *LinearPBFTNode) SendPrepare(signedPrepareMessages []*pb.SignedPrepareMe
 		}
 
 		// Verify signature
-		// log.Infof("Signed commit message: %s", signedCommitMsg.Message.String())
 		ok := crypto.Verify(signedCommitMsg.Message, n.Peers[signedCommitMsg.Message.NodeID].PublicKey, signedCommitMsg.Signature)
 		if !ok {
 			continue
@@ -206,13 +225,17 @@ func (n *LinearPBFTNode) SendCommit(signedCommitMessages []*pb.SignedCommitMessa
 	// Multicast commit message to all nodes
 	log.Infof("Sending commit message for sequence number %d", sequenceNum)
 	for _, peer := range n.Peers {
-		go func() {
-			_, err := (*peer.Client).CommitRequest(context.Background(), collectedSignedCommitMessage)
-			if err != nil {
-				// log.Fatal(err)
+		go func(peer *models.Node) {
+			// Byzantine node behavior: dark attack
+			if n.Byzantine && n.DarkAttack && slices.Contains(n.DarkAttackNodes, peer.ID) {
+				log.Infof("Node %s is Byzantine and is performing dark attack", peer.ID)
 				return
 			}
-		}()
+			_, err := (*peer.Client).CommitRequest(context.Background(), collectedSignedCommitMessage)
+			if err != nil {
+				return
+			}
+		}(peer)
 	}
 
 	return nil
