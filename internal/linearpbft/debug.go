@@ -11,6 +11,28 @@ import (
 	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
+// PrintLog prints the log
+func (n *LinearPBFTNode) PrintLog(ctx context.Context, req *emptypb.Empty) (*emptypb.Empty, error) {
+	n.Mutex.Lock()
+	defer n.Mutex.Unlock()
+	fmt.Println("Printing log records:")
+	maxSequenceNum := utils.Max(utils.Keys(n.LogRecords))
+	for i := int64(1); i <= maxSequenceNum; i++ {
+		record, ok := n.LogRecords[i]
+		if ok {
+			signedRequest := n.TransactionMap.Get(record.Digest)
+			fmt.Printf(
+				"%s, v: %d, s: %d, %s\n",
+				utils.LoggingString(signedRequest.Request),
+				record.ViewNumber, record.SequenceNum,
+				recordStatus(record))
+		}
+	}
+	fmt.Println("")
+
+	return &emptypb.Empty{}, nil
+}
+
 // PrintDB prints the database
 func (n *LinearPBFTNode) PrintDB(ctx context.Context, req *emptypb.Empty) (*emptypb.Empty, error) {
 	n.Mutex.Lock()
@@ -33,6 +55,7 @@ func (n *LinearPBFTNode) PrintDB(ctx context.Context, req *emptypb.Empty) (*empt
 	return &emptypb.Empty{}, nil
 }
 
+// PrintStatus prints the status of a sequence number
 func (n *LinearPBFTNode) PrintStatus(ctx context.Context, req *wrapperspb.Int64Value) (*emptypb.Empty, error) {
 	n.Mutex.Lock()
 	defer n.Mutex.Unlock()
@@ -51,16 +74,20 @@ func (n *LinearPBFTNode) PrintStatus(ctx context.Context, req *wrapperspb.Int64V
 		fmt.Printf("Request not found in transaction map for sequence number %d\n", sequenceNum)
 		return &emptypb.Empty{}, nil
 	}
-
-	if record.IsExecuted() {
-		fmt.Printf("Sequence Number: %d, Status: E, Message: %s\n", sequenceNum, utils.LoggingString(signedRequest.Request))
-	} else if record.IsCommitted() {
-		fmt.Printf("Sequence Number: %d, Status: C, Message: %s\n", sequenceNum, utils.LoggingString(signedRequest.Request))
-	} else if record.IsPrepared() {
-		fmt.Printf("Sequence Number: %d, Status: P, Message: %s\n", sequenceNum, utils.LoggingString(signedRequest.Request))
-	} else {
-		fmt.Printf("Sequence Number: %d, Status: PP, Message: %s\n", sequenceNum, utils.LoggingString(signedRequest.Request))
-	}
+	fmt.Printf("Sequence Number: %d, Status: %s, Message: %s\n", sequenceNum, recordStatus(record), utils.LoggingString(signedRequest.Request))
 	fmt.Println("")
 	return &emptypb.Empty{}, nil
+}
+
+// recordStatus returns the status of a log record
+func recordStatus(record *LogRecord) string {
+	if record.IsExecuted() {
+		return "E"
+	} else if record.IsCommitted() {
+		return "C"
+	} else if record.IsPrepared() {
+		return "P"
+	} else {
+		return "PP"
+	}
 }

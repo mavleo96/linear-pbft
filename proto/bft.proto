@@ -19,7 +19,7 @@ service LinearPBFTNode {
     rpc NewViewRequest (SignedNewViewMessage) returns (stream SignedPrepareMessage);
     rpc GetRequest (GetRequestMessage) returns (SignedTransactionRequest);
 
-    // rpc PrintLog (google.protobuf.Empty) returns (google.protobuf.Empty);
+    rpc PrintLog (google.protobuf.Empty) returns (google.protobuf.Empty);
     rpc PrintDB (google.protobuf.Empty) returns (google.protobuf.Empty);
     rpc PrintStatus (google.protobuf.Int64Value) returns (google.protobuf.Empty);
     // rpc PrintView (google.protobuf.Empty) returns (google.protobuf.Empty);

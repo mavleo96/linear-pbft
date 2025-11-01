@@ -282,7 +282,7 @@ func (n *LinearPBFTNode) NewViewRoutine(ctx context.Context, viewNumber int64) {
 		record, ok := n.LogRecords[sequenceNum]
 		if !ok {
 			// Create new log record if no record exists for this sequence number
-			record = CreateLogRecord(viewNumber, sequenceNum, crypto.Digest(NoOpTransactionRequest))
+			record = CreateLogRecord(viewNumber, sequenceNum, prePrepareMessage.Digest)
 			n.LogRecords[sequenceNum] = record
 		} else {
 			err := record.Reset(viewNumber, prePrepareMessage.Digest)
@@ -291,11 +291,6 @@ func (n *LinearPBFTNode) NewViewRoutine(ctx context.Context, viewNumber int64) {
 			}
 		}
 		record.AddPrePrepareMessage(signedPrePrepareMessage)
-	}
-
-	// Print current log state
-	for sequenceNum, record := range n.LogRecords {
-		log.Infof("Log record for sequence number %d: %s", sequenceNum, record.LogString())
 	}
 
 	// Create new view message and sign it
@@ -313,15 +308,15 @@ func (n *LinearPBFTNode) NewViewRoutine(ctx context.Context, viewNumber int64) {
 
 	// Print collected signed prepare messages
 	for sequenceNum := range collectedSignedPrepareMessages {
-		go func(prepareMessages []*pb.SignedPrepareMessage, sequenceNum int64) {
+		go func(signedPrepareMsgs []*pb.SignedPrepareMessage, sequenceNum int64) {
 			// Send prepare messages to all nodes and collect commit messages
-			commitMsgs, err := n.SendPrepare(prepareMessages, sequenceNum)
-			if err != nil || commitMsgs == nil {
+			signedCommitMsgs, err := n.SendPrepare(signedPrepareMsgs, sequenceNum)
+			if err != nil || signedCommitMsgs == nil {
 				return
 			}
 
 			// Send commit messages to all nodes
-			err = n.SendCommit(commitMsgs, sequenceNum)
+			err = n.SendCommit(signedCommitMsgs, sequenceNum)
 			if err != nil {
 				return
 			}

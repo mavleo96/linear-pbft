@@ -11,6 +11,12 @@ import (
 
 func SendPrintLogCommand(nodeMap map[string]*models.Node) error {
 	log.Info("Print log command received")
+	for _, node := range nodeMap {
+		_, err := (*node.Client).PrintLog(context.Background(), &emptypb.Empty{})
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 

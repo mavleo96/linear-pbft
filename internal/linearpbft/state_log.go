@@ -93,6 +93,7 @@ func (l *LogRecord) GetPrepareProof() *pb.PrepareProof {
 	}
 }
 
+// Reset resets the log record
 func (l *LogRecord) Reset(viewNumber int64, digest []byte) error {
 	l.ViewNumber = viewNumber
 	l.prePrepared = false
@@ -109,6 +110,7 @@ func (l *LogRecord) Reset(viewNumber int64, digest []byte) error {
 	return nil
 }
 
+// LogString returns the log record as a string
 func (l *LogRecord) LogString() string {
 	return fmt.Sprintf("v: %d, s: %d, (executed: %t)", l.ViewNumber, l.SequenceNum, l.executed)
 }
@@ -135,18 +137,24 @@ func (l *LogRecord) updateLogState() {
 	if l.prePrepareMessage == nil {
 		return
 	}
+	if !l.prePrepared {
+		log.Infof("Preprepared (v: %d, s: %d)", l.ViewNumber, l.SequenceNum)
+	}
 	l.prePrepared = true
-	log.Infof("Preprepared (v: %d, s: %d)", l.ViewNumber, l.SequenceNum)
 	if len(l.prepareMessages) == 0 {
 		return
 	}
+	if !l.prepared {
+		log.Infof("Prepared (v: %d, s: %d)", l.ViewNumber, l.SequenceNum)
+	}
 	l.prepared = true
-	log.Infof("Prepared (v: %d, s: %d)", l.ViewNumber, l.SequenceNum)
 	if len(l.commitMessages) == 0 {
 		return
 	}
+	if !l.committed {
+		log.Infof("Committed (v: %d, s: %d)", l.ViewNumber, l.SequenceNum)
+	}
 	l.committed = true
-	log.Infof("Committed (v: %d, s: %d)", l.ViewNumber, l.SequenceNum)
 }
 
 // TransactionMap represents a map of digest to signed transaction request with a mutex
