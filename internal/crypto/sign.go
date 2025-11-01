@@ -2,6 +2,7 @@ package crypto
 
 import (
 	"crypto/ed25519"
+	"encoding/hex"
 	"fmt"
 	"strings"
 
@@ -9,11 +10,14 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// Sign signs a message with a private key
+// TODO: change this later to use json marshalling instead of string concatenation
 func Sign[T any](message T, privateKey []byte) []byte {
 	msgString := messageString(message)
 	return ed25519.Sign(privateKey, []byte(msgString))
 }
 
+// Verify verifies a message with a public key and a signature
 func Verify[T any](message T, publicKey []byte, signature []byte) bool {
 	msgString := messageString(message)
 	return ed25519.Verify(publicKey, []byte(msgString), signature)
@@ -37,6 +41,8 @@ func messageString(message any) string {
 		return transactionRequestString(v)
 	case *pb.Transaction:
 		return transactionString(v)
+	case *pb.SignedTransactionRequest:
+		return signedTransactionRequestString(v)
 	default:
 		// TODO: remove this
 		log.Fatalf("Unknown message type: %T", message)
@@ -119,4 +125,8 @@ func transactionString(t *pb.Transaction) string {
 		return fmt.Sprintf("(%s)", t.Sender)
 	}
 	return fmt.Sprintf("(%s, %s, %d)", t.Sender, t.Receiver, t.Amount)
+}
+
+func signedTransactionRequestString(t *pb.SignedTransactionRequest) string {
+	return fmt.Sprintf("<SIGNEDREQUEST, %s, %s>", transactionRequestString(t.Request), hex.EncodeToString(t.Signature[:]))
 }

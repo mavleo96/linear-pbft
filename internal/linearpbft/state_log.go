@@ -12,15 +12,19 @@ import (
 )
 
 // NoOpTransactionRequest is a no-op transaction request
-var NoOpTransactionRequest = &pb.TransactionRequest{
-	Transaction: &pb.Transaction{
-		Type:     "null",
-		Sender:   "null",
-		Receiver: "null",
-		Amount:   0,
+// TODO: signature won't be verified right now
+var NoOpTransactionRequest = &pb.SignedTransactionRequest{
+	Request: &pb.TransactionRequest{
+		Transaction: &pb.Transaction{
+			Type:     "null",
+			Sender:   "null",
+			Receiver: "null",
+			Amount:   0,
+		},
+		Timestamp: 0,
+		Sender:    "null",
 	},
-	Timestamp: 0,
-	Sender:    "null",
+	Signature: []byte{},
 }
 
 // LogRecord represents a log record for a transaction

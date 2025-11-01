@@ -73,7 +73,7 @@ func (n *LinearPBFTNode) PrePrepareRequest(ctx context.Context, signedMessage *p
 	}
 
 	// Verify Digest
-	if !cmp.Equal(prePrepareMessage.Digest, crypto.Digest(request)) {
+	if !cmp.Equal(prePrepareMessage.Digest, crypto.Digest(signedRequest)) {
 		log.Warnf("Rejected: %s; invalid digest", utils.LoggingString(prePrepareMessage, request))
 		return nil, status.Errorf(codes.InvalidArgument, "invalid digest")
 	}
@@ -83,14 +83,14 @@ func (n *LinearPBFTNode) PrePrepareRequest(ctx context.Context, signedMessage *p
 	record, ok := n.LogRecords[prePrepareMessage.SequenceNum]
 	if !ok {
 		// Create new log record if no record exists for this sequence number
-		record = CreateLogRecord(prePrepareMessage.ViewNumber, prePrepareMessage.SequenceNum, crypto.Digest(request))
+		record = CreateLogRecord(prePrepareMessage.ViewNumber, prePrepareMessage.SequenceNum, crypto.Digest(signedRequest))
 		n.LogRecords[prePrepareMessage.SequenceNum] = record
 
 		//  TODO: check if safety issue here and if code can be improved
 		// Check if the request is in the forwarded requests log
 		inForwardedRequestsLog := false
 		for _, forwardedRequest := range n.ForwardedRequestsLog {
-			if cmp.Equal(crypto.Digest(forwardedRequest.Request), prePrepareMessage.Digest) {
+			if cmp.Equal(crypto.Digest(forwardedRequest), prePrepareMessage.Digest) {
 				inForwardedRequestsLog = true
 				break
 			}
@@ -161,7 +161,7 @@ func (n *LinearPBFTNode) PrepareRequest(ctx context.Context, signedPrepareMessag
 		// If it is then don't increment the wait count else increment the wait count
 		inForwardedRequestsLog := false
 		for _, forwardedRequest := range n.ForwardedRequestsLog {
-			if cmp.Equal(crypto.Digest(forwardedRequest.Request), signedPrepareMessages.Digest) {
+			if cmp.Equal(crypto.Digest(forwardedRequest), signedPrepareMessages.Digest) {
 				inForwardedRequestsLog = true
 				break
 			}
@@ -260,7 +260,7 @@ func (n *LinearPBFTNode) CommitRequest(ctx context.Context, signedCommitMessages
 		// If it is then don't increment the wait count else increment the wait count
 		inForwardedRequestsLog := false
 		for _, forwardedRequest := range n.ForwardedRequestsLog {
-			if cmp.Equal(crypto.Digest(forwardedRequest.Request), signedCommitMessages.Digest) {
+			if cmp.Equal(crypto.Digest(forwardedRequest), signedCommitMessages.Digest) {
 				inForwardedRequestsLog = true
 				break
 			}
@@ -362,7 +362,7 @@ func (n *LinearPBFTNode) SendGetRequest(digest []byte) (*pb.SignedTransactionReq
 		}
 
 		// Verify if digest is same as in log record
-		if !cmp.Equal(crypto.Digest(request), digest) {
+		if !cmp.Equal(crypto.Digest(signedRequest), digest) {
 			log.Warnf("Rejected: %s; invalid digest on request", utils.LoggingString(request))
 			continue
 		}

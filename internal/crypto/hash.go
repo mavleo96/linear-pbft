@@ -6,8 +6,9 @@ import (
 	"github.com/mavleo96/bft-mavleo96/pb"
 )
 
-func Digest(request *pb.TransactionRequest) []byte {
-	requestString := transactionRequestString(request)
+// Digest hashes a signed transaction request
+func Digest(request *pb.SignedTransactionRequest) []byte {
+	requestString := signedTransactionRequestString(request)
 	digest := sha256.Sum256([]byte(requestString))
 	return digest[:]
 }

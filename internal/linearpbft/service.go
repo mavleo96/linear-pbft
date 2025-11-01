@@ -30,14 +30,14 @@ func (n *LinearPBFTNode) TransferRequest(ctx context.Context, signedRequest *pb.
 	}
 
 	// Add request to transaction map
-	if n.TransactionMap.Get(crypto.Digest(signedRequest.Request)) == nil {
+	if n.TransactionMap.Get(crypto.Digest(signedRequest)) == nil {
 		log.Infof("Adding request to transaction map: %s", utils.LoggingString(request))
-		n.TransactionMap.Set(crypto.Digest(signedRequest.Request), signedRequest)
+		n.TransactionMap.Set(crypto.Digest(signedRequest), signedRequest)
 	}
 
 	// Send reply to client if duplicate request
 	if n.LastReply.Get(request.Sender) != nil && request.Timestamp == n.LastReply.Get(request.Sender).Timestamp {
-		sequenceNum, _ := n.GetOrAssignSequenceNumber(request)
+		sequenceNum, _ := n.GetOrAssignSequenceNumber(signedRequest)
 		log.Infof("Received duplicate request from client %s for request %s, sending reply", request.Sender, utils.LoggingString(request))
 		go n.SendReply(sequenceNum, request, n.LastReply.Get(request.Sender).Result)
 		return &emptypb.Empty{}, nil
@@ -57,11 +57,11 @@ func (n *LinearPBFTNode) TransferRequest(ctx context.Context, signedRequest *pb.
 	}
 
 	// Get or assign sequence number
-	sequenceNum, exists := n.GetOrAssignSequenceNumber(request)
+	sequenceNum, exists := n.GetOrAssignSequenceNumber(signedRequest)
 	if !exists {
 		// Add request to log record
 		n.Mutex.Lock()
-		n.LogRecords[sequenceNum] = CreateLogRecord(n.ViewNumber, sequenceNum, crypto.Digest(request))
+		n.LogRecords[sequenceNum] = CreateLogRecord(n.ViewNumber, sequenceNum, crypto.Digest(signedRequest))
 		n.Mutex.Unlock()
 	}
 
@@ -76,7 +76,7 @@ func (n *LinearPBFTNode) TransferRequest(ctx context.Context, signedRequest *pb.
 	preprepare := &pb.PrePrepareMessage{
 		ViewNumber:  n.ViewNumber,
 		SequenceNum: sequenceNum,
-		Digest:      crypto.Digest(request),
+		Digest:      crypto.Digest(signedRequest),
 	}
 	signedPreprepare := &pb.SignedPrePrepareMessage{
 		Message:   preprepare,

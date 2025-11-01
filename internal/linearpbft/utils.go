@@ -10,12 +10,12 @@ import (
 
 // GetOrAssignSequenceNumber gets the sequence number of a transaction request from the log record
 // or assigns a new sequence number to the request
-func (n *LinearPBFTNode) GetOrAssignSequenceNumber(request *pb.TransactionRequest) (int64, bool) {
+func (n *LinearPBFTNode) GetOrAssignSequenceNumber(signedRequest *pb.SignedTransactionRequest) (int64, bool) {
 	n.Mutex.Lock()
 	defer n.Mutex.Unlock()
 
 	// Compute digest of request
-	digest := crypto.Digest(request)
+	digest := crypto.Digest(signedRequest)
 
 	// Check if request is already in log record
 	for _, record := range n.LogRecords {
