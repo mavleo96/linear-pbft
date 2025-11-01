@@ -1,10 +1,12 @@
 package linearpbft
 
 import (
+	"errors"
 	"fmt"
 	"sync"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/mavleo96/bft-mavleo96/internal/utils"
 	"github.com/mavleo96/bft-mavleo96/pb"
 	log "github.com/sirupsen/logrus"
 )
@@ -87,7 +89,7 @@ func (l *LogRecord) GetPrepareProof() *pb.PrepareProof {
 	}
 }
 
-func (l *LogRecord) Reset(viewNumber int64, digest []byte) {
+func (l *LogRecord) Reset(viewNumber int64, digest []byte) error {
 	l.ViewNumber = viewNumber
 	l.prePrepared = false
 	l.prepared = false
@@ -97,9 +99,10 @@ func (l *LogRecord) Reset(viewNumber int64, digest []byte) {
 	l.commitMessages = nil
 
 	if l.executed && !cmp.Equal(l.Digest, digest) {
-		log.Fatal("Resetting log record with different digest that is already executed")
+		return errors.New("resetting log record with different digest that is already executed")
 	}
 	l.Digest = digest
+	return nil
 }
 
 func (l *LogRecord) LogString() string {
@@ -140,6 +143,26 @@ func (l *LogRecord) updateLogState() {
 	}
 	l.committed = true
 	log.Infof("Committed (v: %d, s: %d)", l.ViewNumber, l.SequenceNum)
+}
+
+// TransactionMap represents a map of digest to signed transaction request with a mutex
+type TransactionMap struct {
+	Mutex sync.RWMutex
+	Map   map[[32]byte]*pb.SignedTransactionRequest
+}
+
+// Get returns the signed transaction request for a given digest
+func (t *TransactionMap) Get(digest []byte) *pb.SignedTransactionRequest {
+	t.Mutex.RLock()
+	defer t.Mutex.RUnlock()
+	return t.Map[utils.To32Bytes(digest)]
+}
+
+// Set sets the signed transaction request for a given digest
+func (t *TransactionMap) Set(digest []byte, signedRequest *pb.SignedTransactionRequest) {
+	t.Mutex.Lock()
+	defer t.Mutex.Unlock()
+	t.Map[utils.To32Bytes(digest)] = signedRequest
 }
 
 // LastReply represents a map of sender to last sent reply with a mutex

@@ -17,7 +17,7 @@ import (
 
 // PrePrepare handles incoming preprepare messages
 // This function is a rpc which is called by the leader to preprepare a request
-// It is also called by self in new view message to preprepare a request
+// It is also called by inside new view request rpc
 func (n *LinearPBFTNode) PrePrepareRequest(ctx context.Context, signedMessage *pb.SignedPrePrepareMessage) (*pb.SignedPrepareMessage, error) {
 	prePrepareMessage := signedMessage.Message
 	signedRequest := signedMessage.Request
@@ -37,16 +37,19 @@ func (n *LinearPBFTNode) PrePrepareRequest(ctx context.Context, signedMessage *p
 	}
 
 	// May not have the request in the transaction map if called inside new view routine
-	if signedRequest != nil {
-		n.TransactionMap.Set(prePrepareMessage.Digest, signedRequest)
-	} else if signedRequest = n.TransactionMap.Get(prePrepareMessage.Digest); signedRequest == nil {
+	// We may overwrite the request in the transaction map if called inside new view routine
+	// if signed request is nil then get from transaction map
+	if signedRequest == nil {
+		signedRequest = n.TransactionMap.Get(prePrepareMessage.Digest)
+	}
+	// if not in transaction map then send a get request to all nodes; if still nil then return error
+	if signedRequest == nil {
 		response, err := n.SendGetRequest(prePrepareMessage.Digest)
 		if err != nil || response == nil {
 			log.Warnf("Rejected: %s; request could not be retrieved from any node", utils.LoggingString(prePrepareMessage))
 			return nil, status.Errorf(codes.FailedPrecondition, "request could not be retrieved from any node")
 		}
 		signedRequest = response
-		n.TransactionMap.Set(prePrepareMessage.Digest, signedRequest)
 	}
 	request := signedRequest.Request
 
@@ -55,6 +58,12 @@ func (n *LinearPBFTNode) PrePrepareRequest(ctx context.Context, signedMessage *p
 	if !ok {
 		log.Warnf("Rejected: %s; invalid signature on request", utils.LoggingString(request))
 		return nil, status.Errorf(codes.Unauthenticated, "invalid signature on request")
+	}
+
+	// Add request to transaction map
+	if n.TransactionMap.Get(prePrepareMessage.Digest) == nil {
+		log.Infof("Adding request to transaction map: %s", utils.LoggingString(signedRequest.Request))
+		n.TransactionMap.Set(prePrepareMessage.Digest, signedRequest)
 	}
 
 	// Verify View Number
@@ -69,22 +78,13 @@ func (n *LinearPBFTNode) PrePrepareRequest(ctx context.Context, signedMessage *p
 		return nil, status.Errorf(codes.InvalidArgument, "invalid digest")
 	}
 
-	// Verify if previously accepted preprepare message with different digest
+	// Get record from log record
 	n.Mutex.Lock()
 	record, ok := n.LogRecords[prePrepareMessage.SequenceNum]
-	if ok {
-		// Reject if some other request was previously assigned to this sequence number
-		// TODO: what if something was preprepared only but now i get a null message from new view message
-		if record.IsPrePrepared() && !cmp.Equal(record.Digest, prePrepareMessage.Digest) {
-			log.Warnf("Rejected: %s; previously accepted %s", utils.LoggingString(prePrepareMessage, request), utils.LoggingString(n.TransactionMap.Get(record.Digest).Request))
-			return nil, status.Errorf(codes.FailedPrecondition, "previously accepted preprepare message with different digest")
-		}
-		record.AddPrePrepareMessage(signedMessage)
-	} else {
+	if !ok {
 		// Create new log record if no record exists for this sequence number
 		record = CreateLogRecord(prePrepareMessage.ViewNumber, prePrepareMessage.SequenceNum, crypto.Digest(request))
 		n.LogRecords[prePrepareMessage.SequenceNum] = record
-		record.AddPrePrepareMessage(signedMessage)
 
 		//  TODO: check if safety issue here and if code can be improved
 		// Check if the request is in the forwarded requests log
@@ -98,7 +98,21 @@ func (n *LinearPBFTNode) PrePrepareRequest(ctx context.Context, signedMessage *p
 		if !inForwardedRequestsLog {
 			n.SafeTimer.IncrementWaitCountOrStart()
 		}
+	} else if record.ViewNumber < prePrepareMessage.ViewNumber {
+		// Reset log record if view number is less than preprepare message view number
+		record.Reset(prePrepareMessage.ViewNumber, prePrepareMessage.Digest)
 	}
+	n.Mutex.Unlock()
+
+	// Verify if previously accepted preprepare message with different digest for same view and sequence number
+	if record.IsPrePrepared() && !cmp.Equal(record.Digest, prePrepareMessage.Digest) {
+		log.Warnf("Rejected: %s; previously accepted %s", utils.LoggingString(prePrepareMessage, request), utils.LoggingString(n.TransactionMap.Get(record.Digest).Request))
+		return nil, status.Errorf(codes.FailedPrecondition, "previously accepted preprepare message with different digest")
+	}
+
+	// Log the preprepare message in record
+	n.Mutex.Lock()
+	record.AddPrePrepareMessage(signedMessage)
 	n.Mutex.Unlock()
 
 	// Create prepare message and sign it
@@ -139,6 +153,7 @@ func (n *LinearPBFTNode) PrepareRequest(ctx context.Context, signedPrepareMessag
 	n.Mutex.Lock()
 	record, ok := n.LogRecords[sequenceNum]
 	if !ok {
+		// Create new log record if no record exists for this sequence number
 		record = CreateLogRecord(viewNumber, sequenceNum, signedPrepareMessages.Digest)
 		n.LogRecords[sequenceNum] = record
 
@@ -154,6 +169,9 @@ func (n *LinearPBFTNode) PrepareRequest(ctx context.Context, signedPrepareMessag
 		if !inForwardedRequestsLog {
 			n.SafeTimer.IncrementWaitCountOrStart()
 		}
+	} else if record.ViewNumber < viewNumber {
+		// Reset log record if view number is less than prepare message view number
+		record.Reset(viewNumber, signedPrepareMessages.Digest)
 	}
 	n.Mutex.Unlock()
 
@@ -166,7 +184,7 @@ func (n *LinearPBFTNode) PrepareRequest(ctx context.Context, signedPrepareMessag
 		}
 		prepareMessage := signedPrepareMessage.Message
 
-		// Verify Signature
+		// Verify Node's signature
 		ok := crypto.Verify(prepareMessage, n.GetPublicKey(prepareMessage.NodeID), signedPrepareMessage.Signature)
 		if !ok {
 			// log.Warnf("Rejected: %s; invalid signature", utils.LoggingString(prepareMessage, record.Request))
@@ -250,6 +268,9 @@ func (n *LinearPBFTNode) CommitRequest(ctx context.Context, signedCommitMessages
 		if !inForwardedRequestsLog {
 			n.SafeTimer.IncrementWaitCountOrStart()
 		}
+	} else if record.ViewNumber < viewNumber {
+		// Reset log record if view number is less than commit message view number
+		record.Reset(viewNumber, signedCommitMessages.Digest)
 	}
 	n.Mutex.Unlock()
 
@@ -262,7 +283,7 @@ func (n *LinearPBFTNode) CommitRequest(ctx context.Context, signedCommitMessages
 		}
 		commitMessage := signedCommitMessage.Message
 
-		// Verify Signature
+		// Verify Node's signature
 		ok := crypto.Verify(commitMessage, n.GetPublicKey(commitMessage.NodeID), signedCommitMessage.Signature)
 		if !ok {
 			// log.Warnf("Rejected: %s; invalid signature", utils.LoggingString(commitMessage, record.Request))

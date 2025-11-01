@@ -183,7 +183,7 @@ func (n *LinearPBFTNode) ViewChangeRequest(ctx context.Context, signedViewChange
 	// If 2f + 1 view change messages are collected and next primary then send new view message
 	if len(viewChangeMessageLog) >= int(2*n.F+1) {
 		if utils.ViewNumberToLeaderID(viewNumber, n.N) == n.ID {
-			go n.SendNewView(viewNumber)
+			go n.NewViewRoutine(context.Background(), viewNumber)
 		} else {
 			n.SafeTimer.IncrementWaitCountOrStart()
 		}
@@ -193,8 +193,18 @@ func (n *LinearPBFTNode) ViewChangeRequest(ctx context.Context, signedViewChange
 }
 
 // NewViewRoutine is a routine that handles sending new view messages to all nodes
-func (n *LinearPBFTNode) NewViewRoutine(ctx context.Context) {
-	n.SendNewView(n.ViewNumber)
+func (n *LinearPBFTNode) NewViewRoutine(ctx context.Context, viewNumber int64) {
+	collectedSignedPrepareMessages := n.SendNewView(viewNumber)
+
+	// Print collected signed prepare messages
+	for sequenceNum, signedPrepareMessages := range collectedSignedPrepareMessages {
+		log.Infof("Collected %d signed prepare messages for sequence number %d", len(signedPrepareMessages), sequenceNum)
+		for _, signedPrepareMessage := range signedPrepareMessages {
+			signedRequest := n.TransactionMap.Get(signedPrepareMessage.Message.Digest)
+			log.Infof("Signed prepare message: %s", utils.LoggingString(signedPrepareMessage.Message, signedRequest.Request))
+		}
+	}
+
 }
 
 func (n *LinearPBFTNode) NewViewRequest(signedNewViewMessage *pb.SignedNewViewMessage, stream pb.LinearPBFTNode_NewViewRequestServer) error {
@@ -264,13 +274,13 @@ func (n *LinearPBFTNode) NewViewRequest(signedNewViewMessage *pb.SignedNewViewMe
 }
 
 // SendNewView sends a new view message to all nodes
-func (n *LinearPBFTNode) SendNewView(viewNumber int64) {
+func (n *LinearPBFTNode) SendNewView(viewNumber int64) map[int64][]*pb.SignedPrepareMessage {
 	n.Mutex.Lock()
 	defer n.Mutex.Unlock()
 
 	// Update view number
 	n.ViewNumber = viewNumber
-	n.ViewChangePhase = false
+	n.ViewChangePhase = false // TODO: safer to mark after leader has preprepared
 
 	// Get view change messages from view change message log
 	signedViewChangeMessageLog := n.ViewChangeMessageLog[viewNumber]
@@ -336,30 +346,34 @@ func (n *LinearPBFTNode) SendNewView(viewNumber int64) {
 	for _, signedPrePrepareMessage := range sortedSignedPrePrepareMessages {
 		prePrepareMessage := signedPrePrepareMessage.Message
 		sequenceNum := prePrepareMessage.SequenceNum
-		record := n.LogRecords[sequenceNum]
-		if record == nil {
+
+		// If request is not in the transaction map then send a get request to all nodes
+		signedRequest := n.TransactionMap.Get(prePrepareMessage.Digest)
+		if signedRequest == nil {
+			response, err := n.SendGetRequest(prePrepareMessage.Digest)
+			if err != nil || response == nil {
+				log.Fatal(err)
+			}
+			signedRequest = response
+			log.Infof("Adding request to transaction map: %s", utils.LoggingString(signedRequest.Request))
+			n.TransactionMap.Set(prePrepareMessage.Digest, signedRequest)
+		}
+
+		// Get record from log record or create new one
+		record, ok := n.LogRecords[sequenceNum]
+		if !ok {
+			// Create new log record if no record exists for this sequence number
 			record = CreateLogRecord(viewNumber, sequenceNum, crypto.Digest(NoOpTransactionRequest))
 			n.LogRecords[sequenceNum] = record
 		} else {
-			log.Infof("Before reset: %s", record.LogString())
-			record.Reset(viewNumber, prePrepareMessage.Digest)
-			log.Infof("After reset: %s", record.LogString())
-
-			// Get missing via get request
-			if signedRequest := n.TransactionMap.Get(record.Digest); signedRequest == nil {
-				response, err := n.SendGetRequest(record.Digest)
-				if err != nil || response == nil {
-					log.Fatal(err)
-				}
-				signedRequest = response
-				n.TransactionMap.Set(record.Digest, signedRequest)
-				log.Infof("Adding request to log record: %s", record.LogString())
+			err := record.Reset(viewNumber, prePrepareMessage.Digest)
+			if err != nil {
+				log.Fatal(err)
 			}
-
-			log.Infof("request after add request: %s", record.LogString())
-			record.AddPrePrepareMessage(signedPrePrepareMessage)
 		}
+		record.AddPrePrepareMessage(signedPrePrepareMessage)
 	}
+
 	// Print current log state
 	for sequenceNum, record := range n.LogRecords {
 		log.Infof("Log record for sequence number %d: %s", sequenceNum, record.LogString())
@@ -410,11 +424,5 @@ func (n *LinearPBFTNode) SendNewView(viewNumber int64) {
 	}
 	wg.Wait()
 
-	// Print collected signed prepare messages
-	for sequenceNum, signedPrepareMessages := range collectedSignedPrepareMessages {
-		log.Infof("Collected %d signed prepare messages for sequence number %d", len(signedPrepareMessages), sequenceNum)
-		for _, signedPrepareMessage := range signedPrepareMessages {
-			log.Infof("Signed prepare message: %s", utils.LoggingString(signedPrepareMessage.Message, NoOpTransactionRequest))
-		}
-	}
+	return collectedSignedPrepareMessages
 }

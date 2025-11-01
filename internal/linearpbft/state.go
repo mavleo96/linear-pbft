@@ -6,7 +6,6 @@ import (
 
 	"github.com/mavleo96/bft-mavleo96/internal/database"
 	"github.com/mavleo96/bft-mavleo96/internal/models"
-	"github.com/mavleo96/bft-mavleo96/internal/utils"
 	"github.com/mavleo96/bft-mavleo96/pb"
 )
 
@@ -46,23 +45,6 @@ type LinearPBFTNode struct {
 
 	// UnimplementedLinearPBFTNodeServer is the server interface for the LinearPBFT node
 	*pb.UnimplementedLinearPBFTNodeServer
-}
-
-type TransactionMap struct {
-	Mutex sync.RWMutex
-	Map   map[[32]byte]*pb.SignedTransactionRequest
-}
-
-func (t *TransactionMap) Get(digest []byte) *pb.SignedTransactionRequest {
-	t.Mutex.RLock()
-	defer t.Mutex.RUnlock()
-	return t.Map[utils.To32Bytes(digest)]
-}
-
-func (t *TransactionMap) Set(digest []byte, signedRequest *pb.SignedTransactionRequest) {
-	t.Mutex.Lock()
-	defer t.Mutex.Unlock()
-	t.Map[utils.To32Bytes(digest)] = signedRequest
 }
 
 // CreateLinearPBFTNode creates a new LinearPBFT node

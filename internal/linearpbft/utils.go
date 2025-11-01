@@ -8,9 +8,9 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// AssignSequenceNumber assigns a sequence number to a transaction request and adds it to the log record
-// If the request is already in the log record, it returns the sequence number of the existing request
-func (n *LinearPBFTNode) AssignSequenceNumber(request *pb.TransactionRequest) int64 {
+// GetOrAssignSequenceNumber gets the sequence number of a transaction request from the log record
+// or assigns a new sequence number to the request
+func (n *LinearPBFTNode) GetOrAssignSequenceNumber(request *pb.TransactionRequest) (int64, bool) {
 	n.Mutex.Lock()
 	defer n.Mutex.Unlock()
 
@@ -19,21 +19,18 @@ func (n *LinearPBFTNode) AssignSequenceNumber(request *pb.TransactionRequest) in
 
 	// Check if request is already in log record
 	for _, record := range n.LogRecords {
+		// TODO: remove this later
 		if record == nil {
 			log.Fatal("Log record is nil")
 		}
 		if record != nil && cmp.Equal(record.Digest, digest) {
-			return record.SequenceNum
+			return record.SequenceNum, true
 		}
 	}
 
 	// If request is not in log record, assign new sequence number
 	sequenceNum := utils.Max(utils.Keys(n.LogRecords)) + 1
-
-	// Add to log record and transaction map and return sequence number
-	n.LogRecords[sequenceNum] = CreateLogRecord(n.ViewNumber, sequenceNum, digest)
-
-	return sequenceNum
+	return sequenceNum, false
 }
 
 // GetPublicKey returns the public key of a node
