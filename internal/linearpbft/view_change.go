@@ -194,93 +194,12 @@ func (n *LinearPBFTNode) ViewChangeRequest(ctx context.Context, signedViewChange
 
 // NewViewRoutine is a routine that handles sending new view messages to all nodes
 func (n *LinearPBFTNode) NewViewRoutine(ctx context.Context, viewNumber int64) {
-	collectedSignedPrepareMessages := n.SendNewView(viewNumber)
-
-	// Print collected signed prepare messages
-	for sequenceNum, signedPrepareMessages := range collectedSignedPrepareMessages {
-		log.Infof("Collected %d signed prepare messages for sequence number %d", len(signedPrepareMessages), sequenceNum)
-		for _, signedPrepareMessage := range signedPrepareMessages {
-			signedRequest := n.TransactionMap.Get(signedPrepareMessage.Message.Digest)
-			log.Infof("Signed prepare message: %s", utils.LoggingString(signedPrepareMessage.Message, signedRequest.Request))
-		}
-	}
-
-}
-
-func (n *LinearPBFTNode) NewViewRequest(signedNewViewMessage *pb.SignedNewViewMessage, stream pb.LinearPBFTNode_NewViewRequestServer) error {
-	n.Mutex.Lock()
-	newViewMessage := signedNewViewMessage.Message
-	signedViewChangeMessages := newViewMessage.SignedViewChangeMessages
-	signedPrePrepareMessages := newViewMessage.SignedPrePrepareMessages
-	viewNumber := newViewMessage.ViewNumber
-
-	// Check if view number matches latest sent view change message view number
-	if viewNumber != n.ViewChangeViewNumber {
-		n.Mutex.Unlock()
-		log.Warnf("Rejected: %s; view number does not match latest sent view change message view number", utils.LoggingString(newViewMessage))
-		return status.Errorf(codes.FailedPrecondition, "view number does not match latest sent view change message view number")
-	}
-
-	// Verify signature
-	leaderID := utils.ViewNumberToLeaderID(viewNumber, n.N)
-	ok := crypto.Verify(newViewMessage, n.GetPublicKey(leaderID), signedNewViewMessage.Signature)
-	if !ok {
-		n.Mutex.Unlock()
-		log.Warnf("Rejected: %s; invalid signature", utils.LoggingString(newViewMessage))
-		return status.Errorf(codes.Unauthenticated, "invalid signature")
-	}
-
-	// Verify view change messages signatures
-	for _, signedViewChangeMessage := range signedViewChangeMessages {
-		viewChangeMessage := signedViewChangeMessage.Message
-		ok := crypto.Verify(viewChangeMessage, n.GetPublicKey(viewChangeMessage.NodeID), signedViewChangeMessage.Signature)
-		if !ok {
-			n.Mutex.Unlock()
-			log.Warnf("Rejected: %s; invalid signature on view change message", utils.LoggingString(newViewMessage))
-			return status.Errorf(codes.Unauthenticated, "invalid signature on view change message")
-		}
-	}
-
-	// Verify preprepare messages signatures
-	for _, signedPrePrepareMessage := range signedPrePrepareMessages {
-		prePrepareMessage := signedPrePrepareMessage.Message
-		ok := crypto.Verify(prePrepareMessage, n.GetPublicKey(leaderID), signedPrePrepareMessage.Signature)
-		if !ok {
-			n.Mutex.Unlock()
-			log.Warnf("Rejected: %s; invalid signature on preprepare message", utils.LoggingString(newViewMessage))
-			return status.Errorf(codes.Unauthenticated, "invalid signature on preprepare message")
-		}
-	}
-
-	// Cleanup timer and update view number
-	n.SafeTimer.Cleanup()
-	n.ViewNumber = viewNumber
-	n.ViewChangePhase = false
-	log.Infof("Accepted %s", utils.LoggingString(newViewMessage))
-	n.Mutex.Unlock()
-
-	// Stream prepare messages to client
-	for _, signedPrePrepareMessage := range signedPrePrepareMessages {
-		signedPrepareMessage, err := n.PrePrepareRequest(context.Background(), signedPrePrepareMessage)
-		if err != nil {
-			log.Fatal(err)
-		}
-		if err := stream.Send(signedPrepareMessage); err != nil {
-			log.Fatal(err)
-		}
-	}
-	log.Infof("Streamed prepares messages for view number %d", viewNumber)
-	return nil
-}
-
-// SendNewView sends a new view message to all nodes
-func (n *LinearPBFTNode) SendNewView(viewNumber int64) map[int64][]*pb.SignedPrepareMessage {
 	n.Mutex.Lock()
 	defer n.Mutex.Unlock()
 
 	// Update view number
 	n.ViewNumber = viewNumber
-	n.ViewChangePhase = false // TODO: safer to mark after leader has preprepared
+	n.ViewChangePhase = false
 
 	// Get view change messages from view change message log
 	signedViewChangeMessageLog := n.ViewChangeMessageLog[viewNumber]
@@ -390,21 +309,116 @@ func (n *LinearPBFTNode) SendNewView(viewNumber int64) map[int64][]*pb.SignedPre
 		Signature: crypto.Sign(newViewMessage, n.PrivateKey),
 	}
 
+	collectedSignedPrepareMessages := n.SendNewView(signedNewViewMessage)
+
+	// Print collected signed prepare messages
+	for sequenceNum := range collectedSignedPrepareMessages {
+		go func(prepareMessages []*pb.SignedPrepareMessage, sequenceNum int64) {
+			// Send prepare messages to all nodes and collect commit messages
+			commitMsgs, err := n.SendPrepare(prepareMessages, sequenceNum)
+			if err != nil || commitMsgs == nil {
+				return
+			}
+
+			// Send commit messages to all nodes
+			err = n.SendCommit(commitMsgs, sequenceNum)
+			if err != nil {
+				return
+			}
+
+			// Try to execute transaction
+			go n.TryExecute(sequenceNum)
+
+		}(collectedSignedPrepareMessages[sequenceNum], sequenceNum)
+	}
+}
+
+func (n *LinearPBFTNode) NewViewRequest(signedNewViewMessage *pb.SignedNewViewMessage, stream pb.LinearPBFTNode_NewViewRequestServer) error {
+	n.Mutex.Lock()
+	newViewMessage := signedNewViewMessage.Message
+	signedViewChangeMessages := newViewMessage.SignedViewChangeMessages
+	signedPrePrepareMessages := newViewMessage.SignedPrePrepareMessages
+	viewNumber := newViewMessage.ViewNumber
+
+	// Check if view number matches latest sent view change message view number
+	if viewNumber != n.ViewChangeViewNumber {
+		n.Mutex.Unlock()
+		log.Warnf("Rejected: %s; view number does not match latest sent view change message view number", utils.LoggingString(newViewMessage))
+		return status.Errorf(codes.FailedPrecondition, "view number does not match latest sent view change message view number")
+	}
+
+	// Verify signature
+	leaderID := utils.ViewNumberToLeaderID(viewNumber, n.N)
+	ok := crypto.Verify(newViewMessage, n.GetPublicKey(leaderID), signedNewViewMessage.Signature)
+	if !ok {
+		n.Mutex.Unlock()
+		log.Warnf("Rejected: %s; invalid signature", utils.LoggingString(newViewMessage))
+		return status.Errorf(codes.Unauthenticated, "invalid signature")
+	}
+
+	// Verify view change messages signatures
+	for _, signedViewChangeMessage := range signedViewChangeMessages {
+		viewChangeMessage := signedViewChangeMessage.Message
+		ok := crypto.Verify(viewChangeMessage, n.GetPublicKey(viewChangeMessage.NodeID), signedViewChangeMessage.Signature)
+		if !ok {
+			n.Mutex.Unlock()
+			log.Warnf("Rejected: %s; invalid signature on view change message", utils.LoggingString(newViewMessage))
+			return status.Errorf(codes.Unauthenticated, "invalid signature on view change message")
+		}
+	}
+
+	// Verify preprepare messages signatures
+	for _, signedPrePrepareMessage := range signedPrePrepareMessages {
+		prePrepareMessage := signedPrePrepareMessage.Message
+		ok := crypto.Verify(prePrepareMessage, n.GetPublicKey(leaderID), signedPrePrepareMessage.Signature)
+		if !ok {
+			n.Mutex.Unlock()
+			log.Warnf("Rejected: %s; invalid signature on preprepare message", utils.LoggingString(newViewMessage))
+			return status.Errorf(codes.Unauthenticated, "invalid signature on preprepare message")
+		}
+	}
+
+	// Cleanup timer and update view number
+	n.SafeTimer.Cleanup()
+	n.ViewNumber = viewNumber
+	n.ViewChangePhase = false
+	log.Infof("Accepted %s", utils.LoggingString(newViewMessage))
+	n.Mutex.Unlock()
+
+	// Stream prepare messages to client
+	for _, signedPrePrepareMessage := range signedPrePrepareMessages {
+		signedPrepareMessage, err := n.PrePrepareRequest(context.Background(), signedPrePrepareMessage)
+		if err != nil {
+			log.Fatal(err)
+		}
+		if err := stream.Send(signedPrepareMessage); err != nil {
+			log.Fatal(err)
+		}
+	}
+	log.Infof("Streamed prepares messages for view number %d", viewNumber)
+	return nil
+}
+
+// SendNewView sends a new view message to all nodes
+func (n *LinearPBFTNode) SendNewView(signedNewViewMessage *pb.SignedNewViewMessage) map[int64][]*pb.SignedPrepareMessage {
+	viewMessage := signedNewViewMessage.Message
+	signedPrePrepareMessages := viewMessage.SignedPrePrepareMessages
+
 	// Multicast new view message to all nodes and collect signed prepare messages
-	log.Infof("Sending new view message for view number %d: %s", viewNumber, utils.LoggingString(newViewMessage))
+	log.Infof("Sending new view message: %s", utils.LoggingString(viewMessage))
 	wg := sync.WaitGroup{}
-	mu := sync.Mutex{}
-	collectedSignedPrepareMessages := make(map[int64][]*pb.SignedPrepareMessage)
+	responseCh := make(chan *pb.SignedPrepareMessage, len(n.Peers))
 	for _, peer := range n.Peers {
 		wg.Add(1)
 		go func(peer *models.Node) {
 			defer wg.Done()
+			// Send new view message to peer
 			stream, err := (*peer.Client).NewViewRequest(context.Background(), signedNewViewMessage)
 			if err != nil {
 				return
 			}
 
-			// Stream prepare messages from peer
+			// Stream prepare messages from peer and send to response channel
 			for {
 				signedPrepareMessage, err := stream.Recv()
 				if err == io.EOF {
@@ -415,14 +429,70 @@ func (n *LinearPBFTNode) SendNewView(viewNumber int64) map[int64][]*pb.SignedPre
 					return
 				}
 
-				sequenceNum := signedPrepareMessage.Message.SequenceNum
-				mu.Lock()
-				collectedSignedPrepareMessages[sequenceNum] = append(collectedSignedPrepareMessages[sequenceNum], signedPrepareMessage)
-				mu.Unlock()
+				responseCh <- signedPrepareMessage
 			}
 		}(peer)
 	}
-	wg.Wait()
+
+	// Close response channel when all peers have sent their prepare messages
+	go func() {
+		wg.Wait()
+		close(responseCh)
+	}()
+
+	// Convert signed preprepare messages to map of sequence numbers to signed preprepare messages
+	signedPrePrepareMessagesMap := make(map[int64]*pb.SignedPrePrepareMessage)
+	for _, signedPrePrepareMessage := range signedPrePrepareMessages {
+		signedPrePrepareMessagesMap[signedPrePrepareMessage.Message.SequenceNum] = signedPrePrepareMessage
+	}
+
+	// Collect and verify signed prepare messages
+	collectedSignedPrepareMessages := make(map[int64][]*pb.SignedPrepareMessage)
+	for {
+		signedPrepareMessage, more := <-responseCh
+		if !more {
+			break
+		}
+		prepareMessage := signedPrepareMessage.Message
+		sequenceNum := prepareMessage.SequenceNum
+
+		// Verify signature
+		ok := crypto.Verify(prepareMessage, n.GetPublicKey(prepareMessage.NodeID), signedPrepareMessage.Signature)
+		if !ok {
+			// log.Warnf("Rejected: %s; invalid signature on prepare message", utils.LoggingString(prepareMessage))
+			continue
+		}
+
+		// Check if preprepare message is in the map
+		signedPrePrepareMessage, ok := signedPrePrepareMessagesMap[sequenceNum]
+		if !ok {
+			// log.Warnf("Rejected: %s; preprepare message not found", utils.LoggingString(prepareMessage))
+			continue
+		}
+		prePrepareMessage := signedPrePrepareMessage.Message
+
+		// Check if preprepare message digest, view number and sequence number match
+		if prepareMessage.ViewNumber != prePrepareMessage.ViewNumber ||
+			prepareMessage.SequenceNum != prePrepareMessage.SequenceNum ||
+			!cmp.Equal(prepareMessage.Digest, prePrepareMessage.Digest) {
+			// log.Warnf("Rejected: %s; preprepare message does not match", utils.LoggingString(prepareMessage))
+			continue
+		}
+
+		// Add to collected signed prepare messages
+		if _, ok := collectedSignedPrepareMessages[sequenceNum]; !ok {
+			collectedSignedPrepareMessages[sequenceNum] = make([]*pb.SignedPrepareMessage, 0)
+		}
+		collectedSignedPrepareMessages[sequenceNum] = append(collectedSignedPrepareMessages[sequenceNum], signedPrepareMessage)
+	}
+
+	// Purge sequence numbers with less than 2f + 1 prepare messages
+	for sequenceNum, signedPrepareMessages := range collectedSignedPrepareMessages {
+		if len(signedPrepareMessages) < int(n.N-n.F) {
+			log.Warnf("Purged: %d; not enough prepare messages (collected: %d)", sequenceNum, len(signedPrepareMessages))
+			delete(collectedSignedPrepareMessages, sequenceNum)
+		}
+	}
 
 	return collectedSignedPrepareMessages
 }
