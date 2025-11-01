@@ -16,6 +16,10 @@ type LinearPBFTNode struct {
 	PrivateKey []byte
 	DB         *database.Database
 
+	// Node status
+	Alive     bool
+	Byzantine bool
+
 	// Peer nodes and their information
 	Peers map[string]*models.Node
 	F     int64
@@ -52,6 +56,8 @@ func CreateLinearPBFTNode(selfNode *models.Node, peerNodes map[string]*models.No
 	return &LinearPBFTNode{
 		Node:                    selfNode,
 		DB:                      bankDB,
+		Alive:                   true,
+		Byzantine:               false,
 		PrivateKey:              privateKey,
 		Peers:                   peerNodes,
 		Clients:                 clientMap,

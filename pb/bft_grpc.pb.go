@@ -12,6 +12,7 @@ import (
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
+	wrapperspb "google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 // This is a compile-time assertion to ensure that this generated file
@@ -28,6 +29,9 @@ const (
 	LinearPBFTNode_ViewChangeRequest_FullMethodName = "/pb.LinearPBFTNode/ViewChangeRequest"
 	LinearPBFTNode_NewViewRequest_FullMethodName    = "/pb.LinearPBFTNode/NewViewRequest"
 	LinearPBFTNode_GetRequest_FullMethodName        = "/pb.LinearPBFTNode/GetRequest"
+	LinearPBFTNode_PrintDB_FullMethodName           = "/pb.LinearPBFTNode/PrintDB"
+	LinearPBFTNode_PrintStatus_FullMethodName       = "/pb.LinearPBFTNode/PrintStatus"
+	LinearPBFTNode_ReconfigureNode_FullMethodName   = "/pb.LinearPBFTNode/ReconfigureNode"
 )
 
 // LinearPBFTNodeClient is the client API for LinearPBFTNode service.
@@ -42,6 +46,10 @@ type LinearPBFTNodeClient interface {
 	ViewChangeRequest(ctx context.Context, in *SignedViewChangeMessage, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	NewViewRequest(ctx context.Context, in *SignedNewViewMessage, opts ...grpc.CallOption) (LinearPBFTNode_NewViewRequestClient, error)
 	GetRequest(ctx context.Context, in *GetRequestMessage, opts ...grpc.CallOption) (*SignedTransactionRequest, error)
+	// rpc PrintLog (google.protobuf.Empty) returns (google.protobuf.Empty);
+	PrintDB(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	PrintStatus(ctx context.Context, in *wrapperspb.Int64Value, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	ReconfigureNode(ctx context.Context, in *ChangeStatusMessage, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
 type linearPBFTNodeClient struct {
@@ -147,6 +155,33 @@ func (c *linearPBFTNodeClient) GetRequest(ctx context.Context, in *GetRequestMes
 	return out, nil
 }
 
+func (c *linearPBFTNodeClient) PrintDB(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, LinearPBFTNode_PrintDB_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *linearPBFTNodeClient) PrintStatus(ctx context.Context, in *wrapperspb.Int64Value, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, LinearPBFTNode_PrintStatus_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *linearPBFTNodeClient) ReconfigureNode(ctx context.Context, in *ChangeStatusMessage, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, LinearPBFTNode_ReconfigureNode_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // LinearPBFTNodeServer is the server API for LinearPBFTNode service.
 // All implementations must embed UnimplementedLinearPBFTNodeServer
 // for forward compatibility
@@ -159,6 +194,10 @@ type LinearPBFTNodeServer interface {
 	ViewChangeRequest(context.Context, *SignedViewChangeMessage) (*emptypb.Empty, error)
 	NewViewRequest(*SignedNewViewMessage, LinearPBFTNode_NewViewRequestServer) error
 	GetRequest(context.Context, *GetRequestMessage) (*SignedTransactionRequest, error)
+	// rpc PrintLog (google.protobuf.Empty) returns (google.protobuf.Empty);
+	PrintDB(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
+	PrintStatus(context.Context, *wrapperspb.Int64Value) (*emptypb.Empty, error)
+	ReconfigureNode(context.Context, *ChangeStatusMessage) (*emptypb.Empty, error)
 	mustEmbedUnimplementedLinearPBFTNodeServer()
 }
 
@@ -189,6 +228,15 @@ func (UnimplementedLinearPBFTNodeServer) NewViewRequest(*SignedNewViewMessage, L
 }
 func (UnimplementedLinearPBFTNodeServer) GetRequest(context.Context, *GetRequestMessage) (*SignedTransactionRequest, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetRequest not implemented")
+}
+func (UnimplementedLinearPBFTNodeServer) PrintDB(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method PrintDB not implemented")
+}
+func (UnimplementedLinearPBFTNodeServer) PrintStatus(context.Context, *wrapperspb.Int64Value) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method PrintStatus not implemented")
+}
+func (UnimplementedLinearPBFTNodeServer) ReconfigureNode(context.Context, *ChangeStatusMessage) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ReconfigureNode not implemented")
 }
 func (UnimplementedLinearPBFTNodeServer) mustEmbedUnimplementedLinearPBFTNodeServer() {}
 
@@ -350,6 +398,60 @@ func _LinearPBFTNode_GetRequest_Handler(srv interface{}, ctx context.Context, de
 	return interceptor(ctx, in, info, handler)
 }
 
+func _LinearPBFTNode_PrintDB_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LinearPBFTNodeServer).PrintDB(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LinearPBFTNode_PrintDB_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LinearPBFTNodeServer).PrintDB(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _LinearPBFTNode_PrintStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(wrapperspb.Int64Value)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LinearPBFTNodeServer).PrintStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LinearPBFTNode_PrintStatus_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LinearPBFTNodeServer).PrintStatus(ctx, req.(*wrapperspb.Int64Value))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _LinearPBFTNode_ReconfigureNode_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ChangeStatusMessage)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LinearPBFTNodeServer).ReconfigureNode(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LinearPBFTNode_ReconfigureNode_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LinearPBFTNodeServer).ReconfigureNode(ctx, req.(*ChangeStatusMessage))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // LinearPBFTNode_ServiceDesc is the grpc.ServiceDesc for LinearPBFTNode service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -384,6 +486,18 @@ var LinearPBFTNode_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetRequest",
 			Handler:    _LinearPBFTNode_GetRequest_Handler,
+		},
+		{
+			MethodName: "PrintDB",
+			Handler:    _LinearPBFTNode_PrintDB_Handler,
+		},
+		{
+			MethodName: "PrintStatus",
+			Handler:    _LinearPBFTNode_PrintStatus_Handler,
+		},
+		{
+			MethodName: "ReconfigureNode",
+			Handler:    _LinearPBFTNode_ReconfigureNode_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

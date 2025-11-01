@@ -7,7 +7,6 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/mavleo96/bft-mavleo96/internal/clientapp"
 	"github.com/mavleo96/bft-mavleo96/internal/config"
@@ -17,7 +16,7 @@ import (
 )
 
 func main() {
-	log.SetLevel(log.DebugLevel)
+	log.SetLevel(log.InfoLevel)
 	filePath := flag.String("file", "testdata/test1.csv", "The path to the test data file")
 	flag.Parse()
 
@@ -26,7 +25,6 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	// log.Info("Config parsed")
 
 	// Create map of node structs
 	// Note: this object is shared by clients
@@ -34,14 +32,12 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	// log.Info("Node map created")
 
 	// Create map of client structs
 	clientMap, err := models.GetClientMap(cfg.Clients)
 	if err != nil {
 		log.Fatal(err)
 	}
-	// log.Info("Client map created")
 
 	// Read CSV file and parse transactions
 	// The entire csv file is loaded into memory and transactions are queued by
@@ -54,7 +50,6 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	// log.Info("Test sets parsed")
 
 	// Create context and channels for client routines
 	ctx, cancel := context.WithCancel(context.Background())
@@ -113,31 +108,27 @@ interactionLoop:
 			testSet := testSets[nextTestSet]
 
 			// Reconfigure nodes
-			clientapp.ReconfigureNodes(testSet.Live, testSet.Byzantine, testSet.Attack)
+			clientapp.ReconfigureNodes(nodeMap, testSet.Live, testSet.Byzantine, testSet.Attack)
 
 			// Send test set to clients
-			log.Debugf("Sending set %d to clients at timestamp %d", testSet.SetNumber, time.Now().UnixMilli())
 			for clientID := range cfg.Clients {
 				clientSignalChs[clientID] <- testSet
 			}
 			for clientID := range cfg.Clients {
 				<-clientSignalChs[clientID]
 			}
-			log.Debugf("Set %d done at timestamp %d", testSet.SetNumber, time.Now().UnixMilli())
 			log.Infof("Set %d done", testSet.SetNumber)
 			continue interactionLoop
 		case "print log":
-			log.Info("Print log command received")
-			// TODO: Implement print log
+			clientapp.SendPrintLogCommand(nodeMap)
 		case "print db":
-			log.Info("Print db command received")
-			// TODO: Implement print db
+			clientapp.SendPrintDBCommand(nodeMap)
 		case "print status":
-			// TODO: Implement print status
-			log.Infof("Print status command received for %d", arg)
+			clientapp.SendPrintStatusCommand(nodeMap, int64(arg))
 		case "print view":
-			// TODO: Implement print view
-			log.Info("Print view command received")
+			clientapp.SendPrintViewCommand(nodeMap)
+		case "reset":
+			clientapp.SendResetCommand(nodeMap)
 		case "exit":
 			break interactionLoop
 		default:

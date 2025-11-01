@@ -3,6 +3,7 @@ syntax="proto3";
 package pb;
 
 import "google/protobuf/empty.proto";
+import "google/protobuf/wrappers.proto";
 
 option go_package = "github.com/mavleo96/bft-mavleo96/pb";
 
@@ -16,8 +17,15 @@ service LinearPBFTNode {
 
     rpc ViewChangeRequest (SignedViewChangeMessage) returns (google.protobuf.Empty);
     rpc NewViewRequest (SignedNewViewMessage) returns (stream SignedPrepareMessage);
-
     rpc GetRequest (GetRequestMessage) returns (SignedTransactionRequest);
+
+    // rpc PrintLog (google.protobuf.Empty) returns (google.protobuf.Empty);
+    rpc PrintDB (google.protobuf.Empty) returns (google.protobuf.Empty);
+    rpc PrintStatus (google.protobuf.Int64Value) returns (google.protobuf.Empty);
+    // rpc PrintView (google.protobuf.Empty) returns (google.protobuf.Empty);
+
+    rpc ReconfigureNode (ChangeStatusMessage) returns (google.protobuf.Empty);
+    // rpc ResetNode (google.protobuf.BoolValue) returns (google.protobuf.Empty);
 }
 
 service LinearPBFTClientApp {
@@ -153,4 +161,11 @@ message SignedNewViewMessage {
 message GetRequestMessage {
     bytes digest = 1;
     string nodeID = 2;
+}
+
+// -------------- ReconfigureNode --------------
+
+message ChangeStatusMessage {
+    bool alive = 1;
+    bool byzantine = 2;
 }
