@@ -20,6 +20,7 @@ func (n *LinearPBFTNode) TryExecute(sequenceNum int64) {
 			go n.SendReply(sequenceNum, request, lastReply.Result)
 		}
 		log.Infof("Sequence number %d already executed", sequenceNum)
+		return
 	}
 
 	// Get max sequence number in log record

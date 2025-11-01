@@ -98,8 +98,16 @@ func parseTransactionString(s string) (pb.Transaction, error) {
 // parseNodeString parses a string representation of a list of nodes of the format "[n1, n2, n3]"
 func parseNodeString(s string, nodeMap map[string]*models.Node) []*models.Node {
 	nodes := make([]*models.Node, 0)
-	for n := range strings.SplitSeq(strings.Trim(s, "[]\""), ", ") {
-		nodes = append(nodes, nodeMap[n])
+
+	cleanedString := strings.Trim(s, "[]\"")
+	if cleanedString == "" {
+		return nodes
+	}
+
+	for _, n := range strings.Split(cleanedString, ", ") {
+		if node, exists := nodeMap[n]; exists {
+			nodes = append(nodes, node)
+		}
 	}
 	return nodes
 }
@@ -107,20 +115,28 @@ func parseNodeString(s string, nodeMap map[string]*models.Node) []*models.Node {
 // parseAttackString parses a string representation of a list of attacks of the format "[attack1, attack2, attack3]"
 func parseAttackString(s string, nodeMap map[string]*models.Node) []*Attack {
 	attacks := make([]*Attack, 0)
-	for a := range strings.SplitSeq(strings.Trim(s, "[]\""), "; ") {
+
+	cleanedString := strings.Trim(s, "[]\"")
+	if cleanedString == "" {
+		return attacks
+	}
+
+	for a := range strings.SplitSeq(cleanedString, "; ") {
 		if !strings.Contains(a, "dark") && !strings.Contains(a, "equivocation") {
 			attacks = append(attacks, &Attack{Type: a})
 			continue
 		}
 
 		nodeString := strings.Split(strings.Split(a, "(")[1], ")")[0]
-		a := strings.Split(a, "(")[0]
+		attackType := strings.Split(a, "(")[0]
 
 		attackNodes := make([]*models.Node, 0)
 		for n := range strings.SplitSeq(nodeString, ", ") {
-			attackNodes = append(attackNodes, nodeMap[n])
+			if node, exists := nodeMap[n]; exists {
+				attackNodes = append(attackNodes, node)
+			}
 		}
-		attacks = append(attacks, &Attack{Type: a, AttackNodes: attackNodes})
+		attacks = append(attacks, &Attack{Type: attackType, AttackNodes: attackNodes})
 	}
 	return attacks
 }

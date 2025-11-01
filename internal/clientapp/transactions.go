@@ -13,9 +13,8 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// TODO: raise this to 1000 later
 const (
-	maxAttempts   = 3
+	maxAttempts   = 1000
 	clientTimeout = 1000 * time.Millisecond
 )
 
@@ -32,7 +31,7 @@ func processTransaction(request *pb.SignedTransactionRequest, clientID string, l
 			leaderClient := *nodeMap[leaderNode].Client
 			_, err := leaderClient.TransferRequest(context.Background(), request)
 			if err != nil {
-				log.Fatal(err)
+				log.Warnf("Error sending transaction to leader: %s", err.Error())
 			}
 		} else {
 			// If not first attempt then multicast to all nodes
@@ -40,7 +39,7 @@ func processTransaction(request *pb.SignedTransactionRequest, clientID string, l
 				go func(r *pb.SignedTransactionRequest, nID string, nClient pb.LinearPBFTNodeClient) {
 					_, err := nClient.TransferRequest(context.Background(), r)
 					if err != nil {
-						log.Fatal(err)
+						log.Warnf("Error sending transaction to node: %s", err.Error())
 					}
 				}(request, node.ID, *node.Client)
 			}

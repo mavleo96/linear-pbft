@@ -104,6 +104,12 @@ func (n *LinearPBFTNode) SendViewChange(viewNumber int64) error {
 
 // ViewChange handles incoming view change messages from nodes
 func (n *LinearPBFTNode) ViewChangeRequest(ctx context.Context, signedViewChangeMessage *pb.SignedViewChangeMessage) (*emptypb.Empty, error) {
+	// Ignore if not alive
+	if !n.Alive {
+		log.Infof("Node %s is not alive", n.ID)
+		return nil, status.Errorf(codes.Unavailable, "node not alive")
+	}
+
 	n.Mutex.Lock()
 	defer n.Mutex.Unlock()
 	viewChangeMessage := signedViewChangeMessage.Message
@@ -329,6 +335,13 @@ func (n *LinearPBFTNode) NewViewRoutine(ctx context.Context, viewNumber int64) {
 }
 
 func (n *LinearPBFTNode) NewViewRequest(signedNewViewMessage *pb.SignedNewViewMessage, stream pb.LinearPBFTNode_NewViewRequestServer) error {
+	// Ignore if not alive
+	if !n.Alive {
+		n.Mutex.Unlock()
+		log.Infof("Node %s is not alive", n.ID)
+		return status.Errorf(codes.Unavailable, "node not alive")
+	}
+
 	n.Mutex.Lock()
 	newViewMessage := signedNewViewMessage.Message
 	signedViewChangeMessages := newViewMessage.SignedViewChangeMessages

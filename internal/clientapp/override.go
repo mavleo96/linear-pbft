@@ -3,6 +3,7 @@ package clientapp
 import (
 	"context"
 	"slices"
+	"strings"
 
 	"github.com/mavleo96/bft-mavleo96/internal/models"
 	"github.com/mavleo96/bft-mavleo96/pb"
@@ -11,8 +12,8 @@ import (
 
 // ReconfigureNodes reconfigures the nodes based on the live, byzantine, and attack lists
 func ReconfigureNodes(nodeMap map[string]*models.Node, liveNodes []*models.Node, byzantineNodes []*models.Node, attacks []*Attack) {
-	log.Infof("Live nodes: %v", liveNodes)
-	log.Infof("Byzantine nodes: %v", byzantineNodes)
+	log.Infof("Live nodes: %s", nodeListString(liveNodes))
+	log.Infof("Byzantine nodes: %s", nodeListString(byzantineNodes))
 	log.Infof("Attacks: %v", attacks)
 
 	for _, node := range nodeMap {
@@ -25,9 +26,18 @@ func ReconfigureNodes(nodeMap map[string]*models.Node, liveNodes []*models.Node,
 			log.Warn(err)
 		}
 	}
-
 }
 
+// SendResetCommand sends a reset command to all nodes
 func SendResetCommand(nodeMap map[string]*models.Node) {
 	log.Info("Reset command received")
+}
+
+// nodeListString returns a string representation of a list of nodes
+func nodeListString(nodes []*models.Node) string {
+	nodesString := make([]string, 0)
+	for _, node := range nodes {
+		nodesString = append(nodesString, node.ID)
+	}
+	return strings.Join(nodesString, ", ")
 }

@@ -16,6 +16,12 @@ import (
 func (n *LinearPBFTNode) TransferRequest(ctx context.Context, signedRequest *pb.SignedTransactionRequest) (*emptypb.Empty, error) {
 	request := signedRequest.Request
 
+	// Ignore request if not alive
+	if !n.Alive {
+		log.Infof("Node %s is not alive", n.ID)
+		return &emptypb.Empty{}, status.Errorf(codes.Unavailable, "node not alive")
+	}
+
 	// Ignore request if in view change phase
 	if n.ViewChangePhase {
 		log.Infof("Ignore request for view change phase: %s", utils.LoggingString(request))
@@ -113,6 +119,12 @@ func (n *LinearPBFTNode) TransferRequest(ctx context.Context, signedRequest *pb.
 // This function replies to the client in the same RPC call directly instead of a separate RPC call to the client
 func (n *LinearPBFTNode) ReadOnlyRequest(ctx context.Context, signedRequest *pb.SignedTransactionRequest) (*pb.SignedTransactionResponse, error) {
 	request := signedRequest.Request
+
+	// Ignore request if not alive
+	if !n.Alive {
+		log.Infof("Node %s is not alive", n.ID)
+		return nil, status.Errorf(codes.Unavailable, "node not alive")
+	}
 
 	// Ignore request if in view change phase
 	if n.ViewChangePhase {

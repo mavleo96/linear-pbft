@@ -22,6 +22,12 @@ func (n *LinearPBFTNode) PrePrepareRequest(ctx context.Context, signedMessage *p
 	prePrepareMessage := signedMessage.Message
 	signedRequest := signedMessage.Request
 
+	// Ignore if not alive
+	if !n.Alive {
+		log.Infof("Node %s is not alive", n.ID)
+		return nil, status.Errorf(codes.Unavailable, "node not alive")
+	}
+
 	// Ignore if already in view change
 	if n.ViewChangePhase {
 		log.Infof("Ignored: %s; view change phase", utils.LoggingString(prePrepareMessage))
@@ -137,6 +143,12 @@ func (n *LinearPBFTNode) PrepareRequest(ctx context.Context, signedPrepareMessag
 	viewNumber := signedPrepareMessages.ViewNumber
 	sequenceNum := signedPrepareMessages.SequenceNum
 
+	// Ignore if not alive
+	if !n.Alive {
+		log.Infof("Node %s is not alive", n.ID)
+		return nil, status.Errorf(codes.Unavailable, "node not alive")
+	}
+
 	// Ignore if already in view change
 	if n.ViewChangePhase {
 		log.Infof("Ignored: %s; view change phase", utils.LoggingString(signedPrepareMessages))
@@ -236,6 +248,12 @@ func (n *LinearPBFTNode) CommitRequest(ctx context.Context, signedCommitMessages
 	viewNumber := signedCommitMessages.ViewNumber
 	sequenceNum := signedCommitMessages.SequenceNum
 
+	// Ignore if not alive
+	if !n.Alive {
+		log.Infof("Node %s is not alive", n.ID)
+		return nil, status.Errorf(codes.Unavailable, "node not alive")
+	}
+
 	// Ignore if already in view change
 	if n.ViewChangePhase {
 		log.Infof("Ignored: %s; view change phase", utils.LoggingString(signedCommitMessages))
@@ -326,6 +344,12 @@ func (n *LinearPBFTNode) SendGetRequest(digest []byte) (*pb.SignedTransactionReq
 		NodeID: n.ID,
 	}
 
+	// Ignore if not alive
+	if !n.Alive {
+		log.Infof("Node %s is not alive", n.ID)
+		return nil, status.Errorf(codes.Unavailable, "node not alive")
+	}
+
 	// Multicast get request to all nodes
 	responseCh := make(chan *pb.SignedTransactionRequest, len(n.Peers))
 	wg := sync.WaitGroup{}
@@ -377,6 +401,12 @@ func (n *LinearPBFTNode) SendGetRequest(digest []byte) (*pb.SignedTransactionReq
 func (n *LinearPBFTNode) GetRequest(ctx context.Context, getRequestMessage *pb.GetRequestMessage) (*pb.SignedTransactionRequest, error) {
 	n.Mutex.Lock()
 	defer n.Mutex.Unlock()
+
+	// Ignore if not alive
+	if !n.Alive {
+		log.Infof("Node %s is not alive", n.ID)
+		return nil, status.Errorf(codes.Unavailable, "node not alive")
+	}
 
 	digest := getRequestMessage.Digest
 	signedRequest := n.TransactionMap.Get(digest)
