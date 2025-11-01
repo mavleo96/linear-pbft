@@ -3,6 +3,7 @@ package clientapp
 // TODO: consider alternatives: clientlib, clientcore
 
 import (
+	"cmp"
 	"context"
 	"net"
 	"path/filepath"
@@ -56,24 +57,36 @@ func (s *ClientAppServer) ClientReceiveRoutine(ctx context.Context) {
 	replyMap := make(map[string]int64)
 	majorityReached := false
 
+collectionLoop:
 	for {
 		select {
 		case <-ctx.Done():
 			log.Infof("%s received exit signal on receive routine", s.ID)
 			return
 		case resp := <-s.ResponseCh:
-			// Ignore replies for old timestamps or if majority has been reached
-			if resp.Timestamp < s.CurrentTimestamp {
-				continue
-			} else if resp.Timestamp > s.CurrentTimestamp || resp.ViewNumber > s.CurrentViewNumber {
-				// Reset reply map and state record if new view number or timestamp is greater
+			switch cmp.Compare(resp.Timestamp, s.CurrentTimestamp) {
+			case -1: // old timestamp
+				// Ignore replies for old timestamps
+				continue collectionLoop
+			case 0: // current timestamp
+				// Ignore replies if majority has been reached
+				if majorityReached {
+					continue collectionLoop
+				}
+				// If new view started while receiving replies, reset reply map and majority reached flag
+				if resp.ViewNumber > s.CurrentViewNumber {
+					s.CurrentViewNumber = resp.ViewNumber
+					replyMap = make(map[string]int64)
+					majorityReached = false
+				}
+			case 1: // new timestamp
+				// If new timestamp, reset reply map and majority reached flag
 				s.CurrentTimestamp = resp.Timestamp
 				s.CurrentViewNumber = resp.ViewNumber
 				replyMap = make(map[string]int64)
 				majorityReached = false
-			} else if majorityReached {
-				continue
 			}
+
 			// Record reply
 			replyMap[resp.NodeID] = resp.Result
 
