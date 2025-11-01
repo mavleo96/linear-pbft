@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"encoding/hex"
 	"fmt"
 	"strings"
 
@@ -102,5 +103,5 @@ func transactionString(t *pb.Transaction) string {
 }
 
 func getRequestMessageString(g *pb.GetRequestMessage) string {
-	return fmt.Sprintf("<GETREQUEST, %d, %s>", g.SequenceNum, g.NodeID)
+	return fmt.Sprintf("<GETREQUEST, %s>", hex.EncodeToString(g.Digest))
 }

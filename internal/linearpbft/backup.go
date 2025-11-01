@@ -16,6 +16,8 @@ import (
 )
 
 // PrePrepare handles incoming preprepare messages
+// This function is a rpc which is called by the leader to preprepare a request
+// It is also called by self in new view message to preprepare a request
 func (n *LinearPBFTNode) PrePrepareRequest(ctx context.Context, signedMessage *pb.SignedPrePrepareMessage) (*pb.SignedPrepareMessage, error) {
 	prePrepareMessage := signedMessage.Message
 	signedRequest := signedMessage.Request
@@ -34,20 +36,17 @@ func (n *LinearPBFTNode) PrePrepareRequest(ctx context.Context, signedMessage *p
 		return nil, status.Errorf(codes.Unauthenticated, "invalid signature")
 	}
 
-	// If request is nil then try getting it from log record or send get request rpc
-	if signedRequest == nil {
-		// Try getting request from log record
-		if record, ok := n.LogRecords[prePrepareMessage.SequenceNum]; ok && record.Request != nil {
-			signedRequest = record.Request
-		} else {
-			// If request is not in log record then send get request rpc
-			response, err := n.SendGetRequest(prePrepareMessage.SequenceNum)
-			if err != nil || response == nil {
-				log.Warnf("Rejected: %s; request could not be retrieved", utils.LoggingString(prePrepareMessage))
-				return nil, status.Errorf(codes.FailedPrecondition, "request could not be retrieved")
-			}
-			signedRequest = response
+	// May not have the request in the transaction map if called inside new view routine
+	if signedRequest != nil {
+		n.TransactionMap.Set(prePrepareMessage.Digest, signedRequest)
+	} else if signedRequest = n.TransactionMap.Get(prePrepareMessage.Digest); signedRequest == nil {
+		response, err := n.SendGetRequest(prePrepareMessage.Digest)
+		if err != nil || response == nil {
+			log.Warnf("Rejected: %s; request could not be retrieved from any node", utils.LoggingString(prePrepareMessage))
+			return nil, status.Errorf(codes.FailedPrecondition, "request could not be retrieved from any node")
 		}
+		signedRequest = response
+		n.TransactionMap.Set(prePrepareMessage.Digest, signedRequest)
 	}
 	request := signedRequest.Request
 
@@ -77,16 +76,14 @@ func (n *LinearPBFTNode) PrePrepareRequest(ctx context.Context, signedMessage *p
 		// Reject if some other request was previously assigned to this sequence number
 		// TODO: what if something was preprepared only but now i get a null message from new view message
 		if record.IsPrePrepared() && !cmp.Equal(record.Digest, prePrepareMessage.Digest) {
-			log.Warnf("Rejected: %s; previously accepted %s", utils.LoggingString(prePrepareMessage, request), utils.LoggingString(record.Request))
+			log.Warnf("Rejected: %s; previously accepted %s", utils.LoggingString(prePrepareMessage, request), utils.LoggingString(n.TransactionMap.Get(record.Digest).Request))
 			return nil, status.Errorf(codes.FailedPrecondition, "previously accepted preprepare message with different digest")
 		}
-		record.AddRequest(signedRequest)
 		record.AddPrePrepareMessage(signedMessage)
 	} else {
 		// Create new log record if no record exists for this sequence number
 		record = CreateLogRecord(prePrepareMessage.ViewNumber, prePrepareMessage.SequenceNum, crypto.Digest(request))
 		n.LogRecords[prePrepareMessage.SequenceNum] = record
-		record.AddRequest(signedRequest)
 		record.AddPrePrepareMessage(signedMessage)
 
 		//  TODO: check if safety issue here and if code can be improved
@@ -302,16 +299,16 @@ func (n *LinearPBFTNode) CommitRequest(ctx context.Context, signedCommitMessages
 }
 
 // SendGetRequest sends a get request to all nodes for a given sequence number
-func (n *LinearPBFTNode) SendGetRequest(sequenceNum int64) (*pb.SignedTransactionRequest, error) {
+func (n *LinearPBFTNode) SendGetRequest(digest []byte) (*pb.SignedTransactionRequest, error) {
 	getRequestMessage := &pb.GetRequestMessage{
-		SequenceNum: sequenceNum,
-		NodeID:      n.ID,
+		Digest: digest,
+		NodeID: n.ID,
 	}
 
 	// Multicast get request to all nodes
 	responseCh := make(chan *pb.SignedTransactionRequest, len(n.Peers))
 	wg := sync.WaitGroup{}
-	log.Infof("Sending get request to all nodes for sequence number %d", sequenceNum)
+	log.Infof("Sending get request: %s", utils.LoggingString(getRequestMessage))
 	for _, peer := range n.Peers {
 		wg.Add(1)
 		go func(peer *models.Node) {
@@ -343,25 +340,15 @@ func (n *LinearPBFTNode) SendGetRequest(sequenceNum int64) (*pb.SignedTransactio
 			continue
 		}
 
-		// Check if record exists for this sequence number
-		n.Mutex.Lock()
-		record, ok := n.LogRecords[sequenceNum]
-		if !ok {
-			record = CreateLogRecord(n.ViewNumber, sequenceNum, crypto.Digest(request))
-			n.LogRecords[sequenceNum] = record
-			record.AddRequest(signedRequest)
-		}
-		n.Mutex.Unlock()
-
 		// Verify if digest is same as in log record
-		if !cmp.Equal(crypto.Digest(request), record.Digest) {
+		if !cmp.Equal(crypto.Digest(request), digest) {
 			log.Warnf("Rejected: %s; invalid digest on request", utils.LoggingString(request))
 			continue
 		}
 
 		return signedRequest, nil
 	}
-	log.Warnf("Missing request for sequence number %d could not be retrieved from any node", sequenceNum)
+	log.Warnf("Missing request: %s; could not be retrieved from any node", utils.LoggingString(getRequestMessage))
 	return nil, status.Errorf(codes.NotFound, "request not found")
 }
 
@@ -370,12 +357,12 @@ func (n *LinearPBFTNode) GetRequest(ctx context.Context, getRequestMessage *pb.G
 	n.Mutex.Lock()
 	defer n.Mutex.Unlock()
 
-	sequenceNum := getRequestMessage.SequenceNum
-	record, ok := n.LogRecords[sequenceNum]
-	if !ok || record.Request == nil {
-		log.Warnf("Rejected: %s; sequence number not found", utils.LoggingString(getRequestMessage))
-		return nil, status.Errorf(codes.NotFound, "sequence number not found")
+	digest := getRequestMessage.Digest
+	signedRequest := n.TransactionMap.Get(digest)
+	if signedRequest == nil {
+		log.Warnf("Rejected: %s; request not found in transaction map", utils.LoggingString(getRequestMessage))
+		return nil, status.Errorf(codes.NotFound, "request not found in transaction map")
 	}
-	log.Infof("Sent request for %s: request %s", utils.LoggingString(getRequestMessage), utils.LoggingString(record.Request))
-	return record.Request, nil
+	log.Infof("Sent request: %s: request %s", utils.LoggingString(getRequestMessage), utils.LoggingString(signedRequest.Request))
+	return signedRequest, nil
 }

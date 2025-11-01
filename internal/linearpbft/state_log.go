@@ -1,9 +1,10 @@
 package linearpbft
 
 import (
+	"fmt"
 	"sync"
 
-	"github.com/mavleo96/bft-mavleo96/internal/utils"
+	"github.com/google/go-cmp/cmp"
 	"github.com/mavleo96/bft-mavleo96/pb"
 	log "github.com/sirupsen/logrus"
 )
@@ -32,7 +33,6 @@ type LogRecord struct {
 	prePrepareMessage *pb.SignedPrePrepareMessage
 	prepareMessages   []*pb.SignedPrepareMessage
 	commitMessages    []*pb.SignedCommitMessage
-	Request           *pb.SignedTransactionRequest
 }
 
 // IsPrePrepared returns true if the log record is preprepared
@@ -79,17 +79,31 @@ func (l *LogRecord) AddCommitMessages(signedCommitMessages []*pb.SignedCommitMes
 	l.updateLogState()
 }
 
-// AddRequest adds a request to the log record
-func (l *LogRecord) AddRequest(request *pb.SignedTransactionRequest) {
-	l.Request = request
-}
-
 // GetPrepareProof returns the prepare proof for the log record
 func (l *LogRecord) GetPrepareProof() *pb.PrepareProof {
 	return &pb.PrepareProof{
 		SignedPrePrepareMessage: l.prePrepareMessage,
 		SignedPrepareMessages:   l.prepareMessages,
 	}
+}
+
+func (l *LogRecord) Reset(viewNumber int64, digest []byte) {
+	l.ViewNumber = viewNumber
+	l.prePrepared = false
+	l.prepared = false
+	l.committed = false
+	l.prePrepareMessage = nil
+	l.prepareMessages = nil
+	l.commitMessages = nil
+
+	if l.executed && !cmp.Equal(l.Digest, digest) {
+		log.Fatal("Resetting log record with different digest that is already executed")
+	}
+	l.Digest = digest
+}
+
+func (l *LogRecord) LogString() string {
+	return fmt.Sprintf("v: %d, s: %d, (executed: %t)", l.ViewNumber, l.SequenceNum, l.executed)
 }
 
 // CreateLogRecord creates a new log record
@@ -115,17 +129,17 @@ func (l *LogRecord) updateLogState() {
 		return
 	}
 	l.prePrepared = true
-	log.Infof("Preprepared (v: %d, s: %d): %s", l.ViewNumber, l.SequenceNum, utils.LoggingString(l.Request.Request))
+	log.Infof("Preprepared (v: %d, s: %d)", l.ViewNumber, l.SequenceNum)
 	if len(l.prepareMessages) == 0 {
 		return
 	}
 	l.prepared = true
-	log.Infof("Prepared (v: %d, s: %d): %s", l.ViewNumber, l.SequenceNum, utils.LoggingString(l.Request.Request))
+	log.Infof("Prepared (v: %d, s: %d)", l.ViewNumber, l.SequenceNum)
 	if len(l.commitMessages) == 0 {
 		return
 	}
 	l.committed = true
-	log.Infof("Committed (v: %d, s: %d): %s", l.ViewNumber, l.SequenceNum, utils.LoggingString(l.Request.Request))
+	log.Infof("Committed (v: %d, s: %d)", l.ViewNumber, l.SequenceNum)
 }
 
 // LastReply represents a map of sender to last sent reply with a mutex

@@ -14,7 +14,7 @@ func (n *LinearPBFTNode) TryExecute(sequenceNum int64) {
 
 	// If record is not nil and already executed, send reply if timestamp is same as last reply
 	if record != nil && record.IsExecuted() {
-		request := record.Request.Request
+		request := n.TransactionMap.Get(record.Digest).Request
 		lastReply := n.LastReply.Get(request.Sender)
 		if lastReply != nil && request.Timestamp == lastReply.Timestamp {
 			go n.SendReply(sequenceNum, request, lastReply.Result)
@@ -35,7 +35,7 @@ func (n *LinearPBFTNode) TryExecute(sequenceNum int64) {
 		}
 
 		// Execute transaction
-		request := record.Request.Request
+		request := n.TransactionMap.Get(record.Digest).Request
 		var result int64
 		var err error
 		switch request.Transaction.Type {

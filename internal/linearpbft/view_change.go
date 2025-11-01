@@ -2,9 +2,12 @@ package linearpbft
 
 import (
 	"context"
+	"io"
+	"sync"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/mavleo96/bft-mavleo96/internal/crypto"
+	"github.com/mavleo96/bft-mavleo96/internal/models"
 	"github.com/mavleo96/bft-mavleo96/internal/utils"
 	"github.com/mavleo96/bft-mavleo96/pb"
 	log "github.com/sirupsen/logrus"
@@ -329,6 +332,39 @@ func (n *LinearPBFTNode) SendNewView(viewNumber int64) {
 		sortedSignedPrePrepareMessages = append(sortedSignedPrePrepareMessages, newSignedPrePrepareMessage)
 	}
 
+	// TODO: leader needs to first preprepare the request in its own log record
+	for _, signedPrePrepareMessage := range sortedSignedPrePrepareMessages {
+		prePrepareMessage := signedPrePrepareMessage.Message
+		sequenceNum := prePrepareMessage.SequenceNum
+		record := n.LogRecords[sequenceNum]
+		if record == nil {
+			record = CreateLogRecord(viewNumber, sequenceNum, crypto.Digest(NoOpTransactionRequest))
+			n.LogRecords[sequenceNum] = record
+		} else {
+			log.Infof("Before reset: %s", record.LogString())
+			record.Reset(viewNumber, prePrepareMessage.Digest)
+			log.Infof("After reset: %s", record.LogString())
+
+			// Get missing via get request
+			if signedRequest := n.TransactionMap.Get(record.Digest); signedRequest == nil {
+				response, err := n.SendGetRequest(record.Digest)
+				if err != nil || response == nil {
+					log.Fatal(err)
+				}
+				signedRequest = response
+				n.TransactionMap.Set(record.Digest, signedRequest)
+				log.Infof("Adding request to log record: %s", record.LogString())
+			}
+
+			log.Infof("request after add request: %s", record.LogString())
+			record.AddPrePrepareMessage(signedPrePrepareMessage)
+		}
+	}
+	// Print current log state
+	for sequenceNum, record := range n.LogRecords {
+		log.Infof("Log record for sequence number %d: %s", sequenceNum, record.LogString())
+	}
+
 	// Create new view message and sign it
 	newViewMessage := &pb.NewViewMessage{
 		ViewNumber:               viewNumber,
@@ -340,16 +376,45 @@ func (n *LinearPBFTNode) SendNewView(viewNumber int64) {
 		Signature: crypto.Sign(newViewMessage, n.PrivateKey),
 	}
 
-	// Multicast new view message to all nodes
+	// Multicast new view message to all nodes and collect signed prepare messages
 	log.Infof("Sending new view message for view number %d: %s", viewNumber, utils.LoggingString(newViewMessage))
+	wg := sync.WaitGroup{}
+	mu := sync.Mutex{}
+	collectedSignedPrepareMessages := make(map[int64][]*pb.SignedPrepareMessage)
 	for _, peer := range n.Peers {
-		go func() {
-			_, err := (*peer.Client).NewViewRequest(context.Background(), signedNewViewMessage)
+		wg.Add(1)
+		go func(peer *models.Node) {
+			defer wg.Done()
+			stream, err := (*peer.Client).NewViewRequest(context.Background(), signedNewViewMessage)
 			if err != nil {
 				return
 			}
-		}()
-	}
 
-	// Install a receive for prepare messages
+			// Stream prepare messages from peer
+			for {
+				signedPrepareMessage, err := stream.Recv()
+				if err == io.EOF {
+					break
+				}
+				if err != nil {
+					log.Warn(err)
+					return
+				}
+
+				sequenceNum := signedPrepareMessage.Message.SequenceNum
+				mu.Lock()
+				collectedSignedPrepareMessages[sequenceNum] = append(collectedSignedPrepareMessages[sequenceNum], signedPrepareMessage)
+				mu.Unlock()
+			}
+		}(peer)
+	}
+	wg.Wait()
+
+	// Print collected signed prepare messages
+	for sequenceNum, signedPrepareMessages := range collectedSignedPrepareMessages {
+		log.Infof("Collected %d signed prepare messages for sequence number %d", len(signedPrepareMessages), sequenceNum)
+		for _, signedPrepareMessage := range signedPrepareMessages {
+			log.Infof("Signed prepare message: %s", utils.LoggingString(signedPrepareMessage.Message, NoOpTransactionRequest))
+		}
+	}
 }

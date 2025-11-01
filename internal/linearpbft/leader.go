@@ -13,15 +13,15 @@ import (
 )
 
 // SendPrePrepare sends a preprepare message to all nodes
-func (n *LinearPBFTNode) SendPrePrepare(signedPreprepare *pb.SignedPrePrepareMessage, sequenceNum int64) ([]*pb.SignedPrepareMessage, error) {
-	preprepare := signedPreprepare.Message
+func (n *LinearPBFTNode) SendPrePrepare(signedPreprepareMessage *pb.SignedPrePrepareMessage, sequenceNum int64) ([]*pb.SignedPrepareMessage, error) {
+	prePrepareMessage := signedPreprepareMessage.Message
 
 	// Add preprepare message to log record
 	record := n.LogRecords[sequenceNum]
 	if record == nil {
 		log.Fatal("Leader tried to preprepare a sequence number that is not in the log record")
 	}
-	request := record.Request
+	request := n.TransactionMap.Get(prePrepareMessage.Digest)
 
 	// Multicast preprepare message to all nodes
 	responseCh := make(chan *pb.SignedPrepareMessage, len(n.Peers))
@@ -29,7 +29,7 @@ func (n *LinearPBFTNode) SendPrePrepare(signedPreprepare *pb.SignedPrePrepareMes
 	wg := sync.WaitGroup{}
 	for _, peer := range n.Peers {
 		wg.Go(func() {
-			signedPrepareMsg, err := (*peer.Client).PrePrepareRequest(context.Background(), signedPreprepare)
+			signedPrepareMsg, err := (*peer.Client).PrePrepareRequest(context.Background(), signedPreprepareMessage)
 			if err != nil {
 				// log.Fatal(err)
 				return
@@ -45,9 +45,9 @@ func (n *LinearPBFTNode) SendPrePrepare(signedPreprepare *pb.SignedPrePrepareMes
 	// Add leader's own prepare message
 	signedPrepareMsgs := make([]*pb.SignedPrepareMessage, 0)
 	prepareMessage := &pb.PrepareMessage{
-		ViewNumber:  preprepare.ViewNumber,
-		SequenceNum: preprepare.SequenceNum,
-		Digest:      preprepare.Digest,
+		ViewNumber:  prePrepareMessage.ViewNumber,
+		SequenceNum: prePrepareMessage.SequenceNum,
+		Digest:      prePrepareMessage.Digest,
 		NodeID:      n.ID,
 	}
 	signedPrepareMsgs = append(signedPrepareMsgs, &pb.SignedPrepareMessage{
@@ -70,9 +70,9 @@ func (n *LinearPBFTNode) SendPrePrepare(signedPreprepare *pb.SignedPrePrepareMes
 		}
 
 		// Check if the prepare message matches preprepare message
-		if signedPrepareMsg.Message.ViewNumber != preprepare.ViewNumber ||
-			signedPrepareMsg.Message.SequenceNum != preprepare.SequenceNum ||
-			!cmp.Equal(signedPrepareMsg.Message.Digest, preprepare.Digest) {
+		if signedPrepareMsg.Message.ViewNumber != prePrepareMessage.ViewNumber ||
+			signedPrepareMsg.Message.SequenceNum != prePrepareMessage.SequenceNum ||
+			!cmp.Equal(signedPrepareMsg.Message.Digest, prePrepareMessage.Digest) {
 			continue
 		}
 

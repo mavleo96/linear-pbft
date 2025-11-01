@@ -1113,7 +1113,7 @@ func (x *SignedNewViewMessage) GetSignature() []byte {
 
 type GetRequestMessage struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	SequenceNum   int64                  `protobuf:"varint,1,opt,name=sequenceNum,proto3" json:"sequenceNum,omitempty"`
+	Digest        []byte                 `protobuf:"bytes,1,opt,name=digest,proto3" json:"digest,omitempty"`
 	NodeID        string                 `protobuf:"bytes,2,opt,name=nodeID,proto3" json:"nodeID,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1149,11 +1149,11 @@ func (*GetRequestMessage) Descriptor() ([]byte, []int) {
 	return file_bft_proto_rawDescGZIP(), []int{18}
 }
 
-func (x *GetRequestMessage) GetSequenceNum() int64 {
+func (x *GetRequestMessage) GetDigest() []byte {
 	if x != nil {
-		return x.SequenceNum
+		return x.Digest
 	}
-	return 0
+	return nil
 }
 
 func (x *GetRequestMessage) GetNodeID() string {
@@ -1256,9 +1256,9 @@ const file_bft_proto_rawDesc = "" +
 	"\x18signedPrePrepareMessages\x18\x03 \x03(\v2\x1b.pb.SignedPrePrepareMessageR\x18signedPrePrepareMessages\"b\n" +
 	"\x14SignedNewViewMessage\x12,\n" +
 	"\amessage\x18\x01 \x01(\v2\x12.pb.NewViewMessageR\amessage\x12\x1c\n" +
-	"\tsignature\x18\x02 \x01(\fR\tsignature\"M\n" +
-	"\x11GetRequestMessage\x12 \n" +
-	"\vsequenceNum\x18\x01 \x01(\x03R\vsequenceNum\x12\x16\n" +
+	"\tsignature\x18\x02 \x01(\fR\tsignature\"C\n" +
+	"\x11GetRequestMessage\x12\x16\n" +
+	"\x06digest\x18\x01 \x01(\fR\x06digest\x12\x16\n" +
 	"\x06nodeID\x18\x02 \x01(\tR\x06nodeID2\xe3\x04\n" +
 	"\x0eLinearPBFTNode\x12G\n" +
 	"\x0fTransferRequest\x12\x1c.pb.SignedTransactionRequest\x1a\x16.google.protobuf.Empty\x12N\n" +

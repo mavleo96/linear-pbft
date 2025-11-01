@@ -29,6 +29,9 @@ func (n *LinearPBFTNode) TransferRequest(ctx context.Context, signedRequest *pb.
 		return nil, status.Errorf(codes.Unauthenticated, "invalid signature")
 	}
 
+	// Add request to transaction map
+	n.TransactionMap.Set(crypto.Digest(signedRequest.Request), signedRequest)
+
 	// Send reply to client if duplicate request
 	if n.LastReply.Get(request.Sender) != nil && request.Timestamp == n.LastReply.Get(request.Sender).Timestamp {
 		log.Infof("Received duplicate request from client %s for request %s, sending reply", request.Sender, utils.LoggingString(request))
@@ -70,7 +73,6 @@ func (n *LinearPBFTNode) TransferRequest(ctx context.Context, signedRequest *pb.
 		Signature: crypto.Sign(preprepare, n.PrivateKey),
 		Request:   signedRequest,
 	}
-	record.AddRequest(signedRequest)
 	record.AddPrePrepareMessage(signedPreprepare)
 
 	// Send preprepare message to all nodes and collect prepare messages

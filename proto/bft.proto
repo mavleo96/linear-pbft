@@ -151,6 +151,6 @@ message SignedNewViewMessage {
 }
 
 message GetRequestMessage {
-    int64 sequenceNum = 1;
+    bytes digest = 1;
     string nodeID = 2;
 }
