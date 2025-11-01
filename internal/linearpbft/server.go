@@ -9,6 +9,11 @@ import (
 	"github.com/mavleo96/bft-mavleo96/pb"
 )
 
+const (
+	ExecutionTimeout = 500 * time.Millisecond
+	TimeAttackDelay  = 50 * time.Millisecond
+)
+
 // LinearPBFTNode represents a LinearPBFT node
 type LinearPBFTNode struct {
 	// Node information
@@ -83,7 +88,7 @@ func CreateLinearPBFTNode(selfNode *models.Node, peerNodes map[string]*models.No
 		ViewChangePhase:         false,
 		ViewChangeViewNumber:    0,
 		TransactionMap:          CreateTransactionMap(),
-		SafeTimer:               CreateSafeTimer(500 * time.Millisecond),
+		SafeTimer:               CreateSafeTimer(ExecutionTimeout),
 		ViewChangeMessageLog:    make(map[int64]map[string]*pb.SignedViewChangeMessage),
 		ForwardedRequestsLog:    make([]*pb.SignedTransactionRequest, 0),
 	}

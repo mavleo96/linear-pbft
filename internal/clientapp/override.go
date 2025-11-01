@@ -36,7 +36,6 @@ func ReconfigureNodes(nodeMap map[string]*models.Node, liveNodes []*models.Node,
 			}
 			if attack.Type == "dark" {
 				changeStatusMessage.DarkAttack = true
-				log.Infof("Dark attack nodes: %s, count: %d", nodeStringSlice(attack.AttackNodes), len(attack.AttackNodes))
 				changeStatusMessage.DarkAttackNodes = nodeStringSlice(attack.AttackNodes)
 			}
 			if attack.Type == "time" {

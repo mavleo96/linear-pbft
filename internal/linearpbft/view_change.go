@@ -47,6 +47,7 @@ func (n *LinearPBFTNode) SendViewChange(viewNumber int64) error {
 	defer n.Mutex.Unlock()
 
 	// Set sent view change flag to true
+	log.Infof("Node %s is entering view change phase and updated vc to %d", n.ID, viewNumber)
 	n.ViewChangePhase = true
 	n.ViewChangeViewNumber = viewNumber
 
@@ -198,6 +199,11 @@ func (n *LinearPBFTNode) ViewChangeRequest(ctx context.Context, signedViewChange
 	// If 2f + 1 view change messages are collected and next primary then send new view message
 	if len(viewChangeMessageLog) >= int(2*n.F+1) {
 		if utils.ViewNumberToLeaderID(viewNumber, n.N) == n.ID {
+			// Byzantine node behavior: crash attack
+			if n.Byzantine && n.CrashAttack {
+				log.Infof("Node %s is Byzantine and is performing crash attack", n.ID)
+				return &emptypb.Empty{}, nil
+			}
 			go n.NewViewRoutine(context.Background(), viewNumber)
 		} else {
 			n.SafeTimer.IncrementWaitCountOrStart()

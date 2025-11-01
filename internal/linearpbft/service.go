@@ -139,6 +139,12 @@ func (n *LinearPBFTNode) ReadOnlyRequest(ctx context.Context, signedRequest *pb.
 		return nil, status.Errorf(codes.Unavailable, "view change phase")
 	}
 
+	// Byzantine node behavior: crash attack
+	if n.Byzantine && n.CrashAttack {
+		log.Infof("Node %s is Byzantine and is performing crash attack", n.ID)
+		return nil, status.Errorf(codes.Unavailable, "node not alive")
+	}
+
 	// Verify client signature
 	ok := crypto.Verify(request, n.Clients[request.Sender].PublicKey, signedRequest.Signature)
 	if !ok {

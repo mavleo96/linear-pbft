@@ -120,7 +120,17 @@ func (n *LinearPBFTNode) PrePrepareRequest(ctx context.Context, signedMessage *p
 	// Log the preprepare message in record
 	n.Mutex.Lock()
 	record.AddPrePrepareMessage(signedMessage)
+	// Byzantine node behavior: crash attack
+	if n.Byzantine && n.CrashAttack {
+		log.Infof("Node %s is Byzantine and is performing crash attack", n.ID)
+		record.MaliciousUpdateLogState()
+	}
 	n.Mutex.Unlock()
+	// Byzantine node behavior: crash attack
+	if n.Byzantine && n.CrashAttack {
+		log.Infof("Node %s is Byzantine and is performing crash attack", n.ID)
+		return nil, status.Errorf(codes.Unavailable, "node not alive")
+	}
 
 	// Create prepare message and sign it
 	prepareMessage := &pb.PrepareMessage{
@@ -236,7 +246,17 @@ func (n *LinearPBFTNode) PrepareRequest(ctx context.Context, signedPrepareMessag
 	// Log the prepare message
 	n.Mutex.Lock()
 	record.AddPrepareMessages(signedPrepareMessages.Messages)
+	// Byzantine node behavior: crash attack
+	if n.Byzantine && n.CrashAttack {
+		log.Infof("Node %s is Byzantine and is performing crash attack", n.ID)
+		record.MaliciousUpdateLogState()
+	}
 	n.Mutex.Unlock()
+	// Byzantine node behavior: crash attack
+	if n.Byzantine && n.CrashAttack {
+		log.Infof("Node %s is Byzantine and is performing crash attack", n.ID)
+		return nil, status.Errorf(codes.Unavailable, "node not alive")
+	}
 
 	// Create commit message and sign it
 	commitMessage := &pb.CommitMessage{
@@ -352,7 +372,17 @@ func (n *LinearPBFTNode) CommitRequest(ctx context.Context, signedCommitMessages
 	// Log the commit message
 	n.Mutex.Lock()
 	record.AddCommitMessages(signedCommitMessages.Messages)
+	// Byzantine node behavior: crash attack
+	if n.Byzantine && n.CrashAttack {
+		log.Infof("Node %s is Byzantine and is performing crash attack", n.ID)
+		record.MaliciousUpdateLogState()
+	}
 	n.Mutex.Unlock()
+	// Byzantine node behavior: crash attack
+	if n.Byzantine && n.CrashAttack {
+		log.Infof("Node %s is Byzantine and is performing crash attack", n.ID)
+		return nil, status.Errorf(codes.Unavailable, "node not alive")
+	}
 
 	// Execute transaction
 	go n.TryExecute(sequenceNum)

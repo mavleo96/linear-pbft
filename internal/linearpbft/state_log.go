@@ -154,6 +154,14 @@ func (l *LogRecord) updateLogState() {
 	l.committed = true
 }
 
+// MaliciousUpdateLogState updates the log state maliciously to prevent log from getting prepared or committed
+// despite having valid prepare and commit messages
+// Byzantine node behavior: crash attack
+func (l *LogRecord) MaliciousUpdateLogState() {
+	l.prepared = false
+	l.committed = false
+}
+
 // TransactionMap represents a map of digest to signed transaction request with a mutex
 type TransactionMap struct {
 	Mutex sync.RWMutex

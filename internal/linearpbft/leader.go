@@ -4,6 +4,7 @@ import (
 	"context"
 	"slices"
 	"sync"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/mavleo96/bft-mavleo96/internal/crypto"
@@ -11,6 +12,8 @@ import (
 	"github.com/mavleo96/bft-mavleo96/internal/utils"
 	"github.com/mavleo96/bft-mavleo96/pb"
 	log "github.com/sirupsen/logrus"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // SendPrePrepare sends a preprepare message to all nodes
@@ -34,6 +37,11 @@ func (n *LinearPBFTNode) SendPrePrepare(signedPreprepareMessage *pb.SignedPrePre
 			if n.Byzantine && n.DarkAttack && slices.Contains(n.DarkAttackNodes, peer.ID) {
 				log.Infof("Node %s is Byzantine and is performing dark attack", peer.ID)
 				return
+			}
+			// Byzantine node behavior: time attack
+			if n.Byzantine && n.TimeAttack {
+				log.Infof("Node %s is Byzantine and is performing time attack", peer.ID)
+				time.Sleep(TimeAttackDelay)
 			}
 			signedPrepareMsg, err := (*peer.Client).PrePrepareRequest(context.Background(), signedPreprepareMessage)
 			if err != nil {
@@ -114,7 +122,17 @@ func (n *LinearPBFTNode) SendPrepare(signedPrepareMessages []*pb.SignedPrepareMe
 
 	// Add to prepared log
 	record.AddPrepareMessages(signedPrepareMessages)
+	// Byzantine node behavior: crash attack
+	if n.Byzantine && n.CrashAttack {
+		log.Infof("Node %s is Byzantine and is performing crash attack", n.ID)
+		record.MaliciousUpdateLogState()
+	}
 	n.Mutex.Unlock()
+	// Byzantine node behavior: crash attack
+	if n.Byzantine && n.CrashAttack {
+		log.Infof("Node %s is Byzantine and is performing crash attack", n.ID)
+		return nil, status.Errorf(codes.Unavailable, "node not alive")
+	}
 
 	// Create collected signed prepare message
 	collectedSignedPrepareMessage := &pb.CollectedSignedPrepareMessage{
@@ -134,6 +152,11 @@ func (n *LinearPBFTNode) SendPrepare(signedPrepareMessages []*pb.SignedPrepareMe
 			if n.Byzantine && n.DarkAttack && slices.Contains(n.DarkAttackNodes, peer.ID) {
 				log.Infof("Node %s is Byzantine and is performing dark attack", peer.ID)
 				return
+			}
+			// Byzantine node behavior: time attack
+			if n.Byzantine && n.TimeAttack {
+				log.Infof("Node %s is Byzantine and is performing time attack", peer.ID)
+				time.Sleep(TimeAttackDelay)
 			}
 			signedCommitMsg, err := (*peer.Client).PrepareRequest(context.Background(), collectedSignedPrepareMessage)
 			if err != nil {
@@ -230,6 +253,11 @@ func (n *LinearPBFTNode) SendCommit(signedCommitMessages []*pb.SignedCommitMessa
 			if n.Byzantine && n.DarkAttack && slices.Contains(n.DarkAttackNodes, peer.ID) {
 				log.Infof("Node %s is Byzantine and is performing dark attack", peer.ID)
 				return
+			}
+			// Byzantine node behavior: time attack
+			if n.Byzantine && n.TimeAttack {
+				log.Infof("Node %s is Byzantine and is performing time attack", peer.ID)
+				time.Sleep(TimeAttackDelay)
 			}
 			_, err := (*peer.Client).CommitRequest(context.Background(), collectedSignedCommitMessage)
 			if err != nil {
