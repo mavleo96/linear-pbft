@@ -60,9 +60,9 @@ func (n *LinearPBFTNode) PrePrepareRequest(ctx context.Context, signedMessage *p
 	}
 	request := signedRequest.Request
 
-	// Verify client signature
-	ok = crypto.Verify(request, n.Clients[request.Sender].PublicKey, signedRequest.Signature)
-	if !ok {
+	// Verify client signature if not no-op transaction
+	if !cmp.Equal(prePrepareMessage.Digest, DigestNoOp) &&
+		!crypto.Verify(request, n.Clients[request.Sender].PublicKey, signedRequest.Signature) {
 		log.Warnf("Rejected: %s; invalid signature on request", utils.LoggingString(request))
 		return nil, status.Errorf(codes.Unauthenticated, "invalid signature on request")
 	}
@@ -401,8 +401,8 @@ func (n *LinearPBFTNode) SendGetRequest(digest []byte) (*pb.SignedTransactionReq
 		}
 
 		// Verify client signature
-		ok := crypto.Verify(request, n.Clients[request.Sender].PublicKey, signedRequest.Signature)
-		if !ok {
+		if !cmp.Equal(crypto.Digest(signedRequest), DigestNoOp) &&
+			!crypto.Verify(request, n.Clients[request.Sender].PublicKey, signedRequest.Signature) {
 			log.Warnf("Rejected: %s; invalid signature on request", utils.LoggingString(request))
 			continue
 		}

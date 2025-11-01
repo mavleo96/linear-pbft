@@ -15,6 +15,7 @@ import (
 func (n *LinearPBFTNode) PrintLog(ctx context.Context, req *emptypb.Empty) (*emptypb.Empty, error) {
 	n.Mutex.Lock()
 	defer n.Mutex.Unlock()
+	log.Infof("Print log command received")
 	fmt.Println("Printing log records:")
 	maxSequenceNum := utils.Max(utils.Keys(n.LogRecords))
 	for i := int64(1); i <= maxSequenceNum; i++ {
@@ -37,6 +38,7 @@ func (n *LinearPBFTNode) PrintLog(ctx context.Context, req *emptypb.Empty) (*emp
 func (n *LinearPBFTNode) PrintDB(ctx context.Context, req *emptypb.Empty) (*emptypb.Empty, error) {
 	n.Mutex.Lock()
 	defer n.Mutex.Unlock()
+	log.Infof("Print database command received")
 	fmt.Println("Printing database:")
 	db_state, err := n.DB.PrintDB()
 	if err != nil {
@@ -59,6 +61,7 @@ func (n *LinearPBFTNode) PrintDB(ctx context.Context, req *emptypb.Empty) (*empt
 func (n *LinearPBFTNode) PrintStatus(ctx context.Context, req *wrapperspb.Int64Value) (*emptypb.Empty, error) {
 	n.Mutex.Lock()
 	defer n.Mutex.Unlock()
+	log.Infof("Print status command received")
 	fmt.Println("Printing status:")
 
 	sequenceNum := req.Value

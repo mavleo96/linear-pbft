@@ -2,17 +2,16 @@ package linearpbft
 
 import (
 	"errors"
-	"fmt"
 	"sync"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/mavleo96/bft-mavleo96/internal/crypto"
 	"github.com/mavleo96/bft-mavleo96/internal/utils"
 	"github.com/mavleo96/bft-mavleo96/pb"
 	log "github.com/sirupsen/logrus"
 )
 
 // NoOpTransactionRequest is a no-op transaction request
-// TODO: signature won't be verified right now
 var NoOpTransactionRequest = &pb.SignedTransactionRequest{
 	Request: &pb.TransactionRequest{
 		Transaction: &pb.Transaction{
@@ -26,6 +25,9 @@ var NoOpTransactionRequest = &pb.SignedTransactionRequest{
 	},
 	Signature: []byte{},
 }
+
+// DigestNoOp is the digest of the no-op transaction request
+var DigestNoOp = crypto.Digest(NoOpTransactionRequest)
 
 // LogRecord represents a log record for a transaction
 type LogRecord struct {
@@ -110,11 +112,6 @@ func (l *LogRecord) Reset(viewNumber int64, digest []byte) error {
 	return nil
 }
 
-// LogString returns the log record as a string
-func (l *LogRecord) LogString() string {
-	return fmt.Sprintf("v: %d, s: %d, (executed: %t)", l.ViewNumber, l.SequenceNum, l.executed)
-}
-
 // CreateLogRecord creates a new log record
 func CreateLogRecord(viewNumber int64, sequenceNumber int64, digest []byte) *LogRecord {
 	return &LogRecord{
@@ -175,6 +172,16 @@ func (t *TransactionMap) Set(digest []byte, signedRequest *pb.SignedTransactionR
 	t.Mutex.Lock()
 	defer t.Mutex.Unlock()
 	t.Map[utils.To32Bytes(digest)] = signedRequest
+}
+
+// CreateTransactionMap creates a new transaction map
+func CreateTransactionMap() *TransactionMap {
+	transactionMap := &TransactionMap{
+		Mutex: sync.RWMutex{},
+		Map:   make(map[[32]byte]*pb.SignedTransactionRequest),
+	}
+	transactionMap.Set(DigestNoOp, NoOpTransactionRequest)
+	return transactionMap
 }
 
 // LastReply represents a map of sender to last sent reply with a mutex

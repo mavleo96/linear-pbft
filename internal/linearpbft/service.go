@@ -4,6 +4,7 @@ import (
 	"context"
 	"slices"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/mavleo96/bft-mavleo96/internal/crypto"
 	"github.com/mavleo96/bft-mavleo96/internal/utils"
 	"github.com/mavleo96/bft-mavleo96/pb"
@@ -30,8 +31,8 @@ func (n *LinearPBFTNode) TransferRequest(ctx context.Context, signedRequest *pb.
 	}
 
 	// Verify client signature
-	ok := crypto.Verify(request, n.Clients[request.Sender].PublicKey, signedRequest.Signature)
-	if !ok {
+	if !cmp.Equal(crypto.Digest(signedRequest), DigestNoOp) &&
+		!crypto.Verify(request, n.Clients[request.Sender].PublicKey, signedRequest.Signature) {
 		log.Warnf("Invalid client signature for request %s", utils.LoggingString(request))
 		return &emptypb.Empty{}, status.Errorf(codes.Unauthenticated, "invalid signature")
 	}

@@ -95,7 +95,7 @@ func (n *LinearPBFTNode) NewViewRoutine(ctx context.Context, viewNumber int64) {
 		sortedSignedPrePrepareMessages = append(sortedSignedPrePrepareMessages, newSignedPrePrepareMessage)
 	}
 
-	// TODO: leader needs to first preprepare the request in its own log record
+	// Leader needs to first preprepare the request in its own log record
 	for _, signedPrePrepareMessage := range sortedSignedPrePrepareMessages {
 		prePrepareMessage := signedPrePrepareMessage.Message
 		sequenceNum := prePrepareMessage.SequenceNum
@@ -125,6 +125,12 @@ func (n *LinearPBFTNode) NewViewRoutine(ctx context.Context, viewNumber int64) {
 			}
 		}
 		record.AddPrePrepareMessage(signedPrePrepareMessage)
+	}
+	// Purge log records with older view number
+	for sequenceNum, record := range n.LogRecords {
+		if record.ViewNumber < viewNumber {
+			delete(n.LogRecords, sequenceNum)
+		}
 	}
 
 	// Create new view message and sign it

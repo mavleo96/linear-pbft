@@ -48,9 +48,7 @@ type LinearPBFTNode struct {
 	// Timer instance
 	SafeTimer *SafeTimer
 
-	// ExecuteSignalCh chan int64
-	// Flag bool
-
+	// Message logs
 	ViewChangeMessageLog map[int64]map[string]*pb.SignedViewChangeMessage // v -> (id -> msg)
 	ForwardedRequestsLog []*pb.SignedTransactionRequest
 
@@ -84,10 +82,9 @@ func CreateLinearPBFTNode(selfNode *models.Node, peerNodes map[string]*models.No
 		LastReply:               &LastReply{Mutex: sync.RWMutex{}, ReplyMap: make(map[string]*pb.TransactionResponse)},
 		ViewChangePhase:         false,
 		ViewChangeViewNumber:    0,
-		TransactionMap:          &TransactionMap{Mutex: sync.RWMutex{}, Map: make(map[[32]byte]*pb.SignedTransactionRequest)},
+		TransactionMap:          CreateTransactionMap(),
 		SafeTimer:               CreateSafeTimer(500 * time.Millisecond),
 		ViewChangeMessageLog:    make(map[int64]map[string]*pb.SignedViewChangeMessage),
 		ForwardedRequestsLog:    make([]*pb.SignedTransactionRequest, 0),
-		// Flag:                    false,
 	}
 }
