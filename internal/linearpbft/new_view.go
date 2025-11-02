@@ -229,7 +229,7 @@ func (n *LinearPBFTNode) NewViewRequest(signedNewViewMessage *pb.SignedNewViewMe
 	}
 
 	// Cleanup timer and update view number
-	n.SafeTimer.Cleanup()
+	// n.SafeTimer.Cleanup() // TODO: check if this is alright...but it correct as per the paper
 	n.ViewNumber = viewNumber
 	n.ViewChangePhase = false
 	log.Infof("Accepted %s", utils.LoggingString(newViewMessage))

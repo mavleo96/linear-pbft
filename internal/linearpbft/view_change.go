@@ -193,8 +193,12 @@ func (n *LinearPBFTNode) ViewChangeRequest(ctx context.Context, signedViewChange
 
 	// Send view change message to all nodes if f + 1 view change messages are collected
 	if !n.ViewChangePhase && len(viewChangeMessageLog) >= int(n.F+1) {
-		n.SafeTimer.Cleanup()
-		go n.SendViewChange(viewNumber)
+		alreadyExpired := n.SafeTimer.Cleanup()
+		if !alreadyExpired {
+			go n.SendViewChange(viewNumber)
+		} else {
+			log.Infof("View change timer already expired at v %d vc %d", n.ViewNumber, n.ViewChangeViewNumber)
+		}
 	}
 
 	// If 2f + 1 view change messages are collected and next primary then send new view message
@@ -207,7 +211,7 @@ func (n *LinearPBFTNode) ViewChangeRequest(ctx context.Context, signedViewChange
 			}
 			go n.NewViewRoutine(context.Background(), viewNumber)
 		} else {
-			n.SafeTimer.IncrementWaitCountOrStart()
+			n.SafeTimer.StartViewTimerIfNotRunning()
 		}
 	}
 
