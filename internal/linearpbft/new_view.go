@@ -105,11 +105,12 @@ func (n *LinearPBFTNode) NewViewRoutine(ctx context.Context, viewNumber int64) {
 		if signedRequest == nil {
 			response, err := n.SendGetRequest(prePrepareMessage.Digest)
 			if err != nil || response == nil {
-				log.Fatal(err)
+				log.Warnf("Rejected: %s; request could not be retrieved from any node", utils.LoggingString(prePrepareMessage))
+			} else {
+				signedRequest = response
+				log.Infof("Adding request to transaction map: %s", utils.LoggingString(signedRequest.Request))
+				n.TransactionMap.Set(prePrepareMessage.Digest, signedRequest)
 			}
-			signedRequest = response
-			log.Infof("Adding request to transaction map: %s", utils.LoggingString(signedRequest.Request))
-			n.TransactionMap.Set(prePrepareMessage.Digest, signedRequest)
 		}
 
 		// Get record from log record or create new one
@@ -132,6 +133,8 @@ func (n *LinearPBFTNode) NewViewRoutine(ctx context.Context, viewNumber int64) {
 			delete(n.LogRecords, sequenceNum)
 		}
 	}
+	// Purge forwarded requests
+	n.ForwardedRequestsLog = make([]*pb.SignedTransactionRequest, 0)
 
 	// Create new view message and sign it
 	newViewMessage := &pb.NewViewMessage{
@@ -241,10 +244,11 @@ func (n *LinearPBFTNode) NewViewRequest(signedNewViewMessage *pb.SignedNewViewMe
 	for _, signedPrePrepareMessage := range signedPrePrepareMessages {
 		signedPrepareMessage, err := n.PrePrepareRequest(context.Background(), signedPrePrepareMessage)
 		if err != nil {
-			log.Fatal(err)
+			log.Warnf("Prepare request %s could not be sent to leader", utils.LoggingString(signedPrePrepareMessage))
+			continue
 		}
 		if err := stream.Send(signedPrepareMessage); err != nil {
-			log.Fatal(err)
+			log.Warnf("Prepare message %s could not be sent to leader", utils.LoggingString(signedPrepareMessage))
 		}
 	}
 	log.Infof("Streamed prepares messages for view number %d", viewNumber)

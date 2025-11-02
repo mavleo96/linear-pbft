@@ -193,6 +193,7 @@ func (n *LinearPBFTNode) ViewChangeRequest(ctx context.Context, signedViewChange
 
 	// Send view change message to all nodes if f + 1 view change messages are collected
 	if !n.ViewChangePhase && len(viewChangeMessageLog) >= int(n.F+1) {
+		n.SafeTimer.Cleanup()
 		go n.SendViewChange(viewNumber)
 	}
 
