@@ -32,7 +32,9 @@ func (n *LinearPBFTNode) SendPrePrepare(signedPreprepareMessage *pb.SignedPrePre
 	log.Infof("Sending preprepare (v: %d, s: %d): %s", n.ViewNumber, sequenceNum, utils.LoggingString(request))
 	wg := sync.WaitGroup{}
 	for _, peer := range n.Peers {
-		wg.Go(func() {
+		wg.Add(1)
+		go func(peer *models.Node, signedMessage *pb.SignedPrePrepareMessage) {
+			defer wg.Done()
 			// Byzantine node behavior: dark attack
 			if n.Byzantine && n.DarkAttack && slices.Contains(n.DarkAttackNodes, peer.ID) {
 				log.Infof("Node %s is Byzantine and is performing dark attack", peer.ID)
@@ -43,13 +45,18 @@ func (n *LinearPBFTNode) SendPrePrepare(signedPreprepareMessage *pb.SignedPrePre
 				log.Infof("Node %s is Byzantine and is performing time attack", peer.ID)
 				time.Sleep(TimeAttackDelay)
 			}
-			signedPrepareMsg, err := (*peer.Client).PrePrepareRequest(context.Background(), signedPreprepareMessage)
+			// Byzantine node behavior: malicious attack
+			if n.Byzantine && n.EquivocationAttack && !slices.Contains(n.EquivocationAttackNodes, peer.ID) {
+				log.Infof("Node %s is Byzantine and is performing malicious attack", peer.ID)
+				signedMessage = n.CreateMaliciousSignedPrePrepareMessage(signedMessage)
+			}
+			signedPrepareMsg, err := (*peer.Client).PrePrepareRequest(context.Background(), signedMessage)
 			if err != nil {
 				// log.Fatal(err)
 				return
 			}
 			responseCh <- signedPrepareMsg
-		})
+		}(peer, signedPreprepareMessage)
 	}
 	go func() {
 		wg.Wait()

@@ -40,3 +40,14 @@ func (n *LinearPBFTNode) GetPublicKey(nodeID string) []byte {
 	}
 	return n.Peers[nodeID].PublicKey
 }
+
+// CreateMaliciousSignedPrePrepareMessage creates a malicious signed preprepare message
+func (n *LinearPBFTNode) CreateMaliciousSignedPrePrepareMessage(signedMessage *pb.SignedPrePrepareMessage) *pb.SignedPrePrepareMessage {
+	message := signedMessage.Message
+	message.SequenceNum += 1
+	return &pb.SignedPrePrepareMessage{
+		Message:   message,
+		Signature: crypto.Sign(message, n.PrivateKey),
+		Request:   signedMessage.Request,
+	}
+}
