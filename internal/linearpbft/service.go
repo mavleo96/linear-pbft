@@ -93,7 +93,7 @@ func (n *LinearPBFTNode) TransferRequest(ctx context.Context, signedRequest *pb.
 	}
 	// Byzantine node behavior: sign attack
 	if n.Byzantine && n.SignAttack {
-		log.Infof("Node %s is Byzantine and is performing sign attack", n.ID)
+		// log.Infof("Node %s is Byzantine and is performing sign attack", n.ID)
 		signedPreprepare.Signature = []byte("invalid signature")
 	}
 	record.AddPrePrepareMessage(signedPreprepare)
@@ -141,7 +141,7 @@ func (n *LinearPBFTNode) ReadOnlyRequest(ctx context.Context, signedRequest *pb.
 
 	// Byzantine node behavior: crash attack
 	if n.Byzantine && n.CrashAttack {
-		log.Infof("Node %s is Byzantine and is performing crash attack", n.ID)
+		// log.Infof("Node %s is Byzantine and is performing crash attack", n.ID)
 		return nil, status.Errorf(codes.Unavailable, "node not alive")
 	}
 
@@ -172,7 +172,7 @@ func (n *LinearPBFTNode) ReadOnlyRequest(ctx context.Context, signedRequest *pb.
 	}
 	// Byzantine node behavior: sign attack
 	if n.Byzantine && n.SignAttack {
-		log.Infof("Node %s is Byzantine and is performing sign attack", n.ID)
+		// log.Infof("Node %s is Byzantine and is performing sign attack", n.ID)
 		signedMessage.Signature = []byte("invalid signature")
 	}
 	log.Infof("Node %s: Read only request %s -> %d", n.ID, utils.LoggingString(request), balance)
@@ -195,7 +195,7 @@ func (n *LinearPBFTNode) SendReply(sequenceNum int64, request *pb.TransactionReq
 	}
 	// Byzantine node behavior: sign attack
 	if n.Byzantine && n.SignAttack {
-		log.Infof("Node %s is Byzantine and is performing sign attack", n.ID)
+		// log.Infof("Node %s is Byzantine and is performing sign attack", n.ID)
 		signedReply.Signature = []byte("invalid signature")
 	}
 	// Update last reply
@@ -214,7 +214,7 @@ func (n *LinearPBFTNode) ForwardRequest(ctx context.Context, signedRequest *pb.S
 	leaderID := utils.ViewNumberToLeaderID(n.ViewNumber, n.N)
 	// Byzantine node behavior: dark attack
 	if n.Byzantine && n.DarkAttack && slices.Contains(n.DarkAttackNodes, leaderID) {
-		log.Infof("Node %s is Byzantine and is performing dark attack", leaderID)
+		log.Infof("Node %s is Byzantine and is performing dark attack on node %s", n.ID, leaderID)
 		return
 	}
 	log.Infof("Forwarding to leader %s: %s", leaderID, utils.LoggingString(signedRequest.Request))

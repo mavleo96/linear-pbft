@@ -122,13 +122,13 @@ func (n *LinearPBFTNode) PrePrepareRequest(ctx context.Context, signedMessage *p
 	record.AddPrePrepareMessage(signedMessage)
 	// Byzantine node behavior: crash attack
 	if n.Byzantine && n.CrashAttack {
-		log.Infof("Node %s is Byzantine and is performing crash attack", n.ID)
+		// log.Infof("Node %s is Byzantine and is performing crash attack", n.ID)
 		record.MaliciousUpdateLogState()
 	}
 	n.Mutex.Unlock()
 	// Byzantine node behavior: crash attack
 	if n.Byzantine && n.CrashAttack {
-		log.Infof("Node %s is Byzantine and is performing crash attack", n.ID)
+		// log.Infof("Node %s is Byzantine and is performing crash attack", n.ID)
 		return nil, status.Errorf(codes.Unavailable, "node not alive")
 	}
 
@@ -145,15 +145,15 @@ func (n *LinearPBFTNode) PrePrepareRequest(ctx context.Context, signedMessage *p
 	}
 	// Byzantine node behavior: sign attack
 	if n.Byzantine && n.SignAttack {
-		log.Infof("Node %s is Byzantine and is performing sign attack", n.ID)
+		// log.Infof("Node %s is Byzantine and is performing sign attack", n.ID)
 		signedPrepareMessage.Signature = []byte("invalid signature")
 	}
 
 	go n.TryExecute(prePrepareMessage.SequenceNum)
 
 	// Byzantine node behavior: dark attack
-	if n.Byzantine && n.DarkAttack && slices.Contains(n.DarkAttackNodes, n.ID) {
-		log.Infof("Node %s is Byzantine and is performing dark attack", n.ID)
+	if n.Byzantine && n.DarkAttack && slices.Contains(n.DarkAttackNodes, prepareMessage.NodeID) {
+		// log.Infof("Node %s is Byzantine and is performing dark attack on node %s", n.ID, prepareMessage.NodeID)
 		return nil, status.Errorf(codes.Unavailable, "node not alive")
 	}
 
@@ -248,13 +248,13 @@ func (n *LinearPBFTNode) PrepareRequest(ctx context.Context, signedPrepareMessag
 	record.AddPrepareMessages(signedPrepareMessages.Messages)
 	// Byzantine node behavior: crash attack
 	if n.Byzantine && n.CrashAttack {
-		log.Infof("Node %s is Byzantine and is performing crash attack", n.ID)
+		// log.Infof("Node %s is Byzantine and is performing crash attack", n.ID)
 		record.MaliciousUpdateLogState()
 	}
 	n.Mutex.Unlock()
 	// Byzantine node behavior: crash attack
 	if n.Byzantine && n.CrashAttack {
-		log.Infof("Node %s is Byzantine and is performing crash attack", n.ID)
+		// log.Infof("Node %s is Byzantine and is performing crash attack", n.ID)
 		return nil, status.Errorf(codes.Unavailable, "node not alive")
 	}
 
@@ -271,15 +271,15 @@ func (n *LinearPBFTNode) PrepareRequest(ctx context.Context, signedPrepareMessag
 	}
 	// Byzantine node behavior: sign attack
 	if n.Byzantine && n.SignAttack {
-		log.Infof("Node %s is Byzantine and is performing sign attack", n.ID)
+		// log.Infof("Node %s is Byzantine and is performing sign attack", n.ID)
 		signedCommitMessage.Signature = []byte("invalid signature")
 	}
 
 	go n.TryExecute(sequenceNum)
 
 	// Byzantine node behavior: dark attack
-	if n.Byzantine && n.DarkAttack && slices.Contains(n.DarkAttackNodes, n.ID) {
-		log.Infof("Node %s is Byzantine and is performing dark attack", n.ID)
+	if n.Byzantine && n.DarkAttack && slices.Contains(n.DarkAttackNodes, commitMessage.NodeID) {
+		// log.Infof("Node %s is Byzantine and is performing dark attack on node %s", n.ID, commitMessage.NodeID)
 		return nil, status.Errorf(codes.Unavailable, "node not alive")
 	}
 
@@ -374,13 +374,13 @@ func (n *LinearPBFTNode) CommitRequest(ctx context.Context, signedCommitMessages
 	record.AddCommitMessages(signedCommitMessages.Messages)
 	// Byzantine node behavior: crash attack
 	if n.Byzantine && n.CrashAttack {
-		log.Infof("Node %s is Byzantine and is performing crash attack", n.ID)
+		// log.Infof("Node %s is Byzantine and is performing crash attack", n.ID)
 		record.MaliciousUpdateLogState()
 	}
 	n.Mutex.Unlock()
 	// Byzantine node behavior: crash attack
 	if n.Byzantine && n.CrashAttack {
-		log.Infof("Node %s is Byzantine and is performing crash attack", n.ID)
+		// log.Infof("Node %s is Byzantine and is performing crash attack", n.ID)
 		return nil, status.Errorf(codes.Unavailable, "node not alive")
 	}
 
@@ -407,7 +407,7 @@ func (n *LinearPBFTNode) SendGetRequest(digest []byte) (*pb.SignedTransactionReq
 			defer wg.Done()
 			// Byzantine node behavior: dark attack
 			if n.Byzantine && n.DarkAttack && slices.Contains(n.DarkAttackNodes, peer.ID) {
-				log.Infof("Node %s is Byzantine and is performing dark attack", peer.ID)
+				// log.Infof("Node %s is Byzantine and is performing dark attack on node %s", n.ID, peer.ID)
 				return
 			}
 			signedRequest, err := (*peer.Client).GetRequest(context.Background(), getRequestMessage)
@@ -460,17 +460,17 @@ func (n *LinearPBFTNode) GetRequest(ctx context.Context, getRequestMessage *pb.G
 		return nil, status.Errorf(codes.Unavailable, "node not alive")
 	}
 
+	// Byzantine node behavior: dark attack
+	if n.Byzantine && n.DarkAttack && slices.Contains(n.DarkAttackNodes, getRequestMessage.NodeID) {
+		// log.Infof("Node %s is Byzantine and is performing dark attack on node %s", n.ID, getRequestMessage.NodeID)
+		return nil, status.Errorf(codes.Unavailable, "node not alive")
+	}
+
 	digest := getRequestMessage.Digest
 	signedRequest := n.TransactionMap.Get(digest)
 	if signedRequest == nil {
 		log.Warnf("Rejected: %s; request not found in transaction map", utils.LoggingString(getRequestMessage))
 		return nil, status.Errorf(codes.NotFound, "request not found in transaction map")
-	}
-
-	// Byzantine node behavior: dark attack
-	if n.Byzantine && n.DarkAttack && slices.Contains(n.DarkAttackNodes, n.ID) {
-		log.Infof("Node %s is Byzantine and is performing dark attack", n.ID)
-		return nil, status.Errorf(codes.Unavailable, "node not alive")
 	}
 
 	log.Infof("Get request: %s: request %s", utils.LoggingString(getRequestMessage), utils.LoggingString(signedRequest.Request))

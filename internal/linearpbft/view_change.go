@@ -81,7 +81,7 @@ func (n *LinearPBFTNode) SendViewChange(viewNumber int64) error {
 	}
 	// Byzantine node behavior: sign attack
 	if n.Byzantine && n.SignAttack {
-		log.Infof("Node %s is Byzantine and is performing sign attack", n.ID)
+		// log.Infof("Node %s is Byzantine and is performing sign attack", n.ID)
 		signedViewChangeMessage.Signature = []byte("invalid signature")
 	}
 
@@ -100,7 +100,7 @@ func (n *LinearPBFTNode) SendViewChange(viewNumber int64) error {
 		go func(peer *models.Node) {
 			// Byzantine node behavior: dark attack
 			if n.Byzantine && n.DarkAttack && slices.Contains(n.DarkAttackNodes, peer.ID) {
-				log.Infof("Node %s is Byzantine and is performing dark attack", peer.ID)
+				// log.Infof("Node %s is Byzantine and is performing dark attack on node %s", n.ID, peer.ID)
 				return
 			}
 			_, err := (*peer.Client).ViewChangeRequest(context.Background(), signedViewChangeMessage)
@@ -202,7 +202,7 @@ func (n *LinearPBFTNode) ViewChangeRequest(ctx context.Context, signedViewChange
 		if utils.ViewNumberToLeaderID(viewNumber, n.N) == n.ID {
 			// Byzantine node behavior: crash attack
 			if n.Byzantine && n.CrashAttack {
-				log.Infof("Node %s is Byzantine and is performing crash attack", n.ID)
+				// log.Infof("Node %s is Byzantine and is performing crash attack", n.ID)
 				return &emptypb.Empty{}, nil
 			}
 			go n.NewViewRoutine(context.Background(), viewNumber)

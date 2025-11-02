@@ -5,6 +5,7 @@ import (
 	"io"
 	"slices"
 	"sync"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/mavleo96/bft-mavleo96/internal/crypto"
@@ -62,7 +63,7 @@ func (n *LinearPBFTNode) NewViewRoutine(ctx context.Context, viewNumber int64) {
 			}
 			// Byzantine node behavior: sign attack
 			if n.Byzantine && n.SignAttack {
-				log.Infof("Node %s is Byzantine and is performing sign attack", n.ID)
+				// log.Infof("Node %s is Byzantine and is performing sign attack", n.ID)
 				signedPrePrepareMessages[sequenceNum].Signature = []byte("invalid signature")
 			}
 		}
@@ -86,7 +87,7 @@ func (n *LinearPBFTNode) NewViewRoutine(ctx context.Context, viewNumber int64) {
 			}
 			// Byzantine node behavior: sign attack
 			if n.Byzantine && n.SignAttack {
-				log.Infof("Node %s is Byzantine and is performing sign attack", n.ID)
+				// log.Infof("Node %s is Byzantine and is performing sign attack", n.ID)
 				newSignedPrePrepareMessage.Signature = []byte("invalid signature")
 			}
 		} else {
@@ -148,7 +149,7 @@ func (n *LinearPBFTNode) NewViewRoutine(ctx context.Context, viewNumber int64) {
 	}
 	// Byzantine node behavior: sign attack
 	if n.Byzantine && n.SignAttack {
-		log.Infof("Node %s is Byzantine and is performing sign attack", n.ID)
+		// log.Infof("Node %s is Byzantine and is performing sign attack", n.ID)
 		signedNewViewMessage.Signature = []byte("invalid signature")
 	}
 
@@ -236,7 +237,7 @@ func (n *LinearPBFTNode) NewViewRequest(signedNewViewMessage *pb.SignedNewViewMe
 
 	// Byzantine node behavior: dark attack
 	if n.Byzantine && n.DarkAttack && slices.Contains(n.DarkAttackNodes, leaderID) {
-		log.Infof("Node %s is Byzantine and is performing dark attack", leaderID)
+		// log.Infof("Node %s is Byzantine and is performing dark attack on node %s", n.ID, leaderID)
 		return status.Errorf(codes.Unavailable, "node not alive")
 	}
 
@@ -270,8 +271,13 @@ func (n *LinearPBFTNode) SendNewView(signedNewViewMessage *pb.SignedNewViewMessa
 			defer wg.Done()
 			// Byzantine node behavior: dark attack
 			if n.Byzantine && n.DarkAttack && slices.Contains(n.DarkAttackNodes, peer.ID) {
-				log.Infof("Node %s is Byzantine and is performing dark attack", peer.ID)
+				// log.Infof("Node %s is Byzantine and is performing dark attack on node %s", n.ID, peer.ID)
 				return
+			}
+			// Byzantine node behavior: time attack
+			if n.Byzantine && n.TimeAttack {
+				// log.Infof("Node %s is Byzantine and is performing time attack", n.ID)
+				time.Sleep(TimeAttackDelay)
 			}
 
 			// Send new view message to peer
