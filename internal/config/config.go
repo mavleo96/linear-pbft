@@ -11,7 +11,7 @@ type Config struct {
 	Nodes       map[string]*NodeEntry   `yaml:"nodes"`
 	Clients     map[string]*ClientEntry `yaml:"clients"`
 	DBDir       string                  `yaml:"db_dir"`
-	InitBalance int                     `yaml:"init_balance"`
+	InitBalance int64                   `yaml:"init_balance"`
 }
 
 // NodeEntry represents a node entry in the config

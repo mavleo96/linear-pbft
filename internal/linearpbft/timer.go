@@ -24,12 +24,12 @@ type SafeTimer struct {
 }
 
 // CreateSafeTimer creates and initializes a SafeTimer instance.
-func CreateSafeTimer(timeout time.Duration) *SafeTimer {
+func CreateSafeTimer(executionTimeout time.Duration, viewChangeTimeout time.Duration) *SafeTimer {
 	t := &SafeTimer{
 		mu:                 sync.Mutex{},
-		timer:              time.NewTimer(timeout),
-		executionTimeout:   timeout,
-		viewChangeTimeout:  timeout + 200*time.Millisecond,
+		timer:              time.NewTimer(executionTimeout),
+		executionTimeout:   executionTimeout,
+		viewChangeTimeout:  viewChangeTimeout,
 		running:            false,
 		viewChangeTryCount: 0,
 		waitCount:          0,

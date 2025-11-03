@@ -77,7 +77,7 @@ func main() {
 	wg.Wait()
 }
 
-func CreateServer(selfNode *models.Node, peerNodes map[string]*models.Node, clientMap map[string]*models.Client, dbDir string, initBalance int) (*grpc.Server, error) {
+func CreateServer(selfNode *models.Node, peerNodes map[string]*models.Node, clientMap map[string]*models.Client, dbDir string, initBalance int64) (*grpc.Server, error) {
 	privateKey, err := crypto.ReadPrivateKey(filepath.Join("./keys", "node", selfNode.ID+".pem"))
 	if err != nil {
 		log.Fatal(err)
@@ -99,6 +99,7 @@ func CreateServer(selfNode *models.Node, peerNodes map[string]*models.Node, clie
 	pb.RegisterLinearPBFTNodeServer(grpcServer, node)
 
 	go node.ViewChangeRoutine(context.Background())
+	go node.CheckPointRoutine(context.Background())
 
 	return grpcServer, nil
 }

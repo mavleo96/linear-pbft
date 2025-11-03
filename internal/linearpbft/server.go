@@ -10,8 +10,9 @@ import (
 )
 
 const (
-	ExecutionTimeout = 500 * time.Millisecond
-	TimeAttackDelay  = 50 * time.Millisecond
+	ExecutionTimeout  = 400 * time.Millisecond
+	ViewChangeTimeout = 700 * time.Millisecond
+	TimeAttackDelay   = 50 * time.Millisecond
 )
 
 // LinearPBFTNode represents a LinearPBFT node
@@ -98,7 +99,7 @@ func CreateLinearPBFTNode(selfNode *models.Node, peerNodes map[string]*models.No
 		ViewChangePhase:         false,
 		ViewChangeViewNumber:    0,
 		TransactionMap:          CreateTransactionMap(),
-		SafeTimer:               CreateSafeTimer(ExecutionTimeout),
+		SafeTimer:               CreateSafeTimer(ExecutionTimeout, ViewChangeTimeout),
 		CheckPointRoutineCh:     make(chan bool),
 		ViewChangeMessageLog:    make(map[int64]map[string]*pb.SignedViewChangeMessage),
 		ForwardedRequestsLog:    make([]*pb.SignedTransactionRequest, 0),
