@@ -35,6 +35,7 @@ func (n *LinearPBFTNode) ViewChangeRoutine(ctx context.Context) {
 					break
 				}
 			}
+			log.Infof("VCN: %d, NEW VCN: %d, Key of VC log: %d", n.ViewChangeViewNumber, viewNumber, utils.Keys(n.ViewChangeMessageLog))
 			n.Mutex.Unlock()
 			go n.SendViewChange(viewNumber)
 		}
@@ -192,9 +193,10 @@ func (n *LinearPBFTNode) ViewChangeRequest(ctx context.Context, signedViewChange
 	}
 
 	// Send view change message to all nodes if f + 1 view change messages are collected
-	if !n.ViewChangePhase && len(viewChangeMessageLog) >= int(n.F+1) {
+	if n.ViewChangeViewNumber < viewNumber && len(viewChangeMessageLog) == int(n.F+1) {
 		alreadyExpired := n.SafeTimer.Cleanup()
-		if !alreadyExpired {
+		if !alreadyExpired || utils.ViewNumberToLeaderID(viewNumber, n.N) != n.ID {
+			log.Infof("Sending view change message to all nodes since f + 1 view change messages are collected: %s", utils.LoggingString(viewChangeMessage))
 			go n.SendViewChange(viewNumber)
 		} else {
 			log.Infof("View change timer already expired at v %d vc %d", n.ViewNumber, n.ViewChangeViewNumber)
@@ -202,13 +204,14 @@ func (n *LinearPBFTNode) ViewChangeRequest(ctx context.Context, signedViewChange
 	}
 
 	// If 2f + 1 view change messages are collected and next primary then send new view message
-	if len(viewChangeMessageLog) >= int(2*n.F+1) {
+	if len(viewChangeMessageLog) == int(2*n.F+1) {
 		if utils.ViewNumberToLeaderID(viewNumber, n.N) == n.ID {
 			// Byzantine node behavior: crash attack
 			if n.Byzantine && n.CrashAttack {
 				// log.Infof("Node %s is Byzantine and is performing crash attack", n.ID)
 				return &emptypb.Empty{}, nil
 			}
+			log.Infof("Sending new view message to primary since 2f + 1 view change messages are collected: %s", utils.LoggingString(viewChangeMessage))
 			go n.NewViewRoutine(context.Background(), viewNumber)
 		} else {
 			n.SafeTimer.StartViewTimerIfNotRunning()

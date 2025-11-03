@@ -185,23 +185,22 @@ func (n *LinearPBFTNode) NewViewRequest(signedNewViewMessage *pb.SignedNewViewMe
 	}
 
 	n.Mutex.Lock()
+	defer n.Mutex.Unlock()
 	newViewMessage := signedNewViewMessage.Message
 	signedViewChangeMessages := newViewMessage.SignedViewChangeMessages
 	signedPrePrepareMessages := newViewMessage.SignedPrePrepareMessages
 	viewNumber := newViewMessage.ViewNumber
 
 	// Check if view number matches latest sent view change message view number
-	if viewNumber != n.ViewChangeViewNumber {
-		n.Mutex.Unlock()
-		log.Warnf("Rejected: %s; view number does not match latest sent view change message view number", utils.LoggingString(newViewMessage))
-		return status.Errorf(codes.FailedPrecondition, "view number does not match latest sent view change message view number")
+	if viewNumber < n.ViewChangeViewNumber {
+		log.Warnf("Rejected: %s; view number is less than latest sent view change message view number", utils.LoggingString(newViewMessage))
+		return status.Errorf(codes.FailedPrecondition, "view number is less than latest sent view change message view number")
 	}
 
 	// Verify signature
 	leaderID := utils.ViewNumberToLeaderID(viewNumber, n.N)
 	ok := crypto.Verify(newViewMessage, n.GetPublicKey(leaderID), signedNewViewMessage.Signature)
 	if !ok {
-		n.Mutex.Unlock()
 		log.Warnf("Rejected: %s; invalid signature", utils.LoggingString(newViewMessage))
 		return status.Errorf(codes.Unauthenticated, "invalid signature")
 	}
@@ -211,7 +210,6 @@ func (n *LinearPBFTNode) NewViewRequest(signedNewViewMessage *pb.SignedNewViewMe
 		viewChangeMessage := signedViewChangeMessage.Message
 		ok := crypto.Verify(viewChangeMessage, n.GetPublicKey(viewChangeMessage.NodeID), signedViewChangeMessage.Signature)
 		if !ok {
-			n.Mutex.Unlock()
 			log.Warnf("Rejected: %s; invalid signature on view change message", utils.LoggingString(newViewMessage))
 			return status.Errorf(codes.Unauthenticated, "invalid signature on view change message")
 		}
@@ -222,7 +220,6 @@ func (n *LinearPBFTNode) NewViewRequest(signedNewViewMessage *pb.SignedNewViewMe
 		prePrepareMessage := signedPrePrepareMessage.Message
 		ok := crypto.Verify(prePrepareMessage, n.GetPublicKey(leaderID), signedPrePrepareMessage.Signature)
 		if !ok {
-			n.Mutex.Unlock()
 			log.Warnf("Rejected: %s; invalid signature on preprepare message", utils.LoggingString(newViewMessage))
 			return status.Errorf(codes.Unauthenticated, "invalid signature on preprepare message")
 		}
@@ -231,9 +228,9 @@ func (n *LinearPBFTNode) NewViewRequest(signedNewViewMessage *pb.SignedNewViewMe
 	// Cleanup timer and update view number
 	// n.SafeTimer.Cleanup() // TODO: check if this is alright...but it correct as per the paper
 	n.ViewNumber = viewNumber
+	n.ViewChangeViewNumber = viewNumber
 	n.ViewChangePhase = false
 	log.Infof("Accepted %s", utils.LoggingString(newViewMessage))
-	n.Mutex.Unlock()
 
 	// Byzantine node behavior: dark attack
 	if n.Byzantine && n.DarkAttack && slices.Contains(n.DarkAttackNodes, leaderID) {
@@ -243,13 +240,15 @@ func (n *LinearPBFTNode) NewViewRequest(signedNewViewMessage *pb.SignedNewViewMe
 
 	// Stream prepare messages to leader
 	for _, signedPrePrepareMessage := range signedPrePrepareMessages {
+		n.Mutex.Unlock()
 		signedPrepareMessage, err := n.PrePrepareRequest(context.Background(), signedPrePrepareMessage)
+		n.Mutex.Lock()
 		if err != nil {
-			log.Warnf("Prepare request %s could not be sent to leader", utils.LoggingString(signedPrePrepareMessage))
+			log.Warnf("Prepare request %s could not be sent to leader: %s", utils.LoggingString(signedPrePrepareMessage), err)
 			continue
 		}
 		if err := stream.Send(signedPrepareMessage); err != nil {
-			log.Warnf("Prepare message %s could not be sent to leader", utils.LoggingString(signedPrepareMessage))
+			log.Warnf("Prepare message %s could not be sent to leader in stream: %s", utils.LoggingString(signedPrepareMessage), err)
 		}
 	}
 	log.Infof("Streamed prepares messages for view number %d", viewNumber)
