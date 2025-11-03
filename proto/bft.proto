@@ -15,6 +15,8 @@ service LinearPBFTNode {
     rpc PrepareRequest (CollectedSignedPrepareMessage) returns (SignedCommitMessage);
     rpc CommitRequest (CollectedSignedCommitMessage) returns (google.protobuf.Empty);
 
+    rpc CheckPointRequest(SignedCheckPointMessage) returns (google.protobuf.Empty);
+
     rpc ViewChangeRequest (SignedViewChangeMessage) returns (google.protobuf.Empty);
     rpc NewViewRequest (SignedNewViewMessage) returns (stream SignedPrepareMessage);
     rpc GetRequest (GetRequestMessage) returns (SignedTransactionRequest);
@@ -127,9 +129,21 @@ message CollectedSignedCommitMessage {
 }
 
 
+// -------------- CheckPointRequest --------------
+
+message CheckPointMessage {
+    int64 sequenceNum = 1;
+    bytes digest = 2;
+    string nodeID = 3;
+}
+
+message SignedCheckPointMessage {
+    CheckPointMessage message = 1;
+    bytes signature = 2;
+}
+
 // -------------- ViewChange --------------
 
-// TODO: SignedPrePrepareMessage contains the original request also...not ideal
 message PrepareProof {
     SignedPrePrepareMessage signedPrePrepareMessage = 1;
     repeated SignedPrepareMessage signedPrepareMessages = 2;
@@ -138,8 +152,9 @@ message PrepareProof {
 message ViewChangeMessage {
     int64 viewNumber = 1;
     int64 sequenceNum = 2;
-    repeated PrepareProof preparedSet = 3;
-    string nodeID = 4;
+    repeated SignedCheckPointMessage checkPointMessages = 3;
+    repeated PrepareProof preparedSet = 4;
+    string nodeID = 5;
 }
 
 message SignedViewChangeMessage {

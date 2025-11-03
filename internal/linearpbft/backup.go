@@ -451,8 +451,8 @@ func (n *LinearPBFTNode) SendGetRequest(digest []byte) (*pb.SignedTransactionReq
 
 // GetRequest gets a request from the log record for a given sequence number
 func (n *LinearPBFTNode) GetRequest(ctx context.Context, getRequestMessage *pb.GetRequestMessage) (*pb.SignedTransactionRequest, error) {
-	n.Mutex.Lock()
-	defer n.Mutex.Unlock()
+	n.Mutex.RLock()
+	defer n.Mutex.RUnlock()
 
 	// Ignore if not alive
 	if !n.Alive {

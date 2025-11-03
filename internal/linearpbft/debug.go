@@ -13,8 +13,8 @@ import (
 
 // PrintLog prints the log
 func (n *LinearPBFTNode) PrintLog(ctx context.Context, req *emptypb.Empty) (*emptypb.Empty, error) {
-	n.Mutex.Lock()
-	defer n.Mutex.Unlock()
+	n.Mutex.RLock()
+	defer n.Mutex.RUnlock()
 	log.Infof("Print log command received")
 	fmt.Println("Printing log records:")
 	maxSequenceNum := utils.Max(utils.Keys(n.LogRecords))
@@ -36,8 +36,8 @@ func (n *LinearPBFTNode) PrintLog(ctx context.Context, req *emptypb.Empty) (*emp
 
 // PrintDB prints the database
 func (n *LinearPBFTNode) PrintDB(ctx context.Context, req *emptypb.Empty) (*emptypb.Empty, error) {
-	n.Mutex.Lock()
-	defer n.Mutex.Unlock()
+	n.Mutex.RLock()
+	defer n.Mutex.RUnlock()
 	log.Infof("Print database command received")
 	fmt.Println("Printing database:")
 	db_state, err := n.DB.PrintDB()
@@ -59,8 +59,8 @@ func (n *LinearPBFTNode) PrintDB(ctx context.Context, req *emptypb.Empty) (*empt
 
 // PrintStatus prints the status of a sequence number
 func (n *LinearPBFTNode) PrintStatus(ctx context.Context, req *wrapperspb.Int64Value) (*emptypb.Empty, error) {
-	n.Mutex.Lock()
-	defer n.Mutex.Unlock()
+	n.Mutex.RLock()
+	defer n.Mutex.RUnlock()
 	log.Infof("Print status command received")
 	fmt.Println("Printing status:")
 

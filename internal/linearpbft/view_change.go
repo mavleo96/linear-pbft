@@ -54,8 +54,7 @@ func (n *LinearPBFTNode) SendViewChange(viewNumber int64) error {
 
 	// Get max sequence number in log record
 	maxSequenceNum := utils.Max(utils.Keys(n.LogRecords))
-	// TODO: later get this from stable checkpoint
-	lowerSequenceNum := int64(0)
+	lowerSequenceNum := n.LowWaterMark
 
 	// Get prepared message proof set
 	preparedSet := make([]*pb.PrepareProof, 0)
@@ -66,15 +65,19 @@ func (n *LinearPBFTNode) SendViewChange(viewNumber int64) error {
 		}
 		prepareProof := record.GetPrepareProof()
 		preparedSet = append(preparedSet, prepareProof)
-
 	}
+
+	// Get check point messages
+	stableCheckpointSequenceNum := n.CheckPointLog.GetStableCheckpointSequenceNum()
+	signedCheckPointMessages := n.CheckPointLog.GetMessages(stableCheckpointSequenceNum)
 
 	// Create signed view change message
 	viewChangeMessage := &pb.ViewChangeMessage{
-		ViewNumber:  viewNumber,
-		SequenceNum: lowerSequenceNum,
-		PreparedSet: preparedSet,
-		NodeID:      n.ID,
+		ViewNumber:         viewNumber,
+		SequenceNum:        lowerSequenceNum,
+		CheckPointMessages: signedCheckPointMessages,
+		PreparedSet:        preparedSet,
+		NodeID:             n.ID,
 	}
 	signedViewChangeMessage := &pb.SignedViewChangeMessage{
 		Message:   viewChangeMessage,
@@ -137,6 +140,17 @@ func (n *LinearPBFTNode) ViewChangeRequest(ctx context.Context, signedViewChange
 	if viewNumber <= n.ViewNumber {
 		log.Warnf("Rejected: %s; lower view number (expected: %d)", utils.LoggingString(viewChangeMessage), n.ViewNumber)
 		return nil, status.Errorf(codes.FailedPrecondition, "invalid view number")
+	}
+
+	// Verify check point messages
+	// TODO: need to verify digest
+	for _, signedCheckPointMessage := range viewChangeMessage.CheckPointMessages {
+		checkPointMessage := signedCheckPointMessage.Message
+		ok := crypto.Verify(checkPointMessage, n.GetPublicKey(checkPointMessage.NodeID), signedCheckPointMessage.Signature)
+		if !ok {
+			log.Warnf("Rejected: %s; invalid signature on check point message", utils.LoggingString(viewChangeMessage))
+			return nil, status.Errorf(codes.FailedPrecondition, "invalid signature on check point message")
+		}
 	}
 
 	// Verify prepare set

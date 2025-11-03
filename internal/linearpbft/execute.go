@@ -63,5 +63,12 @@ func (n *LinearPBFTNode) TryExecute(sequenceNum int64) {
 			go n.SendReply(i, request, result)
 		}
 		n.LastExecutedSequenceNum = i
+
+		// Signal the checkpoint routine if the last executed sequence number is a multiple of k
+		if i%n.K == 0 {
+			// n.Mutex.Unlock()
+			n.CheckPointRoutineCh <- true
+			// n.Mutex.Lock()
+		}
 	}
 }
