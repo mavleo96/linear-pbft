@@ -25,7 +25,7 @@ service LinearPBFTNode {
     // rpc PrintView (google.protobuf.Empty) returns (google.protobuf.Empty);
 
     rpc ReconfigureNode (ChangeStatusMessage) returns (google.protobuf.Empty);
-    // rpc ResetNode (google.protobuf.BoolValue) returns (google.protobuf.Empty);
+    rpc ResetNode (google.protobuf.Empty) returns (google.protobuf.Empty);
 }
 
 service LinearPBFTClientApp {

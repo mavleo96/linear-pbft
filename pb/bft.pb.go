@@ -1384,7 +1384,7 @@ const file_bft_proto_rawDesc = "" +
 	"timeAttack\x18\a \x01(\bR\n" +
 	"timeAttack\x12.\n" +
 	"\x12equivocationAttack\x18\b \x01(\bR\x12equivocationAttack\x128\n" +
-	"\x17equivocationAttackNodes\x18\t \x03(\tR\x17equivocationAttackNodes2\xe2\x06\n" +
+	"\x17equivocationAttackNodes\x18\t \x03(\tR\x17equivocationAttackNodes2\x9f\a\n" +
 	"\x0eLinearPBFTNode\x12G\n" +
 	"\x0fTransferRequest\x12\x1c.pb.SignedTransactionRequest\x1a\x16.google.protobuf.Empty\x12N\n" +
 	"\x0fReadOnlyRequest\x12\x1c.pb.SignedTransactionRequest\x1a\x1d.pb.SignedTransactionResponse\x12J\n" +
@@ -1398,7 +1398,8 @@ const file_bft_proto_rawDesc = "" +
 	"\bPrintLog\x12\x16.google.protobuf.Empty\x1a\x16.google.protobuf.Empty\x129\n" +
 	"\aPrintDB\x12\x16.google.protobuf.Empty\x1a\x16.google.protobuf.Empty\x12B\n" +
 	"\vPrintStatus\x12\x1b.google.protobuf.Int64Value\x1a\x16.google.protobuf.Empty\x12B\n" +
-	"\x0fReconfigureNode\x12\x17.pb.ChangeStatusMessage\x1a\x16.google.protobuf.Empty2\\\n" +
+	"\x0fReconfigureNode\x12\x17.pb.ChangeStatusMessage\x1a\x16.google.protobuf.Empty\x12;\n" +
+	"\tResetNode\x12\x16.google.protobuf.Empty\x1a\x16.google.protobuf.Empty2\\\n" +
 	"\x13LinearPBFTClientApp\x12E\n" +
 	"\fReceiveReply\x12\x1d.pb.SignedTransactionResponse\x1a\x16.google.protobuf.EmptyB%Z#github.com/mavleo96/bft-mavleo96/pbb\x06proto3"
 
@@ -1468,22 +1469,24 @@ var file_bft_proto_depIdxs = []int32{
 	20, // 25: pb.LinearPBFTNode.PrintDB:input_type -> google.protobuf.Empty
 	21, // 26: pb.LinearPBFTNode.PrintStatus:input_type -> google.protobuf.Int64Value
 	19, // 27: pb.LinearPBFTNode.ReconfigureNode:input_type -> pb.ChangeStatusMessage
-	1,  // 28: pb.LinearPBFTClientApp.ReceiveReply:input_type -> pb.SignedTransactionResponse
-	20, // 29: pb.LinearPBFTNode.TransferRequest:output_type -> google.protobuf.Empty
-	1,  // 30: pb.LinearPBFTNode.ReadOnlyRequest:output_type -> pb.SignedTransactionResponse
-	8,  // 31: pb.LinearPBFTNode.PrePrepareRequest:output_type -> pb.SignedPrepareMessage
-	11, // 32: pb.LinearPBFTNode.PrepareRequest:output_type -> pb.SignedCommitMessage
-	20, // 33: pb.LinearPBFTNode.CommitRequest:output_type -> google.protobuf.Empty
-	20, // 34: pb.LinearPBFTNode.ViewChangeRequest:output_type -> google.protobuf.Empty
-	8,  // 35: pb.LinearPBFTNode.NewViewRequest:output_type -> pb.SignedPrepareMessage
-	3,  // 36: pb.LinearPBFTNode.GetRequest:output_type -> pb.SignedTransactionRequest
-	20, // 37: pb.LinearPBFTNode.PrintLog:output_type -> google.protobuf.Empty
-	20, // 38: pb.LinearPBFTNode.PrintDB:output_type -> google.protobuf.Empty
-	20, // 39: pb.LinearPBFTNode.PrintStatus:output_type -> google.protobuf.Empty
-	20, // 40: pb.LinearPBFTNode.ReconfigureNode:output_type -> google.protobuf.Empty
-	20, // 41: pb.LinearPBFTClientApp.ReceiveReply:output_type -> google.protobuf.Empty
-	29, // [29:42] is the sub-list for method output_type
-	16, // [16:29] is the sub-list for method input_type
+	20, // 28: pb.LinearPBFTNode.ResetNode:input_type -> google.protobuf.Empty
+	1,  // 29: pb.LinearPBFTClientApp.ReceiveReply:input_type -> pb.SignedTransactionResponse
+	20, // 30: pb.LinearPBFTNode.TransferRequest:output_type -> google.protobuf.Empty
+	1,  // 31: pb.LinearPBFTNode.ReadOnlyRequest:output_type -> pb.SignedTransactionResponse
+	8,  // 32: pb.LinearPBFTNode.PrePrepareRequest:output_type -> pb.SignedPrepareMessage
+	11, // 33: pb.LinearPBFTNode.PrepareRequest:output_type -> pb.SignedCommitMessage
+	20, // 34: pb.LinearPBFTNode.CommitRequest:output_type -> google.protobuf.Empty
+	20, // 35: pb.LinearPBFTNode.ViewChangeRequest:output_type -> google.protobuf.Empty
+	8,  // 36: pb.LinearPBFTNode.NewViewRequest:output_type -> pb.SignedPrepareMessage
+	3,  // 37: pb.LinearPBFTNode.GetRequest:output_type -> pb.SignedTransactionRequest
+	20, // 38: pb.LinearPBFTNode.PrintLog:output_type -> google.protobuf.Empty
+	20, // 39: pb.LinearPBFTNode.PrintDB:output_type -> google.protobuf.Empty
+	20, // 40: pb.LinearPBFTNode.PrintStatus:output_type -> google.protobuf.Empty
+	20, // 41: pb.LinearPBFTNode.ReconfigureNode:output_type -> google.protobuf.Empty
+	20, // 42: pb.LinearPBFTNode.ResetNode:output_type -> google.protobuf.Empty
+	20, // 43: pb.LinearPBFTClientApp.ReceiveReply:output_type -> google.protobuf.Empty
+	30, // [30:44] is the sub-list for method output_type
+	16, // [16:30] is the sub-list for method input_type
 	16, // [16:16] is the sub-list for extension type_name
 	16, // [16:16] is the sub-list for extension extendee
 	0,  // [0:16] is the sub-list for field type_name

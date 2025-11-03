@@ -7,6 +7,7 @@ import (
 	"github.com/mavleo96/bft-mavleo96/internal/models"
 	"github.com/mavleo96/bft-mavleo96/pb"
 	log "github.com/sirupsen/logrus"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 // ReconfigureNodes reconfigures the nodes based on the live, byzantine, and attack lists
@@ -56,6 +57,12 @@ func ReconfigureNodes(nodeMap map[string]*models.Node, liveNodes []*models.Node,
 // SendResetCommand sends a reset command to all nodes
 func SendResetCommand(nodeMap map[string]*models.Node) {
 	log.Info("Reset command received")
+	for _, node := range nodeMap {
+		_, err := (*node.Client).ResetNode(context.Background(), &emptypb.Empty{})
+		if err != nil {
+			log.Warn(err)
+		}
+	}
 }
 
 // nodeStringSlice returns a slice of strings representing the IDs of the nodes

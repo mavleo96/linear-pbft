@@ -33,6 +33,7 @@ const (
 	LinearPBFTNode_PrintDB_FullMethodName           = "/pb.LinearPBFTNode/PrintDB"
 	LinearPBFTNode_PrintStatus_FullMethodName       = "/pb.LinearPBFTNode/PrintStatus"
 	LinearPBFTNode_ReconfigureNode_FullMethodName   = "/pb.LinearPBFTNode/ReconfigureNode"
+	LinearPBFTNode_ResetNode_FullMethodName         = "/pb.LinearPBFTNode/ResetNode"
 )
 
 // LinearPBFTNodeClient is the client API for LinearPBFTNode service.
@@ -51,6 +52,7 @@ type LinearPBFTNodeClient interface {
 	PrintDB(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	PrintStatus(ctx context.Context, in *wrapperspb.Int64Value, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	ReconfigureNode(ctx context.Context, in *ChangeStatusMessage, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	ResetNode(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
 type linearPBFTNodeClient struct {
@@ -192,6 +194,15 @@ func (c *linearPBFTNodeClient) ReconfigureNode(ctx context.Context, in *ChangeSt
 	return out, nil
 }
 
+func (c *linearPBFTNodeClient) ResetNode(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, LinearPBFTNode_ResetNode_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // LinearPBFTNodeServer is the server API for LinearPBFTNode service.
 // All implementations must embed UnimplementedLinearPBFTNodeServer
 // for forward compatibility
@@ -208,6 +219,7 @@ type LinearPBFTNodeServer interface {
 	PrintDB(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
 	PrintStatus(context.Context, *wrapperspb.Int64Value) (*emptypb.Empty, error)
 	ReconfigureNode(context.Context, *ChangeStatusMessage) (*emptypb.Empty, error)
+	ResetNode(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
 	mustEmbedUnimplementedLinearPBFTNodeServer()
 }
 
@@ -250,6 +262,9 @@ func (UnimplementedLinearPBFTNodeServer) PrintStatus(context.Context, *wrappersp
 }
 func (UnimplementedLinearPBFTNodeServer) ReconfigureNode(context.Context, *ChangeStatusMessage) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ReconfigureNode not implemented")
+}
+func (UnimplementedLinearPBFTNodeServer) ResetNode(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ResetNode not implemented")
 }
 func (UnimplementedLinearPBFTNodeServer) mustEmbedUnimplementedLinearPBFTNodeServer() {}
 
@@ -483,6 +498,24 @@ func _LinearPBFTNode_ReconfigureNode_Handler(srv interface{}, ctx context.Contex
 	return interceptor(ctx, in, info, handler)
 }
 
+func _LinearPBFTNode_ResetNode_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LinearPBFTNodeServer).ResetNode(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LinearPBFTNode_ResetNode_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LinearPBFTNodeServer).ResetNode(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // LinearPBFTNode_ServiceDesc is the grpc.ServiceDesc for LinearPBFTNode service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -533,6 +566,10 @@ var LinearPBFTNode_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ReconfigureNode",
 			Handler:    _LinearPBFTNode_ReconfigureNode_Handler,
+		},
+		{
+			MethodName: "ResetNode",
+			Handler:    _LinearPBFTNode_ResetNode_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{
