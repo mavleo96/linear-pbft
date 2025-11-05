@@ -52,11 +52,12 @@ func main() {
 	}
 
 	// Create context and channels for client routines
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	clientSignalChs := make(map[string]chan *clientapp.TestSet)
+	mainCtx, mainCancel := context.WithCancel(context.Background())
+	defer mainCancel()
+	clientSignalChs := make(map[string]chan<- *clientapp.TestSet)
+	clientResetChs := make(map[string]chan bool)
 	for _, c := range clientMap {
-		clientSignalChs[c.ID], err = clientapp.CreateClientAppServer(ctx, c, nodeMap)
+		clientSignalChs[c.ID], clientResetChs[c.ID], err = clientapp.CreateClientAppServer(mainCtx, c, nodeMap)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -111,13 +112,14 @@ interactionLoop:
 			clientapp.ReconfigureNodes(nodeMap, testSet.Live, testSet.Byzantine, testSet.Attack)
 
 			// Send test set to clients
+			log.Infof("Sending test set %d to clients", testSet.SetNumber)
 			for clientID := range cfg.Clients {
+				if testSet.Transactions[clientID] == nil {
+					log.Warnf("Skipping client %s because no transactions", clientID)
+					continue
+				}
 				clientSignalChs[clientID] <- testSet
 			}
-			for clientID := range cfg.Clients {
-				<-clientSignalChs[clientID]
-			}
-			log.Infof("Set %d done", testSet.SetNumber)
 			continue interactionLoop
 		case "print log":
 			clientapp.SendPrintLogCommand(nodeMap)
@@ -128,7 +130,17 @@ interactionLoop:
 		case "print view":
 			clientapp.SendPrintViewCommand(nodeMap)
 		case "reset":
+			log.Info("Resetting clients...")
+			for clientID := range cfg.Clients {
+				clientResetChs[clientID] <- true
+			}
+			for clientID := range cfg.Clients {
+				<-clientResetChs[clientID]
+			}
+			log.Info("Clients reset complete")
+			log.Info("Sending reset command to nodes...")
 			clientapp.SendResetCommand(nodeMap)
+			log.Info("Reset command sent to nodes")
 		case "exit":
 			break interactionLoop
 		default:
@@ -136,6 +148,6 @@ interactionLoop:
 		}
 	}
 
-	cancel()
+	mainCancel()
 	log.Info("Client main routine exiting...")
 }

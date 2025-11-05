@@ -1,193 +1,140 @@
 package clientapp
 
-// TODO: consider alternatives: clientlib, clientcore
-
 import (
-	"cmp"
 	"context"
 	"net"
 	"path/filepath"
-	"time"
+	"sync"
 
 	"github.com/mavleo96/bft-mavleo96/internal/crypto"
 	"github.com/mavleo96/bft-mavleo96/internal/models"
-	"github.com/mavleo96/bft-mavleo96/internal/utils"
 	"github.com/mavleo96/bft-mavleo96/pb"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
+// ClientAppServer is the server for the client app
 type ClientAppServer struct {
 	*models.Client
-	PrivateKey        []byte
-	CurrentTimestamp  int64
-	CurrentViewNumber int64
-	F                 int64
-	Nodes             map[string]*models.Node
-	Counter           map[string]int64
-	SignalCh          chan *TestSet                // TODO: should be closed by send routine
-	ResponseCh        chan *pb.TransactionResponse // TODO: should be closed by receive routine
-	ResultCh          chan int64                   // TODO: should be closed by receive routine
-	pb.UnimplementedLinearPBFTClientAppServer
+	coordinator *Coordinator
+	grpcServer  *grpc.Server
+	*pb.UnimplementedLinearPBFTClientAppServer
 }
 
-func (s *ClientAppServer) ClientReceiveRoutine(ctx context.Context) {
-	// log.Infof("Starting client receive routine for %s", s.ID)
-	// Listen on client address
-	lis, err := net.Listen("tcp", s.Client.Address)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer lis.Close()
-	grpcServer := grpc.NewServer()
-	pb.RegisterLinearPBFTClientAppServer(grpcServer, s)
-	go func() {
-		if err := grpcServer.Serve(lis); err != nil {
-			log.Fatal(err, " here 2")
-		}
-	}()
-	go func() {
-		<-ctx.Done()
-		grpcServer.GracefulStop()
-		log.Infof("%s graceful stop on receive routine", s.ID)
-	}()
+// ReceiveReply receives a reply from a node and sends it to the coordinator
+func (s *ClientAppServer) ReceiveReply(ctx context.Context, signedResponse *pb.SignedTransactionResponse) (*emptypb.Empty, error) {
+	response := signedResponse.Message
 
-	// Main receive loop
-	replyMap := make(map[string]int64)
-	majorityReached := false
-
-collectionLoop:
-	for {
-		select {
-		case <-ctx.Done():
-			log.Infof("%s received exit signal on receive routine", s.ID)
-			return
-		case resp := <-s.ResponseCh:
-			switch cmp.Compare(resp.Timestamp, s.CurrentTimestamp) {
-			case -1: // old timestamp
-				// Ignore replies for old timestamps
-				continue collectionLoop
-			case 0: // current timestamp
-				// Ignore replies if majority has been reached
-				if majorityReached {
-					continue collectionLoop
-				}
-				// If new view started while receiving replies, reset reply map and majority reached flag
-				if resp.ViewNumber > s.CurrentViewNumber {
-					s.CurrentViewNumber = resp.ViewNumber
-					replyMap = make(map[string]int64)
-					majorityReached = false
-				}
-			case 1: // new timestamp
-				// If new timestamp, reset reply map and majority reached flag
-				s.CurrentTimestamp = resp.Timestamp
-				s.CurrentViewNumber = resp.ViewNumber
-				replyMap = make(map[string]int64)
-				majorityReached = false
-			}
-
-			// Record reply
-			replyMap[resp.NodeID] = resp.Result
-
-			// Check if f+1 matching values have been received
-			// and respond on result channel with the value
-			maxVal, maxCnt := utils.MaxByValue(utils.CountMap(utils.Values(replyMap)))
-			if maxCnt >= s.F+1 {
-				majorityReached = true
-				s.ResultCh <- maxVal
-			}
-		}
-	}
-}
-
-// ClientRoutine is a persistent routine that processes transactions for a client
-func (s *ClientAppServer) ClientSendRoutine(ctx context.Context) {
-	// log.Infof("Starting client send routine for %s", s.ID)
-	for {
-		select {
-		// Wait for set id to process from main routine
-		case testSet := <-s.SignalCh:
-			// Process transactions for the set
-			for _, t := range testSet.Transactions[s.ID] {
-				// Leader node is initialized to n1 since CurrentViewNumber is initialized to 0
-				leaderNode := utils.ViewNumberToLeaderID(s.CurrentViewNumber, int64(len(s.Nodes)))
-
-				// Create a signed transaction request
-				timestamp := time.Now().UnixMilli()
-				request := &pb.TransactionRequest{
-					Transaction: t,
-					Timestamp:   timestamp,
-					Sender:      s.ID,
-				}
-				signedRequest := &pb.SignedTransactionRequest{
-					Request:   request,
-					Signature: crypto.Sign(request, s.PrivateKey),
-				}
-				// TODO: processTransaction functions error design is not good
-				if t.Type == "read" {
-					result, err := processReadOnlyTransaction(signedRequest, s.ID, s.Nodes)
-					if err != nil {
-						log.Warnf("%s: %s -> read only attempt: %s", s.ID, utils.LoggingString(request), err.Error())
-					} else {
-						log.Infof("%s: %s -> %d", s.ID, utils.LoggingString(request), result)
-						continue
-					}
-				}
-				result, err := processTransaction(signedRequest, s.ID, leaderNode, s.Nodes, s.ResultCh)
-				if err != nil {
-					log.Fatal(err)
-				}
-				log.Infof("%s: %s -> %d", s.ID, utils.LoggingString(request), result)
-			}
-			// Signal main routine that the set is done
-			s.SignalCh <- nil
-
-		// Exit signal
-		case <-ctx.Done():
-			close(s.SignalCh)
-			log.Infof("%s received exit signal on send routine", s.ID)
-			return
-		}
-	}
-}
-
-func (s *ClientAppServer) ReceiveReply(ctx context.Context, resp *pb.SignedTransactionResponse) (*emptypb.Empty, error) {
-	message := resp.Message
-
-	// Verify signature and ignore replies with invalid signature
-	ok := crypto.Verify(message, s.Nodes[message.NodeID].PublicKey, resp.Signature)
+	// Verify signature
+	ok := crypto.Verify(response, s.coordinator.nodes.GetPublicKey(response.NodeID), signedResponse.Signature)
 	if !ok {
-		log.Warnf("Invalid signature for reply from node %s", message.NodeID)
+		log.Warnf("Invalid signature for reply from node %s", response.NodeID)
 		return &emptypb.Empty{}, nil
 	}
 
-	// Send reply to client receive routine
-	s.ResponseCh <- message
-
+	// Send response to coordinator
+	select {
+	case s.coordinator.collector.GetSendResponseChannel() <- response:
+	case <-ctx.Done():
+		return &emptypb.Empty{}, nil
+	}
 	return &emptypb.Empty{}, nil
 }
 
-func CreateClientAppServer(ctx context.Context, client *models.Client, nodes map[string]*models.Node) (chan *TestSet, error) {
+// StartServer starts the gRPC server and the coordinator
+func (s *ClientAppServer) StartServer(mainCtx context.Context) {
+	// Listen on the client's address
+	lis, err := net.Listen("tcp", s.Client.Address)
+	if err != nil {
+		log.Fatalf("Failed to listen: %v", err)
+	}
+	defer lis.Close()
+
+	// Create gRPC server and register service
+	s.grpcServer = grpc.NewServer()
+	pb.RegisterLinearPBFTClientAppServer(s.grpcServer, s)
+
+	// Graceful shutdown
+	go func() {
+		<-mainCtx.Done()
+		log.Infof("%s received exit signal on gRPC server", s.ID)
+		s.grpcServer.GracefulStop()
+		log.Infof("%s gRPC server graceful stop complete", s.ID)
+	}()
+	go s.coordinator.Start()
+
+	// Start serving
+	log.Infof("%s gRPC server listening on %s", s.ID, s.Client.Address)
+	if err := s.grpcServer.Serve(lis); err != nil {
+		// log.Fatalf("Failed to serve: %v", err)
+		log.Warnf("Failed to serve: %v", err)
+	}
+
+	// Wait for coordinator to finish
+	go func() {
+		s.coordinator.wgReset.Wait()
+		log.Infof("%s coordinator finished", s.ID)
+	}()
+}
+
+// CreateClientAppServer creates a client app server
+func CreateClientAppServer(mainCtx context.Context, client *models.Client, nodes map[string]*models.Node) (chan<- *TestSet, chan bool, error) {
 	privateKey, err := crypto.ReadPrivateKey(filepath.Join("./keys", "client", client.ID+".pem"))
 	if err != nil {
 		log.Fatal(err)
 	}
-	clientAppServer := &ClientAppServer{
-		Client:            client,
-		PrivateKey:        privateKey,
-		CurrentTimestamp:  0,
-		CurrentViewNumber: 0,
-		Nodes:             nodes,
-		F:                 int64((len(nodes) - 1) / 3),
-		Counter:           make(map[string]int64),
-		SignalCh:          make(chan *TestSet),
-		ResponseCh:        make(chan *pb.TransactionResponse, 100),
-		ResultCh:          make(chan int64),
+
+	nodeMap := &NodeMap{
+		nodes: nodes,
+		N:     int64(len(nodes)),
+		F:     2,
 	}
 
-	go clientAppServer.ClientReceiveRoutine(ctx)
-	go clientAppServer.ClientSendRoutine(ctx)
+	resultCh := make(chan int64)
 
-	return clientAppServer.SignalCh, nil
+	state := &State{
+		currentTimestamp:  0,
+		currentViewNumber: 0,
+		responseMap:       make(map[string]int64),
+		mutex:             sync.RWMutex{},
+	}
+	processor := &Processor{
+		clientID:   client.ID,
+		state:      state,
+		nodes:      nodeMap,
+		privateKey: privateKey,
+		resultCh:   resultCh,
+	}
+
+	collector := &ResponseCollector{
+		clientID:   client.ID,
+		state:      state,
+		f:          2,
+		responseCh: make(chan *pb.TransactionResponse),
+		resultCh:   resultCh,
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	coordinator := &Coordinator{
+		clientID:  client.ID,
+		state:     state,
+		processor: processor,
+		collector: collector,
+		nodes:     nodeMap,
+		testSetCh: make(chan *TestSet),
+		resetCh:   make(chan bool),
+		ctx:       ctx,
+		cancel:    cancel,
+		wg:        sync.WaitGroup{},
+	}
+
+	server := &ClientAppServer{
+		Client:      client,
+		coordinator: coordinator,
+	}
+
+	go server.StartServer(mainCtx)
+
+	return server.coordinator.GetReceiveTestSetChannel(), server.coordinator.GetReceiveResetChannel(), nil
 }

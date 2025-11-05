@@ -3,8 +3,10 @@ package clientapp
 import (
 	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/mavleo96/bft-mavleo96/internal/models"
+	"github.com/mavleo96/bft-mavleo96/internal/utils"
 	"github.com/mavleo96/bft-mavleo96/pb"
 )
 
@@ -33,4 +35,29 @@ func (a *Attack) String() string {
 		nodeStrings = append(nodeStrings, n.ID)
 	}
 	return fmt.Sprintf("%s(%s)", a.Type, strings.Join(nodeStrings, ", "))
+}
+
+type NodeMap struct {
+	nodes map[string]*models.Node
+	N     int64
+	F     int64
+	mutex sync.RWMutex
+}
+
+func (n *NodeMap) GetPublicKey(nodeID string) []byte {
+	n.mutex.RLock()
+	defer n.mutex.RUnlock()
+	return n.nodes[nodeID].PublicKey
+}
+
+func (n *NodeMap) GetNodes() []*models.Node {
+	n.mutex.RLock()
+	defer n.mutex.RUnlock()
+	return utils.Values(n.nodes)
+}
+
+func (n *NodeMap) GetNode(nodeID string) *models.Node {
+	n.mutex.RLock()
+	defer n.mutex.RUnlock()
+	return n.nodes[nodeID]
 }
