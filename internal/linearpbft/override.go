@@ -54,12 +54,12 @@ func (n *LinearPBFTNode) ResetNode(ctx context.Context, req *emptypb.Empty) (*em
 	// defer n.Mutex.Unlock()
 
 	// Reset server state
-	n.StateLog = &StateLog{mutex: sync.RWMutex{}, log: make(map[int64]*LogRecord)}
-	n.LastExecutedSequenceNum = 0
+	n.State.StateLog = &StateLog{mutex: sync.RWMutex{}, log: make(map[int64]*LogRecord)}
+	n.State.SetLastExecutedSequenceNum(0)
 	n.LastReply = &LastReply{Mutex: sync.RWMutex{}, ReplyMap: make(map[string]*pb.TransactionResponse)}
-	n.ViewChangePhase = false
-	n.ViewChangeViewNumber = 0
-	n.TransactionMap = CreateTransactionMap()
+	n.State.SetViewChangePhase(false)
+	n.State.SetViewChangeViewNumber(0)
+	n.State.TransactionMap = CreateTransactionMap()
 	n.ViewChangeMessageLog = make(map[int64]map[string]*pb.SignedViewChangeMessage)
 	n.ForwardedRequestsLog = make([]*pb.SignedTransactionRequest, 0)
 	n.CheckPointLog = &CheckpointLog{Mutex: sync.RWMutex{}, Log: make(map[int64]map[string]*pb.SignedCheckPointMessage)}

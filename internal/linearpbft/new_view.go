@@ -23,8 +23,8 @@ func (n *LinearPBFTNode) NewViewRoutine(ctx context.Context, viewNumber int64) {
 	defer n.Mutex.Unlock()
 
 	// Update view number
-	n.ViewNumber = viewNumber
-	n.ViewChangePhase = false
+	n.State.SetViewNumber(viewNumber)
+	n.State.SetViewChangePhase(false)
 
 	// Get view change messages from view change message log
 	signedViewChangeMessageLog := n.ViewChangeMessageLog[viewNumber]
@@ -102,7 +102,7 @@ func (n *LinearPBFTNode) NewViewRoutine(ctx context.Context, viewNumber int64) {
 		sequenceNum := prePrepareMessage.SequenceNum
 
 		// If request is not in the transaction map then send a get request to all nodes
-		signedRequest := n.TransactionMap.Get(prePrepareMessage.Digest)
+		signedRequest := n.State.TransactionMap.Get(prePrepareMessage.Digest)
 		if signedRequest == nil {
 			response, err := n.SendGetRequest(prePrepareMessage.Digest)
 			if err != nil || response == nil {
@@ -110,16 +110,16 @@ func (n *LinearPBFTNode) NewViewRoutine(ctx context.Context, viewNumber int64) {
 			} else {
 				signedRequest = response
 				log.Infof("Adding request to transaction map: %s", utils.LoggingString(signedRequest.Request))
-				n.TransactionMap.Set(prePrepareMessage.Digest, signedRequest)
+				n.State.TransactionMap.Set(prePrepareMessage.Digest, signedRequest)
 			}
 		}
 
 		// Get record from log record or create new one
-		record, exists := n.StateLog.Get(sequenceNum)
+		record, exists := n.State.StateLog.Get(sequenceNum)
 		if !exists {
 			// Create new log record if no record exists for this sequence number
 			record = CreateLogRecord(viewNumber, sequenceNum, prePrepareMessage.Digest)
-			n.StateLog.Set(sequenceNum, record)
+			n.State.StateLog.Set(sequenceNum, record)
 		} else {
 			err := record.Reset(viewNumber, prePrepareMessage.Digest)
 			if err != nil {
@@ -129,13 +129,13 @@ func (n *LinearPBFTNode) NewViewRoutine(ctx context.Context, viewNumber int64) {
 		record.AddPrePrepareMessage(signedPrePrepareMessage)
 	}
 	// Purge log records with older view number
-	for sequenceNum := range n.StateLog.log {
-		record, exists := n.StateLog.Get(sequenceNum)
+	for sequenceNum := range n.State.StateLog.log {
+		record, exists := n.State.StateLog.Get(sequenceNum)
 		if !exists {
 			continue
 		}
 		if record.ViewNumber < viewNumber {
-			n.StateLog.Delete(sequenceNum)
+			n.State.StateLog.Delete(sequenceNum)
 		}
 	}
 	// Purge forwarded requests
@@ -196,7 +196,7 @@ func (n *LinearPBFTNode) NewViewRequest(signedNewViewMessage *pb.SignedNewViewMe
 	viewNumber := newViewMessage.ViewNumber
 
 	// Check if view number matches latest sent view change message view number
-	if viewNumber < n.ViewChangeViewNumber {
+	if viewNumber < n.State.GetViewChangeViewNumber() {
 		log.Warnf("Rejected: %s; view number is less than latest sent view change message view number", utils.LoggingString(newViewMessage))
 		return status.Errorf(codes.FailedPrecondition, "view number is less than latest sent view change message view number")
 	}
@@ -231,9 +231,9 @@ func (n *LinearPBFTNode) NewViewRequest(signedNewViewMessage *pb.SignedNewViewMe
 
 	// Cleanup timer and update view number
 	// n.SafeTimer.Cleanup() // TODO: check if this is alright...but it correct as per the paper
-	n.ViewNumber = viewNumber
-	n.ViewChangeViewNumber = viewNumber
-	n.ViewChangePhase = false
+	n.State.SetViewNumber(viewNumber)
+	n.State.SetViewChangeViewNumber(viewNumber)
+	n.State.SetViewChangePhase(false)
 	log.Infof("Accepted %s", utils.LoggingString(newViewMessage))
 
 	// Byzantine node behavior: dark attack

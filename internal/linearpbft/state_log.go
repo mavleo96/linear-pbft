@@ -11,24 +11,78 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// NoOpTransactionRequest is a no-op transaction request
-var NoOpTransactionRequest = &pb.SignedTransactionRequest{
-	Request: &pb.TransactionRequest{
-		Transaction: &pb.Transaction{
-			Type:     "null",
-			Sender:   "null",
-			Receiver: "null",
-			Amount:   0,
-		},
-		Timestamp: 0,
-		Sender:    "null",
-	},
-	Signature: []byte{},
+// ServerState represents the state of the server
+type ServerState struct {
+	mutex                   sync.RWMutex
+	viewNumber              int64
+	viewChangePhase         bool
+	viewChangeViewNumber    int64
+	lastExecutedSequenceNum int64
+
+	// Self managed components
+	StateLog       *StateLog
+	TransactionMap *TransactionMap
 }
 
-// DigestNoOp is the digest of the no-op transaction request
-var DigestNoOp = crypto.Digest(NoOpTransactionRequest)
+// GetViewNumber returns the current view number
+func (s *ServerState) GetViewNumber() int64 {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	return s.viewNumber
+}
 
+// SetViewNumber sets the current view number
+func (s *ServerState) SetViewNumber(viewNumber int64) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	s.viewNumber = viewNumber
+}
+
+// IsViewChangePhase returns true if the server is in view change phase
+func (s *ServerState) IsViewChangePhase() bool {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	return s.viewChangePhase
+}
+
+// SetViewChangePhase sets the view change phase
+func (s *ServerState) SetViewChangePhase(viewChangePhase bool) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	s.viewChangePhase = viewChangePhase
+}
+
+// GetViewChangeViewNumber returns the current view change view number
+func (s *ServerState) GetViewChangeViewNumber() int64 {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	return s.viewChangeViewNumber
+}
+
+// SetViewChangeViewNumber sets the current view change view number
+func (s *ServerState) SetViewChangeViewNumber(viewChangeViewNumber int64) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	s.viewChangeViewNumber = viewChangeViewNumber
+}
+
+// GetLastExecutedSequenceNum returns the last executed sequence number
+func (s *ServerState) GetLastExecutedSequenceNum() int64 {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	return s.lastExecutedSequenceNum
+}
+
+// SetLastExecutedSequenceNum sets the last executed sequence number
+func (s *ServerState) SetLastExecutedSequenceNum(lastExecutedSequenceNum int64) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	s.lastExecutedSequenceNum = lastExecutedSequenceNum
+}
+
+// ---------------------------------------------------------- //
+
+// StateLog represents the state log of the server
 type StateLog struct {
 	mutex sync.RWMutex
 	log   map[int64]*LogRecord
@@ -62,6 +116,37 @@ func (s *StateLog) MaxSequenceNum() int64 {
 	defer s.mutex.RUnlock()
 	return utils.Max(utils.Keys(s.log))
 }
+
+// GetOrAssignSequenceNumber gets the sequence number of a transaction request from the log record
+// or assigns a new sequence number to the request
+func (s *StateLog) GetOrAssignSequenceNumber(signedRequest *pb.SignedTransactionRequest) (int64, bool) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	// Compute digest of request
+	digest := crypto.Digest(signedRequest)
+
+	// Check if request is already in log record
+	for sequenceNum := range s.log {
+		record, exists := s.log[sequenceNum]
+		if !exists {
+			continue
+		}
+		// TODO: remove this later
+		if record == nil {
+			log.Fatal("Log record is nil")
+		}
+		if record != nil && cmp.Equal(record.Digest, digest) {
+			return record.SequenceNum, true
+		}
+	}
+
+	// If request is not in log record, assign new sequence number
+	sequenceNum := utils.Max(utils.Keys(s.log)) + 1
+	return sequenceNum, false
+}
+
+// ---------------------------------------------------------- //
 
 // LogRecord represents a log record for a transaction
 type LogRecord struct {
@@ -188,6 +273,8 @@ func (l *LogRecord) updateLogState() {
 	l.committed = true
 }
 
+// ---------------------------------------------------------- //
+
 // TransactionMap represents a map of digest to signed transaction request with a mutex
 type TransactionMap struct {
 	Mutex sync.RWMutex
@@ -217,6 +304,8 @@ func CreateTransactionMap() *TransactionMap {
 	transactionMap.Set(DigestNoOp, NoOpTransactionRequest)
 	return transactionMap
 }
+
+// ---------------------------------------------------------- //
 
 // LastReply represents a map of sender to last sent reply with a mutex
 type LastReply struct {

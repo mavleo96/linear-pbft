@@ -25,7 +25,7 @@ func (n *LinearPBFTNode) TransferRequest(ctx context.Context, signedRequest *pb.
 	}
 
 	// Ignore request if in view change phase
-	if n.ViewChangePhase {
+	if n.State.IsViewChangePhase() {
 		log.Infof("Ignored: %s; view change phase", utils.LoggingString(request))
 		return &emptypb.Empty{}, status.Errorf(codes.Unavailable, "view change phase")
 	}
@@ -39,14 +39,14 @@ func (n *LinearPBFTNode) TransferRequest(ctx context.Context, signedRequest *pb.
 
 	// Send reply to client if duplicate request
 	if n.LastReply.Get(request.Sender) != nil && request.Timestamp == n.LastReply.Get(request.Sender).Timestamp {
-		sequenceNum, _ := n.GetOrAssignSequenceNumber(signedRequest)
+		sequenceNum, _ := n.State.StateLog.GetOrAssignSequenceNumber(signedRequest)
 		log.Infof("Received duplicate request from client %s for request %s, sending reply", request.Sender, utils.LoggingString(request))
 		go n.SendReply(sequenceNum, request, n.LastReply.Get(request.Sender).Result)
 		return &emptypb.Empty{}, nil
 	}
 
 	// Forward request to leader if not leader
-	if n.ID != utils.ViewNumberToLeaderID(n.ViewNumber, n.N) {
+	if n.ID != utils.ViewNumberToLeaderID(n.State.GetViewNumber(), n.N) {
 		n.SafeTimer.IncrementWaitCountOrStart()
 		ctx := n.SafeTimer.GetContext()
 		go n.ForwardRequest(ctx, signedRequest)
@@ -131,7 +131,7 @@ func (n *LinearPBFTNode) ReadOnlyRequest(ctx context.Context, signedRequest *pb.
 	}
 
 	// Ignore request if in view change phase
-	if n.ViewChangePhase {
+	if n.State.IsViewChangePhase() {
 		log.Infof("Ignored: %s; view change phase", utils.LoggingString(request))
 		return nil, status.Errorf(codes.Unavailable, "view change phase")
 	}
@@ -157,7 +157,7 @@ func (n *LinearPBFTNode) ReadOnlyRequest(ctx context.Context, signedRequest *pb.
 
 	// Create signed transaction response message
 	message := &pb.TransactionResponse{
-		ViewNumber: n.ViewNumber,
+		ViewNumber: n.State.GetViewNumber(),
 		Timestamp:  request.Timestamp,
 		Sender:     request.Sender,
 		NodeID:     n.ID,
@@ -180,7 +180,7 @@ func (n *LinearPBFTNode) ReadOnlyRequest(ctx context.Context, signedRequest *pb.
 func (n *LinearPBFTNode) SendReply(sequenceNum int64, request *pb.TransactionRequest, result int64) {
 	// Create signed transaction response message
 	reply := &pb.TransactionResponse{
-		ViewNumber: n.ViewNumber,
+		ViewNumber: n.State.GetViewNumber(),
 		Timestamp:  request.Timestamp,
 		Sender:     request.Sender,
 		NodeID:     n.ID,
@@ -208,7 +208,7 @@ func (n *LinearPBFTNode) SendReply(sequenceNum int64, request *pb.TransactionReq
 // ForwardRequest forwards a transaction request to the leader
 func (n *LinearPBFTNode) ForwardRequest(ctx context.Context, signedRequest *pb.SignedTransactionRequest) {
 	// Forward request to leader
-	leaderID := utils.ViewNumberToLeaderID(n.ViewNumber, n.N)
+	leaderID := utils.ViewNumberToLeaderID(n.State.GetViewNumber(), n.N)
 	// Byzantine node behavior: dark attack
 	if n.Byzantine && n.DarkAttack && slices.Contains(n.DarkAttackNodes, leaderID) {
 		log.Infof("Node %s is Byzantine and is performing dark attack on node %s", n.ID, leaderID)

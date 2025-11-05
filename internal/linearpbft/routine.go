@@ -10,6 +10,7 @@ import (
 )
 
 func (n *LinearPBFTNode) ServiceRoutine(ctx context.Context) {
+	log.Infof("Service routine started")
 	for {
 		select {
 		case <-ctx.Done():
@@ -19,24 +20,22 @@ func (n *LinearPBFTNode) ServiceRoutine(ctx context.Context) {
 			request := signedRequest.Request
 
 			// Get or assign sequence number
-			sequenceNum, exists := n.GetOrAssignSequenceNumber(signedRequest)
+			sequenceNum, exists := n.State.StateLog.GetOrAssignSequenceNumber(signedRequest)
 			if !exists {
 				// Add request to log record
-				n.Mutex.Lock()
-				n.StateLog.Set(sequenceNum, CreateLogRecord(n.ViewNumber, sequenceNum, crypto.Digest(signedRequest)))
-				n.Mutex.Unlock()
+				n.State.StateLog.Set(sequenceNum, CreateLogRecord(n.State.GetViewNumber(), sequenceNum, crypto.Digest(signedRequest)))
 			}
-			record, _ := n.StateLog.Get(sequenceNum)
+			record, _ := n.State.StateLog.Get(sequenceNum)
 
 			// Add request to transaction map
-			if n.TransactionMap.Get(crypto.Digest(signedRequest)) == nil {
+			if n.State.TransactionMap.Get(crypto.Digest(signedRequest)) == nil {
 				log.Infof("Adding request to transaction map: %s", utils.LoggingString(request))
-				n.TransactionMap.Set(crypto.Digest(signedRequest), signedRequest)
+				n.State.TransactionMap.Set(crypto.Digest(signedRequest), signedRequest)
 			}
 
 			// Create signed preprepare message
 			preprepare := &pb.PrePrepareMessage{
-				ViewNumber:  n.ViewNumber,
+				ViewNumber:  n.State.GetViewNumber(),
 				SequenceNum: sequenceNum,
 				Digest:      crypto.Digest(signedRequest),
 			}
@@ -79,9 +78,7 @@ func (n *LinearPBFTNode) ServiceRoutine(ctx context.Context) {
 				}
 			}()
 		}
-		log.Infof("DEBUG: Trying to execute sequence number %d", n.LastExecutedSequenceNum)
 		n.TryExecute(0)
-		log.Infof("DEBUG: Executed sequence number %d", n.LastExecutedSequenceNum)
 
 	}
 }

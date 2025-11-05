@@ -17,13 +17,13 @@ func (n *LinearPBFTNode) PrintLog(ctx context.Context, req *emptypb.Empty) (*emp
 	defer n.Mutex.RUnlock()
 	log.Infof("Print log command received")
 	fmt.Println("Printing log records:")
-	maxSequenceNum := n.StateLog.MaxSequenceNum()
+	maxSequenceNum := n.State.StateLog.MaxSequenceNum()
 	for i := int64(1); i <= maxSequenceNum; i++ {
-		record, exists := n.StateLog.Get(i)
+		record, exists := n.State.StateLog.Get(i)
 		if !exists {
 			continue
 		}
-		signedRequest := n.TransactionMap.Get(record.Digest)
+		signedRequest := n.State.TransactionMap.Get(record.Digest)
 		fmt.Printf(
 			"%s, v: %d, s: %d, %s\n",
 			utils.LoggingString(signedRequest.Request),
@@ -66,13 +66,13 @@ func (n *LinearPBFTNode) PrintStatus(ctx context.Context, req *wrapperspb.Int64V
 	fmt.Println("Printing status:")
 
 	sequenceNum := req.Value
-	record, exists := n.StateLog.Get(sequenceNum)
+	record, exists := n.State.StateLog.Get(sequenceNum)
 	if !exists {
 		fmt.Printf("Sequence Number: %d, Status: X\n", sequenceNum)
 		return &emptypb.Empty{}, nil
 	}
 
-	signedRequest := n.TransactionMap.Get(record.Digest)
+	signedRequest := n.State.TransactionMap.Get(record.Digest)
 	if signedRequest == nil {
 		fmt.Printf("Request not found in transaction map for sequence number %d\n", sequenceNum)
 		return &emptypb.Empty{}, nil

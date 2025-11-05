@@ -11,16 +11,16 @@ func (n *LinearPBFTNode) TryExecute(sequenceNum int64) {
 	n.Mutex.Lock()
 	defer n.Mutex.Unlock()
 	if sequenceNum == 0 {
-		sequenceNum = n.LastExecutedSequenceNum + 1
+		sequenceNum = n.State.GetLastExecutedSequenceNum() + 1
 	}
-	record, exists := n.StateLog.Get(sequenceNum)
+	record, exists := n.State.StateLog.Get(sequenceNum)
 	if !exists {
 		return
 	}
 
 	// If record is not nil and already executed, send reply if timestamp is same as last reply
 	if record != nil && record.IsExecuted() {
-		request := n.TransactionMap.Get(record.Digest).Request
+		request := n.State.TransactionMap.Get(record.Digest).Request
 		lastReply := n.LastReply.Get(request.Sender)
 		if lastReply != nil && request.Timestamp == lastReply.Timestamp {
 			go n.SendReply(sequenceNum, request, lastReply.Result)
@@ -30,14 +30,14 @@ func (n *LinearPBFTNode) TryExecute(sequenceNum int64) {
 	}
 
 	// Get max sequence number in log record
-	maxSequenceNum := n.StateLog.MaxSequenceNum()
+	maxSequenceNum := n.State.StateLog.MaxSequenceNum()
 
 	// Try to execute as many transactions as possible
-	for i := n.LastExecutedSequenceNum + 1; i <= maxSequenceNum; i++ {
+	for i := n.State.GetLastExecutedSequenceNum() + 1; i <= maxSequenceNum; i++ {
 		// Check if sequence is committed
-		record, exists := n.StateLog.Get(i)
+		record, exists := n.State.StateLog.Get(i)
 		if !exists {
-			continue
+			break
 		}
 		if record == nil || !record.IsCommitted() {
 			log.Warnf("Sequence number %d not committed", i)
@@ -45,7 +45,7 @@ func (n *LinearPBFTNode) TryExecute(sequenceNum int64) {
 		}
 
 		// Execute transaction
-		request := n.TransactionMap.Get(record.Digest).Request
+		request := n.State.TransactionMap.Get(record.Digest).Request
 		var result int64
 		var err error
 		switch request.Transaction.Type {
@@ -67,11 +67,11 @@ func (n *LinearPBFTNode) TryExecute(sequenceNum int64) {
 		record.SetExecuted()
 		// TODO: make this elegant since leader doesn't have a safe timer running
 		n.SafeTimer.DecrementWaitCountAndResetOrStopIfZero()
-		log.Infof("Executed (v: %d, s: %d): %s", n.ViewNumber, i, utils.LoggingString(request.Transaction))
+		log.Infof("Executed (v: %d, s: %d): %s", n.State.GetViewNumber(), i, utils.LoggingString(request.Transaction))
 		if request.Transaction.Type != "null" {
 			go n.SendReply(i, request, result)
 		}
-		n.LastExecutedSequenceNum = i
+		n.State.SetLastExecutedSequenceNum(i)
 
 		// Signal the checkpoint routine if the last executed sequence number is a multiple of k
 		if i%n.K == 0 {

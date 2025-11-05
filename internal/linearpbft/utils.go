@@ -1,40 +1,27 @@
 package linearpbft
 
 import (
-	"github.com/google/go-cmp/cmp"
 	"github.com/mavleo96/bft-mavleo96/internal/crypto"
 	"github.com/mavleo96/bft-mavleo96/pb"
-	log "github.com/sirupsen/logrus"
 )
 
-// GetOrAssignSequenceNumber gets the sequence number of a transaction request from the log record
-// or assigns a new sequence number to the request
-func (n *LinearPBFTNode) GetOrAssignSequenceNumber(signedRequest *pb.SignedTransactionRequest) (int64, bool) {
-	n.Mutex.Lock()
-	defer n.Mutex.Unlock()
-
-	// Compute digest of request
-	digest := crypto.Digest(signedRequest)
-
-	// Check if request is already in log record
-	for sequenceNum := range n.StateLog.log {
-		record, exists := n.StateLog.Get(sequenceNum)
-		if !exists {
-			continue
-		}
-		// TODO: remove this later
-		if record == nil {
-			log.Fatal("Log record is nil")
-		}
-		if record != nil && cmp.Equal(record.Digest, digest) {
-			return record.SequenceNum, true
-		}
-	}
-
-	// If request is not in log record, assign new sequence number
-	sequenceNum := n.StateLog.MaxSequenceNum() + 1
-	return sequenceNum, false
+// NoOpTransactionRequest is a no-op transaction request
+var NoOpTransactionRequest = &pb.SignedTransactionRequest{
+	Request: &pb.TransactionRequest{
+		Transaction: &pb.Transaction{
+			Type:     "null",
+			Sender:   "null",
+			Receiver: "null",
+			Amount:   0,
+		},
+		Timestamp: 0,
+		Sender:    "null",
+	},
+	Signature: []byte{},
 }
+
+// DigestNoOp is the digest of the no-op transaction request
+var DigestNoOp = crypto.Digest(NoOpTransactionRequest)
 
 // GetPublicKey returns the public key of a node
 func (n *LinearPBFTNode) GetPublicKey(nodeID string) []byte {

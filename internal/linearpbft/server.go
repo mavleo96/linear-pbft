@@ -47,14 +47,11 @@ type LinearPBFTNode struct {
 	Clients map[string]*models.Client
 
 	// State variables and mutex for synchronizing access to shared resources
-	Mutex                   sync.RWMutex
-	ViewNumber              int64
-	LastReply               *LastReply
-	ViewChangePhase         bool
-	ViewChangeViewNumber    int64
-	TransactionMap          *TransactionMap
-	StateLog                *StateLog
-	LastExecutedSequenceNum int64
+	Mutex     sync.RWMutex
+	LastReply *LastReply
+
+	// Server state
+	State *ServerState
 
 	// Timer instance
 	SafeTimer *SafeTimer
@@ -76,6 +73,17 @@ type LinearPBFTNode struct {
 
 // CreateLinearPBFTNode creates a new LinearPBFT node
 func CreateLinearPBFTNode(selfNode *models.Node, peerNodes map[string]*models.Node, clientMap map[string]*models.Client, bankDB *database.Database, privateKey []byte) *LinearPBFTNode {
+
+	serverState := &ServerState{
+		mutex:                   sync.RWMutex{},
+		viewNumber:              0,
+		viewChangePhase:         false,
+		viewChangeViewNumber:    0,
+		lastExecutedSequenceNum: 0,
+		StateLog:                &StateLog{mutex: sync.RWMutex{}, log: make(map[int64]*LogRecord)},
+		TransactionMap:          CreateTransactionMap(),
+	}
+
 	return &LinearPBFTNode{
 		Node:                    selfNode,
 		DB:                      bankDB,
@@ -97,13 +105,8 @@ func CreateLinearPBFTNode(selfNode *models.Node, peerNodes map[string]*models.No
 		LowWaterMark:            0,
 		HighWaterMark:           100,
 		Mutex:                   sync.RWMutex{},
-		ViewNumber:              0,
-		StateLog:                &StateLog{mutex: sync.RWMutex{}, log: make(map[int64]*LogRecord)},
-		LastExecutedSequenceNum: 0,
 		LastReply:               &LastReply{Mutex: sync.RWMutex{}, ReplyMap: make(map[string]*pb.TransactionResponse)},
-		ViewChangePhase:         false,
-		ViewChangeViewNumber:    0,
-		TransactionMap:          CreateTransactionMap(),
+		State:                   serverState,
 		SafeTimer:               CreateSafeTimer(ExecutionTimeout, ViewChangeTimeout),
 		CheckPointRoutineCh:     make(chan bool),
 		RequestCh:               make(chan *pb.SignedTransactionRequest, 20),

@@ -25,12 +25,12 @@ func (n *LinearPBFTNode) SendPrePrepare(signedPreprepareMessage *pb.SignedPrePre
 	// if record == nil {
 	// 	log.Fatal("Leader tried to preprepare a sequence number that is not in the log record")
 	// }
-	record, _ := n.StateLog.Get(sequenceNum)
-	request := n.TransactionMap.Get(prePrepareMessage.Digest)
+	record, _ := n.State.StateLog.Get(sequenceNum)
+	request := n.State.TransactionMap.Get(prePrepareMessage.Digest)
 
 	// Multicast preprepare message to all nodes
 	responseCh := make(chan *pb.SignedPrepareMessage, len(n.Peers))
-	log.Infof("Sending preprepare (v: %d, s: %d): %s", n.ViewNumber, sequenceNum, utils.LoggingString(request))
+	log.Infof("Sending preprepare (v: %d, s: %d): %s", n.State.GetViewNumber(), sequenceNum, utils.LoggingString(request))
 	wg := sync.WaitGroup{}
 	for _, peer := range n.Peers {
 		wg.Add(1)
@@ -123,7 +123,7 @@ func (n *LinearPBFTNode) SendPrePrepare(signedPreprepareMessage *pb.SignedPrePre
 func (n *LinearPBFTNode) SendPrepare(signedPrepareMessages []*pb.SignedPrepareMessage, sequenceNum int64) ([]*pb.SignedCommitMessage, error) {
 	// Get record from log record
 	n.Mutex.Lock()
-	record, _ := n.StateLog.Get(sequenceNum)
+	record, _ := n.State.StateLog.Get(sequenceNum)
 	if record == nil || !record.IsPrePrepared() {
 		log.Fatal("Log record is not preprepared")
 	}
@@ -144,7 +144,7 @@ func (n *LinearPBFTNode) SendPrepare(signedPrepareMessages []*pb.SignedPrepareMe
 
 	// Create collected signed prepare message
 	collectedSignedPrepareMessage := &pb.CollectedSignedPrepareMessage{
-		ViewNumber:  n.ViewNumber,
+		ViewNumber:  n.State.GetViewNumber(),
 		SequenceNum: sequenceNum,
 		Digest:      record.Digest,
 		Messages:    signedPrepareMessages,
@@ -182,7 +182,7 @@ func (n *LinearPBFTNode) SendPrepare(signedPrepareMessages []*pb.SignedPrepareMe
 	// Create signed commit messages including self
 	signedCommitMsgs := make([]*pb.SignedCommitMessage, 0)
 	commitMessage := &pb.CommitMessage{
-		ViewNumber:  n.ViewNumber,
+		ViewNumber:  n.State.GetViewNumber(),
 		SequenceNum: sequenceNum,
 		Digest:      record.Digest,
 		NodeID:      n.ID,
@@ -236,7 +236,7 @@ func (n *LinearPBFTNode) SendPrepare(signedPrepareMessages []*pb.SignedPrepareMe
 func (n *LinearPBFTNode) SendCommit(signedCommitMessages []*pb.SignedCommitMessage, sequenceNum int64) error {
 	// Get record from log record
 	n.Mutex.Lock()
-	record, _ := n.StateLog.Get(sequenceNum)
+	record, _ := n.State.StateLog.Get(sequenceNum)
 	if record == nil || !record.IsPrepared() {
 		log.Fatal("Log record is not prepared")
 	}
@@ -247,7 +247,7 @@ func (n *LinearPBFTNode) SendCommit(signedCommitMessages []*pb.SignedCommitMessa
 
 	// Create collected signed commit message
 	collectedSignedCommitMessage := &pb.CollectedSignedCommitMessage{
-		ViewNumber:  n.ViewNumber,
+		ViewNumber:  n.State.GetViewNumber(),
 		SequenceNum: sequenceNum,
 		Digest:      record.Digest,
 		Messages:    signedCommitMessages,

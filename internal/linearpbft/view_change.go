@@ -23,11 +23,11 @@ func (n *LinearPBFTNode) ViewChangeRoutine(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-n.SafeTimer.TimeoutCh:
-			log.Infof("View change routine: Timer expired at v %d vc %d", n.ViewNumber, n.ViewChangeViewNumber)
+			log.Infof("View change routine: Timer expired at v %d vc %d", n.State.GetViewNumber(), n.State.GetViewChangeViewNumber())
 
 			// Get smallest view number of the logged view change messages which is higher than latest sent view change message view number
 			n.Mutex.Lock()
-			viewNumber := n.ViewChangeViewNumber + 1
+			viewNumber := n.State.GetViewChangeViewNumber() + 1
 			maxViewNumber := utils.Max(utils.Keys(n.ViewChangeMessageLog))
 			for v := viewNumber; v <= maxViewNumber; v++ {
 				if _, ok := n.ViewChangeMessageLog[v]; ok {
@@ -35,7 +35,7 @@ func (n *LinearPBFTNode) ViewChangeRoutine(ctx context.Context) {
 					break
 				}
 			}
-			log.Infof("VCN: %d, NEW VCN: %d, Key of VC log: %d", n.ViewChangeViewNumber, viewNumber, utils.Keys(n.ViewChangeMessageLog))
+			log.Infof("VCN: %d, NEW VCN: %d, Key of VC log: %d", n.State.GetViewChangeViewNumber(), viewNumber, utils.Keys(n.ViewChangeMessageLog))
 			n.Mutex.Unlock()
 			go n.SendViewChange(viewNumber)
 		}
@@ -49,17 +49,17 @@ func (n *LinearPBFTNode) SendViewChange(viewNumber int64) error {
 
 	// Set sent view change flag to true
 	log.Infof("Node %s is entering view change phase and updated vc to %d", n.ID, viewNumber)
-	n.ViewChangePhase = true
-	n.ViewChangeViewNumber = viewNumber
+	n.State.SetViewChangePhase(true)
+	n.State.SetViewChangeViewNumber(viewNumber)
 
 	// Get max sequence number in log record
-	maxSequenceNum := n.StateLog.MaxSequenceNum()
+	maxSequenceNum := n.State.StateLog.MaxSequenceNum()
 	lowerSequenceNum := n.LowWaterMark
 
 	// Get prepared message proof set
 	preparedSet := make([]*pb.PrepareProof, 0)
 	for sequenceNum := lowerSequenceNum + 1; sequenceNum <= maxSequenceNum; sequenceNum++ {
-		record, exists := n.StateLog.Get(sequenceNum)
+		record, exists := n.State.StateLog.Get(sequenceNum)
 		if !exists {
 			continue
 		}
@@ -140,8 +140,8 @@ func (n *LinearPBFTNode) ViewChangeRequest(ctx context.Context, signedViewChange
 	}
 
 	// Verify view number
-	if viewNumber <= n.ViewNumber {
-		log.Warnf("Rejected: %s; lower view number (expected: %d)", utils.LoggingString(viewChangeMessage), n.ViewNumber)
+	if viewNumber <= n.State.GetViewNumber() {
+		log.Warnf("Rejected: %s; lower view number (expected: %d)", utils.LoggingString(viewChangeMessage), n.State.GetViewNumber())
 		return nil, status.Errorf(codes.FailedPrecondition, "invalid view number")
 	}
 
@@ -210,13 +210,13 @@ func (n *LinearPBFTNode) ViewChangeRequest(ctx context.Context, signedViewChange
 	}
 
 	// Send view change message to all nodes if f + 1 view change messages are collected
-	if n.ViewChangeViewNumber < viewNumber && len(viewChangeMessageLog) == int(n.F+1) {
+	if n.State.GetViewChangeViewNumber() < viewNumber && len(viewChangeMessageLog) == int(n.F+1) {
 		alreadyExpired := n.SafeTimer.Cleanup()
 		if !alreadyExpired || utils.ViewNumberToLeaderID(viewNumber, n.N) != n.ID {
 			log.Infof("Sending view change message to all nodes since f + 1 view change messages are collected: %s", utils.LoggingString(viewChangeMessage))
 			go n.SendViewChange(viewNumber)
 		} else {
-			log.Infof("View change timer already expired at v %d vc %d", n.ViewNumber, n.ViewChangeViewNumber)
+			log.Infof("View change timer already expired at v %d vc %d", n.State.GetViewNumber(), n.State.GetViewChangeViewNumber())
 		}
 	}
 

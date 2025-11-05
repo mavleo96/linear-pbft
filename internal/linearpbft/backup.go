@@ -30,13 +30,13 @@ func (n *LinearPBFTNode) PrePrepareRequest(ctx context.Context, signedMessage *p
 	}
 
 	// Ignore if already in view change
-	if n.ViewChangePhase {
+	if n.State.IsViewChangePhase() {
 		log.Infof("Ignored: %s; view change phase", utils.LoggingString(prePrepareMessage))
 		return nil, status.Errorf(codes.Unavailable, "view change phase")
 	}
 
 	// Verify Node's signature
-	currentLeaderID := utils.ViewNumberToLeaderID(n.ViewNumber, n.N)
+	currentLeaderID := utils.ViewNumberToLeaderID(n.State.GetViewNumber(), n.N)
 	ok := crypto.Verify(prePrepareMessage, n.GetPublicKey(currentLeaderID), signedMessage.Signature)
 	if !ok {
 		log.Warnf("Rejected: %s; invalid signature", utils.LoggingString(prePrepareMessage))
@@ -47,7 +47,7 @@ func (n *LinearPBFTNode) PrePrepareRequest(ctx context.Context, signedMessage *p
 	// We may overwrite the request in the transaction map if called inside new view routine
 	// if signed request is nil then get from transaction map
 	if signedRequest == nil {
-		signedRequest = n.TransactionMap.Get(prePrepareMessage.Digest)
+		signedRequest = n.State.TransactionMap.Get(prePrepareMessage.Digest)
 	}
 	// if not in transaction map then send a get request to all nodes; if still nil then return error
 	if signedRequest == nil {
@@ -68,14 +68,14 @@ func (n *LinearPBFTNode) PrePrepareRequest(ctx context.Context, signedMessage *p
 	}
 
 	// Add request to transaction map
-	if n.TransactionMap.Get(prePrepareMessage.Digest) == nil {
+	if n.State.TransactionMap.Get(prePrepareMessage.Digest) == nil {
 		log.Infof("Adding request to transaction map: %s", utils.LoggingString(signedRequest.Request))
-		n.TransactionMap.Set(prePrepareMessage.Digest, signedRequest)
+		n.State.TransactionMap.Set(prePrepareMessage.Digest, signedRequest)
 	}
 
 	// Verify View Number
-	if prePrepareMessage.ViewNumber != n.ViewNumber {
-		log.Warnf("Rejected: %s; invalid view number (expected: %d)", utils.LoggingString(prePrepareMessage, request), n.ViewNumber)
+	if prePrepareMessage.ViewNumber != n.State.GetViewNumber() {
+		log.Warnf("Rejected: %s; invalid view number (expected: %d)", utils.LoggingString(prePrepareMessage, request), n.State.GetViewNumber())
 		return nil, status.Errorf(codes.InvalidArgument, "invalid view number")
 	}
 
@@ -87,11 +87,11 @@ func (n *LinearPBFTNode) PrePrepareRequest(ctx context.Context, signedMessage *p
 
 	// Get record from log record
 	n.Mutex.Lock()
-	record, exists := n.StateLog.Get(prePrepareMessage.SequenceNum)
+	record, exists := n.State.StateLog.Get(prePrepareMessage.SequenceNum)
 	if !exists {
 		// Create new log record if no record exists for this sequence number
 		record = CreateLogRecord(prePrepareMessage.ViewNumber, prePrepareMessage.SequenceNum, crypto.Digest(signedRequest))
-		n.StateLog.Set(prePrepareMessage.SequenceNum, record)
+		n.State.StateLog.Set(prePrepareMessage.SequenceNum, record)
 
 		//  TODO: check if safety issue here and if code can be improved
 		// Check if the request is in the forwarded requests log
@@ -113,7 +113,7 @@ func (n *LinearPBFTNode) PrePrepareRequest(ctx context.Context, signedMessage *p
 
 	// Verify if previously accepted preprepare message with different digest for same view and sequence number
 	if record.IsPrePrepared() && !cmp.Equal(record.Digest, prePrepareMessage.Digest) {
-		log.Warnf("Rejected: %s; previously accepted %s", utils.LoggingString(prePrepareMessage, request), utils.LoggingString(n.TransactionMap.Get(record.Digest).Request))
+		log.Warnf("Rejected: %s; previously accepted %s", utils.LoggingString(prePrepareMessage, request), utils.LoggingString(n.State.TransactionMap.Get(record.Digest).Request))
 		return nil, status.Errorf(codes.FailedPrecondition, "previously accepted preprepare message with different digest")
 	}
 
@@ -172,24 +172,24 @@ func (n *LinearPBFTNode) PrepareRequest(ctx context.Context, signedPrepareMessag
 	}
 
 	// Ignore if already in view change
-	if n.ViewChangePhase {
+	if n.State.IsViewChangePhase() {
 		log.Infof("Ignored: %s; view change phase", utils.LoggingString(signedPrepareMessages))
 		return nil, status.Errorf(codes.Unavailable, "view change phase")
 	}
 
 	// Verify View Number
-	if viewNumber != n.ViewNumber {
-		log.Warnf("Rejected: %s; invalid view number (expected: %d)", utils.LoggingString(signedPrepareMessages), n.ViewNumber)
+	if viewNumber != n.State.GetViewNumber() {
+		log.Warnf("Rejected: %s; invalid view number (expected: %d)", utils.LoggingString(signedPrepareMessages), n.State.GetViewNumber())
 		return nil, status.Errorf(codes.InvalidArgument, "invalid view number")
 	}
 
 	// Get the record from log record or create new one
 	n.Mutex.Lock()
-	record, exists := n.StateLog.Get(sequenceNum)
+	record, exists := n.State.StateLog.Get(sequenceNum)
 	if !exists {
 		// Create new log record if no record exists for this sequence number
 		record = CreateLogRecord(viewNumber, sequenceNum, signedPrepareMessages.Digest)
-		n.StateLog.Set(sequenceNum, record)
+		n.State.StateLog.Set(sequenceNum, record)
 
 		// Check if the request is in the forwarded requests log by comparing the digest
 		// If it is then don't increment the wait count else increment the wait count
@@ -298,24 +298,24 @@ func (n *LinearPBFTNode) CommitRequest(ctx context.Context, signedCommitMessages
 	}
 
 	// Ignore if already in view change
-	if n.ViewChangePhase {
+	if n.State.IsViewChangePhase() {
 		log.Infof("Ignored: %s; view change phase", utils.LoggingString(signedCommitMessages))
 		return nil, status.Errorf(codes.Unavailable, "view change phase")
 	}
 
 	// Verify View Number
-	if viewNumber != n.ViewNumber {
-		log.Warnf("Rejected: %s; invalid view number (expected: %d)", utils.LoggingString(signedCommitMessages), n.ViewNumber)
+	if viewNumber != n.State.GetViewNumber() {
+		log.Warnf("Rejected: %s; invalid view number (expected: %d)", utils.LoggingString(signedCommitMessages), n.State.GetViewNumber())
 		return nil, status.Errorf(codes.InvalidArgument, "invalid view number")
 	}
 
 	// Get the record from log record or create new one
 	n.Mutex.Lock()
-	record, exists := n.StateLog.Get(sequenceNum)
+	record, exists := n.State.StateLog.Get(sequenceNum)
 	if !exists {
 		// Create new log record if no record exists for this sequence number
 		record = CreateLogRecord(viewNumber, sequenceNum, signedCommitMessages.Digest)
-		n.StateLog.Set(sequenceNum, record)
+		n.State.StateLog.Set(sequenceNum, record)
 
 		// Check if the request is in the forwarded requests log by comparing the digest
 		// If it is then don't increment the wait count else increment the wait count
@@ -467,7 +467,7 @@ func (n *LinearPBFTNode) GetRequest(ctx context.Context, getRequestMessage *pb.G
 	}
 
 	digest := getRequestMessage.Digest
-	signedRequest := n.TransactionMap.Get(digest)
+	signedRequest := n.State.TransactionMap.Get(digest)
 	if signedRequest == nil {
 		log.Warnf("Rejected: %s; request not found in transaction map", utils.LoggingString(getRequestMessage))
 		return nil, status.Errorf(codes.NotFound, "request not found in transaction map")
