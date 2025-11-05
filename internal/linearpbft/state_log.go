@@ -29,6 +29,40 @@ var NoOpTransactionRequest = &pb.SignedTransactionRequest{
 // DigestNoOp is the digest of the no-op transaction request
 var DigestNoOp = crypto.Digest(NoOpTransactionRequest)
 
+type StateLog struct {
+	mutex sync.RWMutex
+	log   map[int64]*LogRecord
+}
+
+// Get returns the log record for a given sequence number
+func (s *StateLog) Get(sequenceNum int64) (*LogRecord, bool) {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	record, ok := s.log[sequenceNum]
+	return record, ok
+}
+
+// Set sets the log record for a given sequence number
+func (s *StateLog) Set(sequenceNum int64, logRecord *LogRecord) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	s.log[sequenceNum] = logRecord
+}
+
+// Delete deletes the log record for a given sequence number
+func (s *StateLog) Delete(sequenceNum int64) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	delete(s.log, sequenceNum)
+}
+
+// Keys returns the keys of the log
+func (s *StateLog) MaxSequenceNum() int64 {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	return utils.Max(utils.Keys(s.log))
+}
+
 // LogRecord represents a log record for a transaction
 type LogRecord struct {
 	ViewNumber        int64

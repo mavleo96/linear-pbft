@@ -10,7 +10,13 @@ func (n *LinearPBFTNode) TryExecute(sequenceNum int64) {
 	// Get the record from log record or create new one
 	n.Mutex.Lock()
 	defer n.Mutex.Unlock()
-	record := n.LogRecords[sequenceNum]
+	if sequenceNum == 0 {
+		sequenceNum = n.LastExecutedSequenceNum + 1
+	}
+	record, exists := n.StateLog.Get(sequenceNum)
+	if !exists {
+		return
+	}
 
 	// If record is not nil and already executed, send reply if timestamp is same as last reply
 	if record != nil && record.IsExecuted() {
@@ -24,12 +30,15 @@ func (n *LinearPBFTNode) TryExecute(sequenceNum int64) {
 	}
 
 	// Get max sequence number in log record
-	maxSequenceNum := utils.Max(utils.Keys(n.LogRecords))
+	maxSequenceNum := n.StateLog.MaxSequenceNum()
 
 	// Try to execute as many transactions as possible
 	for i := n.LastExecutedSequenceNum + 1; i <= maxSequenceNum; i++ {
 		// Check if sequence is committed
-		record := n.LogRecords[i]
+		record, exists := n.StateLog.Get(i)
+		if !exists {
+			continue
+		}
 		if record == nil || !record.IsCommitted() {
 			log.Warnf("Sequence number %d not committed", i)
 			break

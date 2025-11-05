@@ -3,7 +3,6 @@ package linearpbft
 import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/mavleo96/bft-mavleo96/internal/crypto"
-	"github.com/mavleo96/bft-mavleo96/internal/utils"
 	"github.com/mavleo96/bft-mavleo96/pb"
 	log "github.com/sirupsen/logrus"
 )
@@ -18,7 +17,11 @@ func (n *LinearPBFTNode) GetOrAssignSequenceNumber(signedRequest *pb.SignedTrans
 	digest := crypto.Digest(signedRequest)
 
 	// Check if request is already in log record
-	for _, record := range n.LogRecords {
+	for sequenceNum := range n.StateLog.log {
+		record, exists := n.StateLog.Get(sequenceNum)
+		if !exists {
+			continue
+		}
 		// TODO: remove this later
 		if record == nil {
 			log.Fatal("Log record is nil")
@@ -29,7 +32,7 @@ func (n *LinearPBFTNode) GetOrAssignSequenceNumber(signedRequest *pb.SignedTrans
 	}
 
 	// If request is not in log record, assign new sequence number
-	sequenceNum := utils.Max(utils.Keys(n.LogRecords)) + 1
+	sequenceNum := n.StateLog.MaxSequenceNum() + 1
 	return sequenceNum, false
 }
 

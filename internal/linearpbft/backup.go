@@ -87,11 +87,11 @@ func (n *LinearPBFTNode) PrePrepareRequest(ctx context.Context, signedMessage *p
 
 	// Get record from log record
 	n.Mutex.Lock()
-	record, ok := n.LogRecords[prePrepareMessage.SequenceNum]
-	if !ok {
+	record, exists := n.StateLog.Get(prePrepareMessage.SequenceNum)
+	if !exists {
 		// Create new log record if no record exists for this sequence number
 		record = CreateLogRecord(prePrepareMessage.ViewNumber, prePrepareMessage.SequenceNum, crypto.Digest(signedRequest))
-		n.LogRecords[prePrepareMessage.SequenceNum] = record
+		n.StateLog.Set(prePrepareMessage.SequenceNum, record)
 
 		//  TODO: check if safety issue here and if code can be improved
 		// Check if the request is in the forwarded requests log
@@ -185,11 +185,11 @@ func (n *LinearPBFTNode) PrepareRequest(ctx context.Context, signedPrepareMessag
 
 	// Get the record from log record or create new one
 	n.Mutex.Lock()
-	record, ok := n.LogRecords[sequenceNum]
-	if !ok {
+	record, exists := n.StateLog.Get(sequenceNum)
+	if !exists {
 		// Create new log record if no record exists for this sequence number
 		record = CreateLogRecord(viewNumber, sequenceNum, signedPrepareMessages.Digest)
-		n.LogRecords[sequenceNum] = record
+		n.StateLog.Set(sequenceNum, record)
 
 		// Check if the request is in the forwarded requests log by comparing the digest
 		// If it is then don't increment the wait count else increment the wait count
@@ -311,11 +311,11 @@ func (n *LinearPBFTNode) CommitRequest(ctx context.Context, signedCommitMessages
 
 	// Get the record from log record or create new one
 	n.Mutex.Lock()
-	record, ok := n.LogRecords[sequenceNum]
-	if !ok {
+	record, exists := n.StateLog.Get(sequenceNum)
+	if !exists {
 		// Create new log record if no record exists for this sequence number
 		record = CreateLogRecord(viewNumber, sequenceNum, signedCommitMessages.Digest)
-		n.LogRecords[sequenceNum] = record
+		n.StateLog.Set(sequenceNum, record)
 
 		// Check if the request is in the forwarded requests log by comparing the digest
 		// If it is then don't increment the wait count else increment the wait count

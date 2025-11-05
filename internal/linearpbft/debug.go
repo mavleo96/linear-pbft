@@ -17,17 +17,18 @@ func (n *LinearPBFTNode) PrintLog(ctx context.Context, req *emptypb.Empty) (*emp
 	defer n.Mutex.RUnlock()
 	log.Infof("Print log command received")
 	fmt.Println("Printing log records:")
-	maxSequenceNum := utils.Max(utils.Keys(n.LogRecords))
+	maxSequenceNum := n.StateLog.MaxSequenceNum()
 	for i := int64(1); i <= maxSequenceNum; i++ {
-		record, ok := n.LogRecords[i]
-		if ok {
-			signedRequest := n.TransactionMap.Get(record.Digest)
-			fmt.Printf(
-				"%s, v: %d, s: %d, %s\n",
-				utils.LoggingString(signedRequest.Request),
-				record.ViewNumber, record.SequenceNum,
-				recordStatus(record))
+		record, exists := n.StateLog.Get(i)
+		if !exists {
+			continue
 		}
+		signedRequest := n.TransactionMap.Get(record.Digest)
+		fmt.Printf(
+			"%s, v: %d, s: %d, %s\n",
+			utils.LoggingString(signedRequest.Request),
+			record.ViewNumber, record.SequenceNum,
+			recordStatus(record))
 	}
 	fmt.Println("")
 
@@ -65,9 +66,8 @@ func (n *LinearPBFTNode) PrintStatus(ctx context.Context, req *wrapperspb.Int64V
 	fmt.Println("Printing status:")
 
 	sequenceNum := req.Value
-	record, ok := n.LogRecords[sequenceNum]
-
-	if !ok {
+	record, exists := n.StateLog.Get(sequenceNum)
+	if !exists {
 		fmt.Printf("Sequence Number: %d, Status: X\n", sequenceNum)
 		return &emptypb.Empty{}, nil
 	}

@@ -50,11 +50,11 @@ func (n *LinearPBFTNode) ReconfigureNode(ctx context.Context, changeStatusMessag
 
 // ResetNode resets the server state and database
 func (n *LinearPBFTNode) ResetNode(ctx context.Context, req *emptypb.Empty) (*emptypb.Empty, error) {
-	n.Mutex.Lock()
-	defer n.Mutex.Unlock()
+	// n.Mutex.Lock()
+	// defer n.Mutex.Unlock()
 
 	// Reset server state
-	n.LogRecords = make(map[int64]*LogRecord)
+	n.StateLog = &StateLog{mutex: sync.RWMutex{}, log: make(map[int64]*LogRecord)}
 	n.LastExecutedSequenceNum = 0
 	n.LastReply = &LastReply{Mutex: sync.RWMutex{}, ReplyMap: make(map[string]*pb.TransactionResponse)}
 	n.ViewChangePhase = false
@@ -62,6 +62,7 @@ func (n *LinearPBFTNode) ResetNode(ctx context.Context, req *emptypb.Empty) (*em
 	n.TransactionMap = CreateTransactionMap()
 	n.ViewChangeMessageLog = make(map[int64]map[string]*pb.SignedViewChangeMessage)
 	n.ForwardedRequestsLog = make([]*pb.SignedTransactionRequest, 0)
+	n.CheckPointLog = &CheckpointLog{Mutex: sync.RWMutex{}, Log: make(map[int64]map[string]*pb.SignedCheckPointMessage)}
 
 	// Reset DB
 	n.DB.ResetDB(10)

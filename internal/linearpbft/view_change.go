@@ -53,13 +53,16 @@ func (n *LinearPBFTNode) SendViewChange(viewNumber int64) error {
 	n.ViewChangeViewNumber = viewNumber
 
 	// Get max sequence number in log record
-	maxSequenceNum := utils.Max(utils.Keys(n.LogRecords))
+	maxSequenceNum := n.StateLog.MaxSequenceNum()
 	lowerSequenceNum := n.LowWaterMark
 
 	// Get prepared message proof set
 	preparedSet := make([]*pb.PrepareProof, 0)
 	for sequenceNum := lowerSequenceNum + 1; sequenceNum <= maxSequenceNum; sequenceNum++ {
-		record := n.LogRecords[sequenceNum]
+		record, exists := n.StateLog.Get(sequenceNum)
+		if !exists {
+			continue
+		}
 		if record == nil || !record.IsPrepared() {
 			continue
 		}

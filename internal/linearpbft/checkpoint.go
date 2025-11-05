@@ -73,7 +73,11 @@ func (n *LinearPBFTNode) SendCheckPointRequest(ctx context.Context, sequenceNum 
 	// Fetch log record between low and high water mark
 	logRecords := make([]*LogRecord, 0)
 	for i := sequenceNum - n.K + 1; i <= sequenceNum; i++ {
-		logRecords = append(logRecords, n.LogRecords[i])
+		record, exists := n.StateLog.Get(i)
+		if !exists {
+			continue
+		}
+		logRecords = append(logRecords, record)
 	}
 
 	// Create checkpoint Digest
@@ -148,7 +152,11 @@ func (n *LinearPBFTNode) CheckPointRoutine(ctx context.Context) {
 				n.Mutex.RLock()
 				records := make([]*LogRecord, 0)
 				for i := n.LowWaterMark + 1; i <= n.LowWaterMark+n.K; i++ {
-					records = append(records, n.LogRecords[i])
+					record, exists := n.StateLog.Get(i)
+					if !exists {
+						continue
+					}
+					records = append(records, record)
 				}
 				n.Mutex.RUnlock()
 				checkpointDigest := crypto.DigestAny(records)
@@ -171,12 +179,13 @@ func (n *LinearPBFTNode) CheckPointRoutine(ctx context.Context) {
 
 			// Update low and high water mark and purge log records
 			log.Infof("Updating low and high water mark and purging log records for sequence number %d", n.LowWaterMark+n.K)
-			n.LowWaterMark += n.K
+			// n.LowWaterMark += n.K
 			n.HighWaterMark += n.K
 			n.Mutex.Lock()
-			for i := range n.LogRecords {
+			// TODO: modify this to check between l-k and l
+			for i := range n.StateLog.log {
 				if i <= n.LowWaterMark {
-					delete(n.LogRecords, i)
+					n.StateLog.Delete(i)
 				}
 			}
 			n.Mutex.Unlock()

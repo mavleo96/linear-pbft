@@ -115,11 +115,11 @@ func (n *LinearPBFTNode) NewViewRoutine(ctx context.Context, viewNumber int64) {
 		}
 
 		// Get record from log record or create new one
-		record, ok := n.LogRecords[sequenceNum]
-		if !ok {
+		record, exists := n.StateLog.Get(sequenceNum)
+		if !exists {
 			// Create new log record if no record exists for this sequence number
 			record = CreateLogRecord(viewNumber, sequenceNum, prePrepareMessage.Digest)
-			n.LogRecords[sequenceNum] = record
+			n.StateLog.Set(sequenceNum, record)
 		} else {
 			err := record.Reset(viewNumber, prePrepareMessage.Digest)
 			if err != nil {
@@ -129,9 +129,13 @@ func (n *LinearPBFTNode) NewViewRoutine(ctx context.Context, viewNumber int64) {
 		record.AddPrePrepareMessage(signedPrePrepareMessage)
 	}
 	// Purge log records with older view number
-	for sequenceNum, record := range n.LogRecords {
+	for sequenceNum := range n.StateLog.log {
+		record, exists := n.StateLog.Get(sequenceNum)
+		if !exists {
+			continue
+		}
 		if record.ViewNumber < viewNumber {
-			delete(n.LogRecords, sequenceNum)
+			n.StateLog.Delete(sequenceNum)
 		}
 	}
 	// Purge forwarded requests

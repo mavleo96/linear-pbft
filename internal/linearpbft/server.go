@@ -11,9 +11,11 @@ import (
 
 const (
 	ExecutionTimeout  = 400 * time.Millisecond
-	ViewChangeTimeout = 700 * time.Millisecond
+	ViewChangeTimeout = 600 * time.Millisecond
 	TimeAttackDelay   = 50 * time.Millisecond
 )
+
+// type ServerState struct {
 
 // LinearPBFTNode represents a LinearPBFT node
 type LinearPBFTNode struct {
@@ -51,7 +53,7 @@ type LinearPBFTNode struct {
 	ViewChangePhase         bool
 	ViewChangeViewNumber    int64
 	TransactionMap          *TransactionMap
-	LogRecords              map[int64]*LogRecord
+	StateLog                *StateLog
 	LastExecutedSequenceNum int64
 
 	// Timer instance
@@ -59,6 +61,9 @@ type LinearPBFTNode struct {
 
 	// Channels
 	CheckPointRoutineCh chan bool
+	RequestCh           chan *pb.SignedTransactionRequest
+	PrepareCh           chan []*pb.SignedPrepareMessage
+	CommitCh            chan []*pb.SignedCommitMessage
 
 	// Message logs
 	ViewChangeMessageLog map[int64]map[string]*pb.SignedViewChangeMessage // v -> (id -> msg)
@@ -93,7 +98,7 @@ func CreateLinearPBFTNode(selfNode *models.Node, peerNodes map[string]*models.No
 		HighWaterMark:           100,
 		Mutex:                   sync.RWMutex{},
 		ViewNumber:              0,
-		LogRecords:              make(map[int64]*LogRecord),
+		StateLog:                &StateLog{mutex: sync.RWMutex{}, log: make(map[int64]*LogRecord)},
 		LastExecutedSequenceNum: 0,
 		LastReply:               &LastReply{Mutex: sync.RWMutex{}, ReplyMap: make(map[string]*pb.TransactionResponse)},
 		ViewChangePhase:         false,
@@ -101,6 +106,9 @@ func CreateLinearPBFTNode(selfNode *models.Node, peerNodes map[string]*models.No
 		TransactionMap:          CreateTransactionMap(),
 		SafeTimer:               CreateSafeTimer(ExecutionTimeout, ViewChangeTimeout),
 		CheckPointRoutineCh:     make(chan bool),
+		RequestCh:               make(chan *pb.SignedTransactionRequest, 20),
+		PrepareCh:               make(chan []*pb.SignedPrepareMessage, 20),
+		CommitCh:                make(chan []*pb.SignedCommitMessage, 20),
 		ViewChangeMessageLog:    make(map[int64]map[string]*pb.SignedViewChangeMessage),
 		ForwardedRequestsLog:    make([]*pb.SignedTransactionRequest, 0),
 		CheckPointLog:           &CheckpointLog{Mutex: sync.RWMutex{}, LastCheckPointSequenceNum: 0, Log: make(map[int64]map[string]*pb.SignedCheckPointMessage), Quorum: 2*int64(len(peerNodes)/3) + 1},

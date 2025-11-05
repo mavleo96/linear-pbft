@@ -100,6 +100,7 @@ func CreateServer(selfNode *models.Node, peerNodes map[string]*models.Node, clie
 
 	go node.ViewChangeRoutine(context.Background())
 	go node.CheckPointRoutine(context.Background())
+	go node.ServiceRoutine(context.Background())
 
 	return grpcServer, nil
 }
