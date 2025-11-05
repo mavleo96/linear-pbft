@@ -94,7 +94,7 @@ func (n *LinearPBFTNode) ReadOnlyRequest(ctx context.Context, signedRequest *pb.
 	}
 
 	// Get balance from database
-	balance, err := n.DB.GetBalance(request.Sender)
+	balance, err := n.Executor.db.GetBalance(request.Sender)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "%s", err.Error())
 	}

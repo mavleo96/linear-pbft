@@ -111,7 +111,7 @@ func (n *LinearPBFTNode) ServiceRoutine(ctx context.Context) {
 				}
 			}()
 		}
-		n.TryExecute(0)
+		n.Executor.GetExecuteChannel() <- 0
 
 	}
 }

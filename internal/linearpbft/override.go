@@ -65,7 +65,7 @@ func (n *LinearPBFTNode) ResetNode(ctx context.Context, req *emptypb.Empty) (*em
 	n.CheckPointLog = &CheckpointLog{Mutex: sync.RWMutex{}, Log: make(map[int64]map[string]*pb.SignedCheckPointMessage)}
 
 	// Reset DB
-	n.DB.ResetDB(10)
+	n.Executor.db.ResetDB(10)
 
 	return &emptypb.Empty{}, nil
 

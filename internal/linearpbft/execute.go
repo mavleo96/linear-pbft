@@ -1,83 +1,82 @@
 package linearpbft
 
 import (
+	"context"
+
+	"github.com/mavleo96/bft-mavleo96/internal/database"
 	"github.com/mavleo96/bft-mavleo96/internal/utils"
+	"github.com/mavleo96/bft-mavleo96/pb"
 	log "github.com/sirupsen/logrus"
 )
 
-// TryExecute tries to execute a transaction
-func (n *LinearPBFTNode) TryExecute(sequenceNum int64) {
-	// Get the record from log record or create new one
-	n.Mutex.Lock()
-	defer n.Mutex.Unlock()
-	if sequenceNum == 0 {
-		sequenceNum = n.State.GetLastExecutedSequenceNum() + 1
-	}
-	record, exists := n.State.StateLog.Get(sequenceNum)
-	if !exists {
-		return
-	}
+type Executor struct {
+	db           *database.Database
+	safeTimer    *SafeTimer
+	state        *ServerState
+	config       *ServerConfig
+	executeCh    chan int64
+	sendReply    func(sequenceNum int64, request *pb.TransactionRequest, result int64)
+	checkPointCh chan bool
+}
 
-	// If record is not nil and already executed, send reply if timestamp is same as last reply
-	if record != nil && record.IsExecuted() {
-		request := n.State.TransactionMap.Get(record.Digest).Request
-		lastReply := n.LastReply.Get(request.Sender)
-		if lastReply != nil && request.Timestamp == lastReply.Timestamp {
-			go n.SendReply(sequenceNum, request, lastReply.Result)
-		}
-		log.Infof("Sequence number %d already executed", sequenceNum)
-		return
-	}
+func (e *Executor) GetExecuteChannel() chan<- int64 {
+	return e.executeCh
+}
 
-	// Get max sequence number in log record
-	maxSequenceNum := n.State.StateLog.MaxSequenceNum()
+func (e *Executor) ExecuteRoutine(ctx context.Context) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-e.executeCh:
+			sequenceNum := e.state.GetLastExecutedSequenceNum() + 1
+			maxSequenceNum := e.state.StateLog.MaxSequenceNum()
 
-	// Try to execute as many transactions as possible
-	for i := n.State.GetLastExecutedSequenceNum() + 1; i <= maxSequenceNum; i++ {
-		// Check if sequence is committed
-		record, exists := n.State.StateLog.Get(i)
-		if !exists {
-			break
-		}
-		if record == nil || !record.IsCommitted() {
-			log.Warnf("Sequence number %d not committed", i)
-			break
-		}
+			for i := sequenceNum; i <= maxSequenceNum; i++ {
+				record, exists := e.state.StateLog.Get(i)
+				if !exists {
+					break
+				}
+				if record == nil || !record.IsCommitted() {
+					break
+				}
 
-		// Execute transaction
-		request := n.State.TransactionMap.Get(record.Digest).Request
-		var result int64
-		var err error
-		switch request.Transaction.Type {
-		case "read":
-			result, err = n.DB.GetBalance(request.Transaction.Sender)
-			log.Infof("Read transaction result: %d", result)
-		case "send":
-			var success bool
-			success, err = n.DB.UpdateDB(request.Transaction)
-			result = utils.BoolToInt64(success)
-		default:
-			continue
-		}
-		if err != nil {
-			log.Fatal(err)
-		}
+				// Execute transaction
+				request := e.state.TransactionMap.Get(record.Digest).Request
+				var result int64
+				var err error
+				switch request.Transaction.Type {
+				case "read":
+					result, err = e.db.GetBalance(request.Transaction.Sender)
+					log.Infof("Read transaction result: %d", result)
+				case "send":
+					var success bool
+					success, err = e.db.UpdateDB(request.Transaction)
+					result = utils.BoolToInt64(success)
+				default:
+					continue
+				}
+				if err != nil {
+					log.Fatal(err)
+				}
 
-		// Add to executed log and send reply if transaction is not null
-		record.SetExecuted()
-		// TODO: make this elegant since primary doesn't have a safe timer running
-		n.SafeTimer.DecrementWaitCountAndResetOrStopIfZero()
-		log.Infof("Executed (v: %d, s: %d): %s", n.State.GetViewNumber(), i, utils.LoggingString(request.Transaction))
-		if request.Transaction.Type != "null" {
-			go n.SendReply(i, request, result)
-		}
-		n.State.SetLastExecutedSequenceNum(i)
+				// Add to executed log and send reply if transaction is not null
+				record.SetExecuted()
+				// TODO: make this elegant since primary doesn't have a safe timer running
+				e.safeTimer.DecrementWaitCountAndResetOrStopIfZero()
+				log.Infof("Executed (v: %d, s: %d): %s", e.state.GetViewNumber(), i, utils.LoggingString(request.Transaction))
+				if request.Transaction.Type != "null" {
+					go e.sendReply(i, request, result)
+				}
+				e.state.SetLastExecutedSequenceNum(i)
 
-		// Signal the checkpoint routine if the last executed sequence number is a multiple of k
-		if i%n.K == 0 {
-			// n.Mutex.Unlock()
-			n.CheckPointRoutineCh <- true
-			// n.Mutex.Lock()
+				// Signal the checkpoint routine if the last executed sequence number is a multiple of k
+				if i%e.config.k == 0 {
+					// n.Mutex.Unlock()
+					e.checkPointCh <- true
+					// n.Mutex.Lock()
+				}
+			}
 		}
 	}
 }

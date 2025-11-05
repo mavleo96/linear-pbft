@@ -72,7 +72,7 @@ func (n *LinearPBFTNode) SendCheckPointRequest(ctx context.Context, sequenceNum 
 
 	// Fetch log record between low and high water mark
 	logRecords := make([]*LogRecord, 0)
-	for i := sequenceNum - n.K + 1; i <= sequenceNum; i++ {
+	for i := sequenceNum - n.config.k + 1; i <= sequenceNum; i++ {
 		record, exists := n.State.StateLog.Get(i)
 		if !exists {
 			continue
@@ -141,17 +141,17 @@ func (n *LinearPBFTNode) CheckPointRoutine(ctx context.Context) {
 
 			// Send check point request to all nodes
 			lastCheckPointSequenceNum := n.CheckPointLog.GetLastCheckPointSequenceNum()
-			if lastCheckPointSequenceNum+n.K <= n.State.GetLastExecutedSequenceNum() {
-				n.SendCheckPointRequest(context.Background(), lastCheckPointSequenceNum+n.K)
-				n.CheckPointLog.SetLastCheckPointSequenceNum(lastCheckPointSequenceNum + n.K)
+			if lastCheckPointSequenceNum+n.config.k <= n.State.GetLastExecutedSequenceNum() {
+				n.SendCheckPointRequest(context.Background(), lastCheckPointSequenceNum+n.config.k)
+				n.CheckPointLog.SetLastCheckPointSequenceNum(lastCheckPointSequenceNum + n.config.k)
 			}
 
 			// Check if 2f + 1 check point messages are collected
-			if len(n.CheckPointLog.GetMessages(n.LowWaterMark+n.K)) >= int(n.N-n.F) {
+			if len(n.CheckPointLog.GetMessages(n.config.lowWaterMark+n.config.k)) >= int(n.N-n.F) {
 				// Create checkpoint Digest
 				n.Mutex.RLock()
 				records := make([]*LogRecord, 0)
-				for i := n.LowWaterMark + 1; i <= n.LowWaterMark+n.K; i++ {
+				for i := n.config.lowWaterMark + 1; i <= n.config.lowWaterMark+n.config.k; i++ {
 					record, exists := n.State.StateLog.Get(i)
 					if !exists {
 						continue
@@ -163,28 +163,28 @@ func (n *LinearPBFTNode) CheckPointRoutine(ctx context.Context) {
 
 				// Verify the digest on check point messages
 				verifiedCount := 0
-				for _, checkPointMessage := range n.CheckPointLog.GetMessages(n.LowWaterMark + n.K) {
+				for _, checkPointMessage := range n.CheckPointLog.GetMessages(n.config.lowWaterMark + n.config.k) {
 					if cmp.Equal(checkPointMessage.Message.Digest, checkpointDigest) {
 						verifiedCount++
 					}
 				}
 				if verifiedCount < int(n.N-n.F) {
-					log.Warnf("Check point digest not verified for sequence number %d", n.LowWaterMark+n.K)
+					log.Warnf("Check point digest not verified for sequence number %d", n.config.lowWaterMark+n.config.k)
 					continue
 				}
 			} else {
-				log.Warnf("Not enough check point messages collected for sequence number %d", n.LowWaterMark+n.K)
+				log.Warnf("Not enough check point messages collected for sequence number %d", n.config.lowWaterMark+n.config.k)
 				continue
 			}
 
 			// Update low and high water mark and purge log records
-			log.Infof("Updating low and high water mark and purging log records for sequence number %d", n.LowWaterMark+n.K)
-			n.LowWaterMark += n.K
-			n.HighWaterMark += n.K
+			log.Infof("Updating low and high water mark and purging log records for sequence number %d", n.config.lowWaterMark+n.config.k)
+			n.config.lowWaterMark += n.config.k
+			n.config.highWaterMark += n.config.k
 			n.Mutex.Lock()
 			// TODO: modify this to check between l-k and l
 			for i := range n.State.StateLog.log {
-				if i <= n.LowWaterMark {
+				if i <= n.config.lowWaterMark {
 					n.State.StateLog.Delete(i)
 				}
 			}

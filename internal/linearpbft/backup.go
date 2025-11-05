@@ -149,7 +149,7 @@ func (n *LinearPBFTNode) PrePrepareRequest(ctx context.Context, signedMessage *p
 		signedPrepareMessage.Signature = []byte("invalid signature")
 	}
 
-	go n.TryExecute(prePrepareMessage.SequenceNum)
+	n.Executor.GetExecuteChannel() <- 0
 
 	// Byzantine node behavior: dark attack
 	if n.Byzantine && n.DarkAttack && slices.Contains(n.DarkAttackNodes, prepareMessage.NodeID) {
@@ -275,7 +275,7 @@ func (n *LinearPBFTNode) PrepareRequest(ctx context.Context, signedPrepareMessag
 		signedCommitMessage.Signature = []byte("invalid signature")
 	}
 
-	go n.TryExecute(sequenceNum)
+	n.Executor.GetExecuteChannel() <- 0
 
 	// Byzantine node behavior: dark attack
 	if n.Byzantine && n.DarkAttack && slices.Contains(n.DarkAttackNodes, commitMessage.NodeID) {
@@ -385,7 +385,7 @@ func (n *LinearPBFTNode) CommitRequest(ctx context.Context, signedCommitMessages
 	}
 
 	// Execute transaction
-	go n.TryExecute(sequenceNum)
+	n.Executor.GetExecuteChannel() <- 0
 
 	return &emptypb.Empty{}, nil
 }

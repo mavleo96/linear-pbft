@@ -54,7 +54,7 @@ func (n *LinearPBFTNode) SendViewChange(viewNumber int64) error {
 
 	// Get max sequence number in log record
 	maxSequenceNum := n.State.StateLog.MaxSequenceNum()
-	lowerSequenceNum := n.LowWaterMark
+	lowerSequenceNum := n.config.lowWaterMark
 
 	// Get prepared message proof set
 	preparedSet := make([]*pb.PrepareProof, 0)

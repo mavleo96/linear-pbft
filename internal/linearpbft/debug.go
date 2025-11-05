@@ -41,7 +41,7 @@ func (n *LinearPBFTNode) PrintDB(ctx context.Context, req *emptypb.Empty) (*empt
 	defer n.Mutex.RUnlock()
 	log.Infof("Print database command received")
 	fmt.Println("Printing database:")
-	db_state, err := n.DB.PrintDB()
+	db_state, err := n.Executor.db.PrintDB()
 	if err != nil {
 		log.Fatal(err)
 	}

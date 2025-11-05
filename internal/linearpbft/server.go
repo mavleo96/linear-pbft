@@ -17,12 +17,17 @@ const (
 
 // type ServerState struct {
 
+type ServerConfig struct {
+	lowWaterMark  int64
+	highWaterMark int64
+	k             int64
+}
+
 // LinearPBFTNode represents a LinearPBFT node
 type LinearPBFTNode struct {
 	// Node information
 	*models.Node
 	PrivateKey []byte
-	DB         *database.Database
 
 	// Node status
 	Alive                   bool
@@ -36,12 +41,11 @@ type LinearPBFTNode struct {
 	EquivocationAttackNodes []string
 
 	// Peer nodes and their information
-	Peers         map[string]*models.Node
-	F             int64
-	N             int64
-	K             int64 // checkpoint interval
-	LowWaterMark  int64
-	HighWaterMark int64
+	Peers map[string]*models.Node
+	F     int64
+	N     int64
+
+	config *ServerConfig
 
 	// Clients and their information
 	Clients map[string]*models.Client
@@ -52,6 +56,9 @@ type LinearPBFTNode struct {
 
 	// Server state
 	State *ServerState
+
+	// Executor
+	Executor *Executor
 
 	// Timer instance
 	SafeTimer *SafeTimer
@@ -74,6 +81,14 @@ type LinearPBFTNode struct {
 // CreateLinearPBFTNode creates a new LinearPBFT node
 func CreateLinearPBFTNode(selfNode *models.Node, peerNodes map[string]*models.Node, clientMap map[string]*models.Client, bankDB *database.Database, privateKey []byte) *LinearPBFTNode {
 
+	timer := CreateSafeTimer(ExecutionTimeout, ViewChangeTimeout)
+
+	serverConfig := &ServerConfig{
+		lowWaterMark:  0,
+		highWaterMark: 100,
+		k:             10,
+	}
+
 	serverState := &ServerState{
 		mutex:                   sync.RWMutex{},
 		viewNumber:              0,
@@ -84,9 +99,19 @@ func CreateLinearPBFTNode(selfNode *models.Node, peerNodes map[string]*models.No
 		TransactionMap:          CreateTransactionMap(),
 	}
 
-	return &LinearPBFTNode{
+	checkPointCh := make(chan bool)
+
+	executor := &Executor{
+		db:           bankDB,
+		safeTimer:    timer,
+		state:        serverState,
+		config:       serverConfig,
+		executeCh:    make(chan int64, 20),
+		checkPointCh: checkPointCh,
+	}
+
+	server := &LinearPBFTNode{
 		Node:                    selfNode,
-		DB:                      bankDB,
 		Alive:                   true,
 		Byzantine:               false,
 		SignAttack:              false,
@@ -101,14 +126,13 @@ func CreateLinearPBFTNode(selfNode *models.Node, peerNodes map[string]*models.No
 		Clients:                 clientMap,
 		F:                       int64(len(peerNodes) / 3),
 		N:                       int64(len(peerNodes) + 1),
-		K:                       10,
-		LowWaterMark:            0,
-		HighWaterMark:           100,
+		config:                  serverConfig,
 		Mutex:                   sync.RWMutex{},
 		LastReply:               &LastReply{Mutex: sync.RWMutex{}, ReplyMap: make(map[string]*pb.TransactionResponse)},
 		State:                   serverState,
-		SafeTimer:               CreateSafeTimer(ExecutionTimeout, ViewChangeTimeout),
-		CheckPointRoutineCh:     make(chan bool),
+		SafeTimer:               timer,
+		Executor:                executor,
+		CheckPointRoutineCh:     checkPointCh,
 		RequestCh:               make(chan *pb.SignedTransactionRequest, 20),
 		PrepareCh:               make(chan []*pb.SignedPrepareMessage, 20),
 		CommitCh:                make(chan []*pb.SignedCommitMessage, 20),
@@ -116,4 +140,10 @@ func CreateLinearPBFTNode(selfNode *models.Node, peerNodes map[string]*models.No
 		ForwardedRequestsLog:    make([]*pb.SignedTransactionRequest, 0),
 		CheckPointLog:           &CheckpointLog{Mutex: sync.RWMutex{}, LastCheckPointSequenceNum: 0, Log: make(map[int64]map[string]*pb.SignedCheckPointMessage), Quorum: 2*int64(len(peerNodes)/3) + 1},
 	}
+
+	executor.sendReply = func(sequenceNum int64, request *pb.TransactionRequest, result int64) {
+		server.SendReply(sequenceNum, request, result)
+	}
+
+	return server
 }
