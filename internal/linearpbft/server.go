@@ -11,7 +11,7 @@ import (
 
 const (
 	ExecutionTimeout  = 400 * time.Millisecond
-	ViewChangeTimeout = 600 * time.Millisecond
+	ViewChangeTimeout = 700 * time.Millisecond
 	TimeAttackDelay   = 50 * time.Millisecond
 )
 

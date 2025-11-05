@@ -12,6 +12,7 @@ import (
 func (n *LinearPBFTNode) ServiceRoutine(ctx context.Context) {
 	log.Infof("Service routine started")
 	for {
+		// TODO: need to stop this service routine if not leader and drain the channels
 		select {
 		case <-ctx.Done():
 			return
@@ -44,35 +45,67 @@ func (n *LinearPBFTNode) ServiceRoutine(ctx context.Context) {
 				Signature: crypto.Sign(preprepare, n.PrivateKey),
 				Request:   signedRequest,
 			}
+			// Byzantine node behavior: sign attack
+			if n.Byzantine && n.SignAttack {
+				// log.Infof("Node %s is Byzantine and is performing sign attack", n.ID)
+				signedPreprepare.Signature = []byte("invalid signature")
+			}
 
 			// Preprepare the transaction
 			record.AddPrePrepareMessage(signedPreprepare)
 
-			// Send preprepare message to all nodes and collect prepare messages
+			// Multicast preprepare message to all nodes
 			go func() {
-				prepareMsgs, err := n.SendPrePrepare(signedPreprepare, sequenceNum)
-				if err != nil || prepareMsgs == nil {
+				err := n.SendPrePrepare(signedPreprepare, sequenceNum)
+				if err != nil {
 					return
 				}
-				n.PrepareCh <- prepareMsgs
 			}()
 
 		case signedPrepareMessages := <-n.PrepareCh:
-
+			// Add prepare messages to log record
 			sequenceNum := signedPrepareMessages[0].Message.SequenceNum
+			record, _ := n.State.StateLog.Get(sequenceNum)
+			record.AddPrepareMessages(signedPrepareMessages)
+			// Byzantine node behavior: crash attack
+			if n.Byzantine && n.CrashAttack {
+				// log.Infof("Node %s is Byzantine and is performing crash attack", n.ID)
+				record.MaliciousUpdateLogState()
+			}
+
+			// Create collected signed prepare message
+			collectedSignedPrepareMessages := &pb.CollectedSignedPrepareMessage{
+				ViewNumber:  n.State.GetViewNumber(),
+				SequenceNum: sequenceNum,
+				Digest:      record.Digest,
+				Messages:    signedPrepareMessages,
+			}
+
+			// Multicast prepare message to all nodes
 			go func() {
-				commitMsgs, err := n.SendPrepare(signedPrepareMessages, sequenceNum)
-				if err != nil || commitMsgs == nil {
+				err := n.SendPrepare(collectedSignedPrepareMessages)
+				if err != nil {
 					return
 				}
-				n.CommitCh <- commitMsgs
 			}()
 
 		case signedCommitMessages := <-n.CommitCh:
+			// Add commit messages to log record
 			sequenceNum := signedCommitMessages[0].Message.SequenceNum
+			record, _ := n.State.StateLog.Get(sequenceNum)
+			record.AddCommitMessages(signedCommitMessages)
 
+			// Create collected signed commit message
+			collectedSignedCommitMessage := &pb.CollectedSignedCommitMessage{
+				ViewNumber:  n.State.GetViewNumber(),
+				SequenceNum: sequenceNum,
+				Digest:      record.Digest,
+				Messages:    signedCommitMessages,
+			}
+
+			// Multicast commit message to all nodes
 			go func() {
-				err := n.SendCommit(signedCommitMessages, sequenceNum)
+				err := n.SendCommit(collectedSignedCommitMessage)
 				if err != nil {
 					return
 				}

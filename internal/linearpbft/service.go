@@ -57,67 +57,11 @@ func (n *LinearPBFTNode) TransferRequest(ctx context.Context, signedRequest *pb.
 		// 	n.Flag = true
 		// return &emptypb.Empty{}, nil
 	}
+	log.Infof("Received request from client %s: %s", request.Sender, utils.LoggingString(request))
 	n.RequestCh <- signedRequest
+	log.Infof("Sent request to request channel: %s", utils.LoggingString(request))
 	return &emptypb.Empty{}, nil
 }
-
-// 	// Get or assign sequence number
-// 	sequenceNum, exists := n.GetOrAssignSequenceNumber(signedRequest)
-// 	if !exists {
-// 		// Add request to log record
-// 		n.Mutex.Lock()
-// 		n.LogRecords[sequenceNum] = CreateLogRecord(n.ViewNumber, sequenceNum, crypto.Digest(signedRequest))
-// 		n.Mutex.Unlock()
-// 	}
-
-// 	// Add request to log record
-// 	record := n.LogRecords[sequenceNum]
-// 	if record.IsPrePrepared() {
-// 		log.Infof("In Progress: %s", utils.LoggingString(request))
-// 		return &emptypb.Empty{}, nil
-// 	}
-
-// 	// Create signed preprepare message and add to log record
-// 	preprepare := &pb.PrePrepareMessage{
-// 		ViewNumber:  n.ViewNumber,
-// 		SequenceNum: sequenceNum,
-// 		Digest:      crypto.Digest(signedRequest),
-// 	}
-// 	signedPreprepare := &pb.SignedPrePrepareMessage{
-// 		Message:   preprepare,
-// 		Signature: crypto.Sign(preprepare, n.PrivateKey),
-// 		Request:   signedRequest,
-// 	}
-// 	// Byzantine node behavior: sign attack
-// 	if n.Byzantine && n.SignAttack {
-// 		// log.Infof("Node %s is Byzantine and is performing sign attack", n.ID)
-// 		signedPreprepare.Signature = []byte("invalid signature")
-// 	}
-// 	record.AddPrePrepareMessage(signedPreprepare)
-
-// 	// Send preprepare message to all nodes and collect prepare messages
-// 	prepareMsgs, err := n.SendPrePrepare(signedPreprepare, sequenceNum)
-// 	if err != nil || prepareMsgs == nil {
-// 		return &emptypb.Empty{}, nil
-// 	}
-
-// 	// Send prepare message to all nodes and collect commit messages
-// 	commitMsgs, err := n.SendPrepare(prepareMsgs, sequenceNum)
-// 	if err != nil || commitMsgs == nil {
-// 		return &emptypb.Empty{}, nil
-// 	}
-
-// 	// Send commit message to all nodes
-// 	err = n.SendCommit(commitMsgs, sequenceNum)
-// 	if err != nil {
-// 		return &emptypb.Empty{}, nil
-// 	}
-
-// 	// Execute transaction
-// 	go n.TryExecute(sequenceNum)
-
-// 	return &emptypb.Empty{}, nil
-// }
 
 // ReadOnlyRequest handles incoming read only transaction requests from clients
 // This function replies to the client in the same RPC call directly instead of a separate RPC call to the client

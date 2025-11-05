@@ -159,25 +159,9 @@ func (n *LinearPBFTNode) NewViewRoutine(ctx context.Context, viewNumber int64) {
 
 	collectedSignedPrepareMessages := n.SendNewView(signedNewViewMessage)
 
-	// Print collected signed prepare messages
+	// Send prepare messages to prepare channel
 	for sequenceNum := range collectedSignedPrepareMessages {
-		go func(signedPrepareMsgs []*pb.SignedPrepareMessage, sequenceNum int64) {
-			// Send prepare messages to all nodes and collect commit messages
-			signedCommitMsgs, err := n.SendPrepare(signedPrepareMsgs, sequenceNum)
-			if err != nil || signedCommitMsgs == nil {
-				return
-			}
-
-			// Send commit messages to all nodes
-			err = n.SendCommit(signedCommitMsgs, sequenceNum)
-			if err != nil {
-				return
-			}
-
-			// Try to execute transaction
-			go n.TryExecute(sequenceNum)
-
-		}(collectedSignedPrepareMessages[sequenceNum], sequenceNum)
+		n.PrepareCh <- collectedSignedPrepareMessages[sequenceNum]
 	}
 }
 

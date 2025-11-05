@@ -12,20 +12,12 @@ import (
 	"github.com/mavleo96/bft-mavleo96/internal/utils"
 	"github.com/mavleo96/bft-mavleo96/pb"
 	log "github.com/sirupsen/logrus"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 // SendPrePrepare sends a preprepare message to all nodes
-func (n *LinearPBFTNode) SendPrePrepare(signedPreprepareMessage *pb.SignedPrePrepareMessage, sequenceNum int64) ([]*pb.SignedPrepareMessage, error) {
+func (n *LinearPBFTNode) SendPrePrepare(signedPreprepareMessage *pb.SignedPrePrepareMessage, sequenceNum int64) error {
 	prePrepareMessage := signedPreprepareMessage.Message
 
-	// Add preprepare message to log record
-	// record := n.LogRecords[sequenceNum]
-	// if record == nil {
-	// 	log.Fatal("Leader tried to preprepare a sequence number that is not in the log record")
-	// }
-	record, _ := n.State.StateLog.Get(sequenceNum)
 	request := n.State.TransactionMap.Get(prePrepareMessage.Digest)
 
 	// Multicast preprepare message to all nodes
@@ -111,44 +103,20 @@ func (n *LinearPBFTNode) SendPrePrepare(signedPreprepareMessage *pb.SignedPrePre
 		if len(signedPrepareMsgs) == int(n.N-n.F) {
 			log.Infof("Verified prepare messages for sequence number %d", sequenceNum)
 			log.Infof("Prepare messages collected for sequence number %d", sequenceNum)
-			record.AddPrepareMessages(signedPrepareMsgs)
-			return signedPrepareMsgs, nil
+			n.PrepareCh <- signedPrepareMsgs
+			return nil
 		}
 	}
 	log.Infof("Prepare messages not collected for sequence number %d", sequenceNum)
-	return nil, nil
+	return nil
 }
 
 // SendPrepare sends a prepare message to all nodes
-func (n *LinearPBFTNode) SendPrepare(signedPrepareMessages []*pb.SignedPrepareMessage, sequenceNum int64) ([]*pb.SignedCommitMessage, error) {
-	// Get record from log record
-	n.Mutex.Lock()
-	record, _ := n.State.StateLog.Get(sequenceNum)
-	if record == nil || !record.IsPrePrepared() {
-		log.Fatal("Log record is not preprepared")
-	}
+func (n *LinearPBFTNode) SendPrepare(collectedSignedPrepareMessage *pb.CollectedSignedPrepareMessage) error {
 
-	// Add to prepared log
-	record.AddPrepareMessages(signedPrepareMessages)
-	// Byzantine node behavior: crash attack
-	if n.Byzantine && n.CrashAttack {
-		// log.Infof("Node %s is Byzantine and is performing crash attack", n.ID)
-		record.MaliciousUpdateLogState()
-	}
-	n.Mutex.Unlock()
-	// Byzantine node behavior: crash attack
-	if n.Byzantine && n.CrashAttack {
-		// log.Infof("Node %s is Byzantine and is performing crash attack", n.ID)
-		return nil, status.Errorf(codes.Unavailable, "node not alive")
-	}
-
-	// Create collected signed prepare message
-	collectedSignedPrepareMessage := &pb.CollectedSignedPrepareMessage{
-		ViewNumber:  n.State.GetViewNumber(),
-		SequenceNum: sequenceNum,
-		Digest:      record.Digest,
-		Messages:    signedPrepareMessages,
-	}
+	viewNumber := collectedSignedPrepareMessage.ViewNumber
+	sequenceNum := collectedSignedPrepareMessage.SequenceNum
+	digest := collectedSignedPrepareMessage.Digest
 
 	// Multicast prepare message to all nodes
 	responseCh := make(chan *pb.SignedCommitMessage, len(n.Peers))
@@ -168,7 +136,6 @@ func (n *LinearPBFTNode) SendPrepare(signedPrepareMessages []*pb.SignedPrepareMe
 			}
 			signedCommitMsg, err := (*peer.Client).PrepareRequest(context.Background(), collectedSignedPrepareMessage)
 			if err != nil {
-				// log.Fatal(err)
 				return
 			}
 			responseCh <- signedCommitMsg
@@ -182,9 +149,9 @@ func (n *LinearPBFTNode) SendPrepare(signedPrepareMessages []*pb.SignedPrepareMe
 	// Create signed commit messages including self
 	signedCommitMsgs := make([]*pb.SignedCommitMessage, 0)
 	commitMessage := &pb.CommitMessage{
-		ViewNumber:  n.State.GetViewNumber(),
+		ViewNumber:  viewNumber,
 		SequenceNum: sequenceNum,
-		Digest:      record.Digest,
+		Digest:      digest,
 		NodeID:      n.ID,
 	}
 	signedCommitMessage := &pb.SignedCommitMessage{
@@ -212,9 +179,9 @@ func (n *LinearPBFTNode) SendPrepare(signedPrepareMessages []*pb.SignedPrepareMe
 		}
 
 		// Check if the commit message matches prepare message
-		if signedCommitMsg.Message.ViewNumber != record.ViewNumber ||
-			signedCommitMsg.Message.SequenceNum != record.SequenceNum ||
-			!cmp.Equal(signedCommitMsg.Message.Digest, record.Digest) {
+		if signedCommitMsg.Message.ViewNumber != viewNumber ||
+			signedCommitMsg.Message.SequenceNum != sequenceNum ||
+			!cmp.Equal(signedCommitMsg.Message.Digest, digest) {
 			continue
 		}
 
@@ -225,33 +192,18 @@ func (n *LinearPBFTNode) SendPrepare(signedPrepareMessages []*pb.SignedPrepareMe
 		if len(signedCommitMsgs) == int(n.N-n.F) {
 			log.Infof("Verified commit messages for sequence number %d", sequenceNum)
 			log.Infof("Collected commit message for sequence number %d", sequenceNum)
-			return signedCommitMsgs, nil
+			n.CommitCh <- signedCommitMsgs
+			return nil
 		}
 	}
 	log.Infof("Commit messages not collected for sequence number %d", sequenceNum)
-	return nil, nil
+	return nil
 }
 
 // SendCommit sends a commit message to all nodes
-func (n *LinearPBFTNode) SendCommit(signedCommitMessages []*pb.SignedCommitMessage, sequenceNum int64) error {
-	// Get record from log record
-	n.Mutex.Lock()
-	record, _ := n.State.StateLog.Get(sequenceNum)
-	if record == nil || !record.IsPrepared() {
-		log.Fatal("Log record is not prepared")
-	}
+func (n *LinearPBFTNode) SendCommit(collectedSignedCommitMessage *pb.CollectedSignedCommitMessage) error {
 
-	// Add to committed log
-	record.AddCommitMessages(signedCommitMessages)
-	n.Mutex.Unlock()
-
-	// Create collected signed commit message
-	collectedSignedCommitMessage := &pb.CollectedSignedCommitMessage{
-		ViewNumber:  n.State.GetViewNumber(),
-		SequenceNum: sequenceNum,
-		Digest:      record.Digest,
-		Messages:    signedCommitMessages,
-	}
+	sequenceNum := collectedSignedCommitMessage.SequenceNum
 
 	// Multicast commit message to all nodes
 	log.Infof("Sending commit message for sequence number %d", sequenceNum)
