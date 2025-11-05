@@ -28,17 +28,27 @@ func (e *Executor) ExecuteRoutine(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			return
-		case <-e.executeCh:
-			sequenceNum := e.state.GetLastExecutedSequenceNum() + 1
+		case s := <-e.executeCh:
+			log.Infof("Received execute signal for sequence number %d", s)
+			sequenceNum := e.state.GetLastExecutedSequenceNum()
 			maxSequenceNum := e.state.StateLog.MaxSequenceNum()
+			if sequenceNum == maxSequenceNum {
+				continue
+			}
 
-			for i := sequenceNum; i <= maxSequenceNum; i++ {
+		tryLoop:
+			for i := sequenceNum + 1; i <= maxSequenceNum; i++ {
 				record, exists := e.state.StateLog.Get(i)
 				if !exists {
-					break
+					break tryLoop
 				}
 				if record == nil || !record.IsCommitted() {
-					break
+					break tryLoop
+				}
+				if record.IsExecuted() {
+					// e.state.SetLastExecutedSequenceNum(i)
+					log.Fatalf("Sequence number %d was executed but state maxexecuted sequence number is %d", i, e.state.GetLastExecutedSequenceNum())
+					continue tryLoop
 				}
 
 				// Execute transaction
@@ -72,9 +82,7 @@ func (e *Executor) ExecuteRoutine(ctx context.Context) {
 
 				// Signal the checkpoint routine if the last executed sequence number is a multiple of k
 				if i%e.config.k == 0 {
-					// n.Mutex.Unlock()
 					e.checkPointCh <- true
-					// n.Mutex.Lock()
 				}
 			}
 		}

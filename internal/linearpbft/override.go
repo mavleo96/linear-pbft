@@ -57,6 +57,7 @@ func (n *LinearPBFTNode) ResetNode(ctx context.Context, req *emptypb.Empty) (*em
 	n.State.StateLog = &StateLog{mutex: sync.RWMutex{}, log: make(map[int64]*LogRecord)}
 	n.State.SetLastExecutedSequenceNum(0)
 	n.LastReply = &LastReply{Mutex: sync.RWMutex{}, ReplyMap: make(map[string]*pb.TransactionResponse)}
+	n.State.SetViewNumber(0)
 	n.State.SetViewChangePhase(false)
 	n.State.SetViewChangeViewNumber(0)
 	n.State.TransactionMap = CreateTransactionMap()
