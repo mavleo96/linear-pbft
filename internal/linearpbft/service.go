@@ -45,8 +45,8 @@ func (n *LinearPBFTNode) TransferRequest(ctx context.Context, signedRequest *pb.
 		return &emptypb.Empty{}, nil
 	}
 
-	// Forward request to leader if not leader
-	if n.ID != utils.ViewNumberToLeaderID(n.State.GetViewNumber(), n.N) {
+	// Forward request to primary if not primary
+	if n.ID != utils.ViewNumberToPrimaryID(n.State.GetViewNumber(), n.N) {
 		n.SafeTimer.IncrementWaitCountOrStart()
 		ctx := n.SafeTimer.GetContext()
 		go n.ForwardRequest(ctx, signedRequest)
@@ -149,17 +149,17 @@ func (n *LinearPBFTNode) SendReply(sequenceNum int64, request *pb.TransactionReq
 	}
 }
 
-// ForwardRequest forwards a transaction request to the leader
+// ForwardRequest forwards a transaction request to the primary
 func (n *LinearPBFTNode) ForwardRequest(ctx context.Context, signedRequest *pb.SignedTransactionRequest) {
-	// Forward request to leader
-	leaderID := utils.ViewNumberToLeaderID(n.State.GetViewNumber(), n.N)
+	// Forward request to primary
+	primaryID := utils.ViewNumberToPrimaryID(n.State.GetViewNumber(), n.N)
 	// Byzantine node behavior: dark attack
-	if n.Byzantine && n.DarkAttack && slices.Contains(n.DarkAttackNodes, leaderID) {
-		log.Infof("Node %s is Byzantine and is performing dark attack on node %s", n.ID, leaderID)
+	if n.Byzantine && n.DarkAttack && slices.Contains(n.DarkAttackNodes, primaryID) {
+		log.Infof("Node %s is Byzantine and is performing dark attack on node %s", n.ID, primaryID)
 		return
 	}
-	log.Infof("Forwarding to leader %s: %s", leaderID, utils.LoggingString(signedRequest.Request))
-	_, err := (*n.Peers[leaderID].Client).TransferRequest(context.Background(), signedRequest)
+	log.Infof("Forwarding to primary %s: %s", primaryID, utils.LoggingString(signedRequest.Request))
+	_, err := (*n.Peers[primaryID].Client).TransferRequest(context.Background(), signedRequest)
 	if err != nil {
 		log.Warnf("Forwarding Failed: %s; %s", utils.LoggingString(signedRequest.Request), err.Error())
 	}

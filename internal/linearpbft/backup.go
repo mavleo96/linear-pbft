@@ -17,7 +17,7 @@ import (
 )
 
 // PrePrepare handles incoming preprepare messages
-// This function is a rpc which is called by the leader to preprepare a request
+// This function is a rpc which is called by the primary to preprepare a request
 // It is also called by inside new view request rpc
 func (n *LinearPBFTNode) PrePrepareRequest(ctx context.Context, signedMessage *pb.SignedPrePrepareMessage) (*pb.SignedPrepareMessage, error) {
 	prePrepareMessage := signedMessage.Message
@@ -36,8 +36,8 @@ func (n *LinearPBFTNode) PrePrepareRequest(ctx context.Context, signedMessage *p
 	}
 
 	// Verify Node's signature
-	currentLeaderID := utils.ViewNumberToLeaderID(n.State.GetViewNumber(), n.N)
-	ok := crypto.Verify(prePrepareMessage, n.GetPublicKey(currentLeaderID), signedMessage.Signature)
+	currentPrimaryID := utils.ViewNumberToPrimaryID(n.State.GetViewNumber(), n.N)
+	ok := crypto.Verify(prePrepareMessage, n.GetPublicKey(currentPrimaryID), signedMessage.Signature)
 	if !ok {
 		log.Warnf("Rejected: %s; invalid signature", utils.LoggingString(prePrepareMessage))
 		return nil, status.Errorf(codes.Unauthenticated, "invalid signature")

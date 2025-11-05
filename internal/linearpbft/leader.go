@@ -56,7 +56,7 @@ func (n *LinearPBFTNode) SendPrePrepare(signedPreprepareMessage *pb.SignedPrePre
 		close(responseCh)
 	}()
 
-	// Add leader's own prepare message
+	// Add primary's own prepare message
 	signedPrepareMsgs := make([]*pb.SignedPrepareMessage, 0)
 	prepareMessage := &pb.PrepareMessage{
 		ViewNumber:  prePrepareMessage.ViewNumber,
@@ -76,7 +76,7 @@ func (n *LinearPBFTNode) SendPrePrepare(signedPreprepareMessage *pb.SignedPrePre
 	signedPrepareMsgs = append(signedPrepareMsgs, signedPrepareMessage)
 
 	// Collect 2f + 1 matching prepare messages including self
-	// Note: leader is attaching his own prepare message to comply with TSS
+	// Note: primary is attaching his own prepare message to comply with TSS
 	for range len(n.Peers) {
 		signedPrepareMsg := <-responseCh
 		if signedPrepareMsg == nil || signedPrepareMsg.Message == nil {

@@ -12,7 +12,7 @@ import (
 func (n *LinearPBFTNode) ServiceRoutine(ctx context.Context) {
 	log.Infof("Service routine started")
 	for {
-		// TODO: need to stop this service routine if not leader and drain the channels
+		// TODO: need to stop this service routine if not primary and drain the channels
 		select {
 		case <-ctx.Done():
 			return

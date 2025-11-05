@@ -96,7 +96,7 @@ func (n *LinearPBFTNode) NewViewRoutine(ctx context.Context, viewNumber int64) {
 		sortedSignedPrePrepareMessages = append(sortedSignedPrePrepareMessages, newSignedPrePrepareMessage)
 	}
 
-	// Leader needs to first preprepare the request in its own log record
+	// Primary needs to first preprepare the request in its own log record
 	for _, signedPrePrepareMessage := range sortedSignedPrePrepareMessages {
 		prePrepareMessage := signedPrePrepareMessage.Message
 		sequenceNum := prePrepareMessage.SequenceNum
@@ -186,8 +186,8 @@ func (n *LinearPBFTNode) NewViewRequest(signedNewViewMessage *pb.SignedNewViewMe
 	}
 
 	// Verify signature
-	leaderID := utils.ViewNumberToLeaderID(viewNumber, n.N)
-	ok := crypto.Verify(newViewMessage, n.GetPublicKey(leaderID), signedNewViewMessage.Signature)
+	primaryID := utils.ViewNumberToPrimaryID(viewNumber, n.N)
+	ok := crypto.Verify(newViewMessage, n.GetPublicKey(primaryID), signedNewViewMessage.Signature)
 	if !ok {
 		log.Warnf("Rejected: %s; invalid signature", utils.LoggingString(newViewMessage))
 		return status.Errorf(codes.Unauthenticated, "invalid signature")
@@ -206,7 +206,7 @@ func (n *LinearPBFTNode) NewViewRequest(signedNewViewMessage *pb.SignedNewViewMe
 	// Verify preprepare messages signatures
 	for _, signedPrePrepareMessage := range signedPrePrepareMessages {
 		prePrepareMessage := signedPrePrepareMessage.Message
-		ok := crypto.Verify(prePrepareMessage, n.GetPublicKey(leaderID), signedPrePrepareMessage.Signature)
+		ok := crypto.Verify(prePrepareMessage, n.GetPublicKey(primaryID), signedPrePrepareMessage.Signature)
 		if !ok {
 			log.Warnf("Rejected: %s; invalid signature on preprepare message", utils.LoggingString(newViewMessage))
 			return status.Errorf(codes.Unauthenticated, "invalid signature on preprepare message")
@@ -221,22 +221,22 @@ func (n *LinearPBFTNode) NewViewRequest(signedNewViewMessage *pb.SignedNewViewMe
 	log.Infof("Accepted %s", utils.LoggingString(newViewMessage))
 
 	// Byzantine node behavior: dark attack
-	if n.Byzantine && n.DarkAttack && slices.Contains(n.DarkAttackNodes, leaderID) {
-		// log.Infof("Node %s is Byzantine and is performing dark attack on node %s", n.ID, leaderID)
+	if n.Byzantine && n.DarkAttack && slices.Contains(n.DarkAttackNodes, primaryID) {
+		// log.Infof("Node %s is Byzantine and is performing dark attack on node %s", n.ID, primaryID)
 		return status.Errorf(codes.Unavailable, "node not alive")
 	}
 
-	// Stream prepare messages to leader
+	// Stream prepare messages to primary
 	for _, signedPrePrepareMessage := range signedPrePrepareMessages {
 		n.Mutex.Unlock()
 		signedPrepareMessage, err := n.PrePrepareRequest(context.Background(), signedPrePrepareMessage)
 		n.Mutex.Lock()
 		if err != nil {
-			log.Warnf("Prepare request %s could not be sent to leader: %s", utils.LoggingString(signedPrePrepareMessage), err)
+			log.Warnf("Prepare request %s could not be sent to primary: %s", utils.LoggingString(signedPrePrepareMessage), err)
 			continue
 		}
 		if err := stream.Send(signedPrepareMessage); err != nil {
-			log.Warnf("Prepare message %s could not be sent to leader in stream: %s", utils.LoggingString(signedPrepareMessage), err)
+			log.Warnf("Prepare message %s could not be sent to primary in stream: %s", utils.LoggingString(signedPrepareMessage), err)
 		}
 	}
 	log.Infof("Streamed prepares messages for view number %d", viewNumber)

@@ -65,7 +65,7 @@ func (n *LinearPBFTNode) TryExecute(sequenceNum int64) {
 
 		// Add to executed log and send reply if transaction is not null
 		record.SetExecuted()
-		// TODO: make this elegant since leader doesn't have a safe timer running
+		// TODO: make this elegant since primary doesn't have a safe timer running
 		n.SafeTimer.DecrementWaitCountAndResetOrStopIfZero()
 		log.Infof("Executed (v: %d, s: %d): %s", n.State.GetViewNumber(), i, utils.LoggingString(request.Transaction))
 		if request.Transaction.Type != "null" {
