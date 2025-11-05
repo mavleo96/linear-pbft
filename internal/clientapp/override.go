@@ -56,11 +56,11 @@ func ReconfigureNodes(nodeMap map[string]*models.Node, liveNodes []*models.Node,
 
 // SendResetCommand sends a reset command to all nodes
 func SendResetCommand(nodeMap map[string]*models.Node) {
-	log.Info("Reset command received")
+	log.Info("Node Reset command received")
 	for _, node := range nodeMap {
 		_, err := (*node.Client).ResetNode(context.Background(), &emptypb.Empty{})
 		if err != nil {
-			log.Warn(err)
+			log.Warnf("Error sending reset command to node %s: %v", node.ID, err)
 		}
 	}
 }

@@ -11,11 +11,11 @@ import (
 // ResponseCollector collects responses and determines consensus
 type ResponseCollector struct {
 	clientID string
-	state    *State
+	state    *ClientState
 	f        int64
 
 	// Channels
-	resultCh   chan<- int64
+	resultCh   chan<- Result
 	responseCh chan *pb.TransactionResponse
 }
 
@@ -26,7 +26,6 @@ func (rc *ResponseCollector) GetSendResponseChannel() chan<- *pb.TransactionResp
 
 // CollectResponses collects responses and determines consensus
 func (rc *ResponseCollector) CollectResponses(ctx context.Context) {
-	// log.Infof("%s: response collector started", rc.clientID)
 	majorityReached := false // Whether f+1 matching values have been received
 collectionLoop:
 	for {
@@ -42,6 +41,7 @@ collectionLoop:
 				if majorityReached {
 					continue collectionLoop
 				}
+				// TODO: this maybe be redundant since result is (v, r)
 				// If new view started while receiving replies, reset
 				if resp.ViewNumber > rc.state.GetViewNumber() {
 					rc.state.UpdateViewNumber(resp.ViewNumber)
@@ -56,7 +56,7 @@ collectionLoop:
 			}
 
 			// Record reply
-			rc.state.AddResponse(resp.NodeID, resp.Result)
+			rc.state.AddResponse(resp.NodeID, Result{ViewNumber: resp.ViewNumber, Result: resp.Result})
 
 			// Check if f+1 matching values have been received
 			responseCounter := rc.state.GetResponseMap()

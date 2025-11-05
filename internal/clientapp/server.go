@@ -29,7 +29,7 @@ func (s *ClientAppServer) ReceiveReply(ctx context.Context, signedResponse *pb.S
 	// Verify signature
 	ok := crypto.Verify(response, s.coordinator.nodes.GetPublicKey(response.NodeID), signedResponse.Signature)
 	if !ok {
-		log.Warnf("Invalid signature for reply from node %s", response.NodeID)
+		// log.Warnf("Invalid signature for reply from node %s", response.NodeID)
 		return &emptypb.Empty{}, nil
 	}
 
@@ -55,27 +55,28 @@ func (s *ClientAppServer) StartServer(mainCtx context.Context) {
 	s.grpcServer = grpc.NewServer()
 	pb.RegisterLinearPBFTClientAppServer(s.grpcServer, s)
 
-	// Graceful shutdown
+	// Start coordinator before serving
+	s.coordinator.Start()
+
+	// Graceful shutdown handler
 	go func() {
 		<-mainCtx.Done()
-		log.Infof("%s received exit signal on gRPC server", s.ID)
-		s.grpcServer.GracefulStop()
-		log.Infof("%s gRPC server graceful stop complete", s.ID)
-	}()
-	go s.coordinator.Start()
+		log.Infof("%s received exit signal, shutting down", s.ID)
 
-	// Start serving
+		// Stop coordinator first
+		s.coordinator.Stop()
+
+		// Then stop gRPC server
+		log.Infof("%s stopping gRPC server", s.ID)
+		s.grpcServer.GracefulStop()
+		log.Infof("%s gRPC server stopped", s.ID)
+	}()
+
+	// Start serving (this blocks until server stops)
 	log.Infof("%s gRPC server listening on %s", s.ID, s.Client.Address)
 	if err := s.grpcServer.Serve(lis); err != nil {
-		// log.Fatalf("Failed to serve: %v", err)
-		log.Warnf("Failed to serve: %v", err)
+		log.Warnf("%s gRPC server error: %v", s.ID, err)
 	}
-
-	// Wait for coordinator to finish
-	go func() {
-		s.coordinator.wgReset.Wait()
-		log.Infof("%s coordinator finished", s.ID)
-	}()
 }
 
 // CreateClientAppServer creates a client app server
@@ -85,18 +86,20 @@ func CreateClientAppServer(mainCtx context.Context, client *models.Client, nodes
 		log.Fatal(err)
 	}
 
+	// Calculate F (fault tolerance) based on number of nodes: F = (N-1)/3
+	f := int64((len(nodes) - 1) / 3)
 	nodeMap := &NodeMap{
 		nodes: nodes,
 		N:     int64(len(nodes)),
-		F:     2,
+		F:     f,
 	}
 
-	resultCh := make(chan int64)
+	resultCh := make(chan Result, 1)
 
-	state := &State{
+	state := &ClientState{
 		currentTimestamp:  0,
 		currentViewNumber: 0,
-		responseMap:       make(map[string]int64),
+		responseMap:       make(map[string]Result),
 		mutex:             sync.RWMutex{},
 	}
 	processor := &Processor{
@@ -110,18 +113,19 @@ func CreateClientAppServer(mainCtx context.Context, client *models.Client, nodes
 	collector := &ResponseCollector{
 		clientID:   client.ID,
 		state:      state,
-		f:          2,
-		responseCh: make(chan *pb.TransactionResponse),
+		f:          f,
+		responseCh: make(chan *pb.TransactionResponse, 100),
 		resultCh:   resultCh,
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(mainCtx)
 	coordinator := &Coordinator{
 		clientID:  client.ID,
 		state:     state,
 		processor: processor,
 		collector: collector,
 		nodes:     nodeMap,
+		parentCtx: mainCtx,
 		testSetCh: make(chan *TestSet),
 		resetCh:   make(chan bool),
 		ctx:       ctx,

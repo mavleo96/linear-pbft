@@ -15,18 +15,18 @@ import (
 
 const (
 	maxAttempts   = 1000
-	clientTimeout = 10000 * time.Millisecond
+	clientTimeout = 1000 * time.Millisecond
 )
 
 // Processor processes transactions
 type Processor struct {
 	clientID   string
-	state      *State
+	state      *ClientState
 	nodes      *NodeMap
 	privateKey []byte
 
 	// Channels
-	resultCh <-chan int64
+	resultCh <-chan Result
 }
 
 // ProcessTransaction processes a transaction
@@ -47,21 +47,28 @@ func (p *Processor) ProcessTransaction(ctx context.Context, t *pb.Transaction) (
 	if t.Type == "read" {
 		result, err := p.processReadOnlyTransaction(ctx, signedRequest)
 		if err == nil {
-			return result, nil
+			log.Infof("%s: %s -> (v:%d, r:%d)", p.clientID, utils.LoggingString(signedRequest.Request), result.ViewNumber, result.Result)
+			return result.Result, nil
 		}
 	}
-	return p.processWriteTransaction(ctx, signedRequest)
+	result, err := p.processWriteTransaction(ctx, signedRequest)
+	if err == nil {
+		log.Infof("%s: %s -> (v:%d, r:%d)", p.clientID, utils.LoggingString(signedRequest.Request), result.ViewNumber, result.Result)
+		return result.Result, nil
+	}
+	log.Warnf("%s: %s -> error: %s", p.clientID, utils.LoggingString(signedRequest.Request), err.Error())
+	return 0, err
 }
 
 // processWriteTransaction processes a write transaction
-func (p *Processor) processWriteTransaction(ctx context.Context, signedRequest *pb.SignedTransactionRequest) (int64, error) {
-	var result int64
+func (p *Processor) processWriteTransaction(ctx context.Context, signedRequest *pb.SignedTransactionRequest) (Result, error) {
+	var result Result
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
 		// ctxWithTimeout, cancel := context.WithTimeout(context.Background(), clientTimeout)
 		// If first attempt send to primary node
 		if attempt == 1 {
-			primaryID := utils.ViewNumberToLeaderID(p.state.GetViewNumber(), p.nodes.N)
-			_, err := (*p.nodes.GetNode(primaryID).Client).TransferRequest(context.Background(), signedRequest)
+			primaryID := utils.ViewNumberToPrimaryID(p.state.GetViewNumber(), p.nodes.N)
+			_, err := (*p.nodes.GetNode(primaryID).Client).TransferRequest(ctx, signedRequest)
 			if err != nil {
 				log.Warnf("%s -> %s: error sending transaction to %s: %s", p.clientID, utils.LoggingString(signedRequest.Request), primaryID, err.Error())
 			}
@@ -69,7 +76,7 @@ func (p *Processor) processWriteTransaction(ctx context.Context, signedRequest *
 			// If not first attempt multicast to all nodes
 			for _, node := range p.nodes.GetNodes() {
 				go func(node *models.Node, signedRequest *pb.SignedTransactionRequest) {
-					_, err := (*node.Client).TransferRequest(context.Background(), signedRequest)
+					_, err := (*node.Client).TransferRequest(ctx, signedRequest)
 					if err != nil {
 						log.Warnf("%s -> %s: error sending transaction to %s: %s", p.clientID, utils.LoggingString(signedRequest.Request), node.ID, err.Error())
 					}
@@ -87,15 +94,15 @@ func (p *Processor) processWriteTransaction(ctx context.Context, signedRequest *
 		// If context done, return error
 		case <-ctx.Done():
 			log.Infof("%s: received exit signal on process write transaction", p.clientID)
-			return 0, ctx.Err()
+			return Result{}, ctx.Err()
 		}
 	}
 	log.Warnf("%s -> %s: transaction attempt limit reached", p.clientID, utils.LoggingString(signedRequest.Request))
-	return 0, errors.New("transaction attempt limit reached")
+	return Result{}, errors.New("transaction attempt limit reached")
 }
 
 // processReadOnlyTransaction processes a read-only transaction
-func (p *Processor) processReadOnlyTransaction(ctx context.Context, signedRequest *pb.SignedTransactionRequest) (int64, error) {
+func (p *Processor) processReadOnlyTransaction(ctx context.Context, signedRequest *pb.SignedTransactionRequest) (Result, error) {
 	// Multicast the request to all nodes
 	responseCh := make(chan *pb.SignedTransactionResponse, p.nodes.N)
 	wg := sync.WaitGroup{}
@@ -119,7 +126,8 @@ func (p *Processor) processReadOnlyTransaction(ctx context.Context, signedReques
 	}()
 
 	// Collect responses and check for super-majority
-	responseCounter := make(map[int64]int64)
+
+	responseCounter := make(map[Result]int64)
 	for {
 		select {
 		// If response is received, add to response counter
@@ -127,7 +135,7 @@ func (p *Processor) processReadOnlyTransaction(ctx context.Context, signedReques
 			// If majority not reached yet and no more responses, return error
 			if !channelOpen {
 				log.Warnf("%s -> %s: no majority", p.clientID, utils.LoggingString(signedRequest.Request))
-				return 0, errors.New("no majority")
+				return Result{}, errors.New("no majority")
 			}
 
 			resp := signedResp.Message
@@ -139,7 +147,7 @@ func (p *Processor) processReadOnlyTransaction(ctx context.Context, signedReques
 			}
 
 			// Add response to state
-			responseCounter[resp.Result]++
+			responseCounter[Result{ViewNumber: resp.ViewNumber, Result: resp.Result}]++
 
 			// Check if we have enough matches
 			maxVal, maxCnt := utils.MaxByValue(responseCounter)
@@ -150,12 +158,12 @@ func (p *Processor) processReadOnlyTransaction(ctx context.Context, signedReques
 		case <-time.After(clientTimeout):
 			// If timeout reached, return error
 			log.Warnf("%s -> %s: read-only transaction timed out", p.clientID, utils.LoggingString(signedRequest.Request))
-			return 0, errors.New("read-only transaction timed out")
+			return Result{}, errors.New("read-only transaction timed out")
 		// If context done, return error
 		case <-ctx.Done():
 			// If context done, return error
 			log.Warnf("%s: received exit signal on read-only transaction", p.clientID)
-			return 0, ctx.Err()
+			return Result{}, ctx.Err()
 		}
 	}
 }
