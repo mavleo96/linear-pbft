@@ -42,7 +42,7 @@ func (n *LinearPBFTNode) ServiceRoutine(ctx context.Context) {
 			}
 			signedPreprepare := &pb.SignedPrePrepareMessage{
 				Message:   preprepare,
-				Signature: crypto.Sign(preprepare, n.PrivateKey),
+				Signature: crypto.Sign(preprepare, n.PrivateKey1),
 				Request:   signedRequest,
 			}
 			// Byzantine node behavior: sign attack

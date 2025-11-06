@@ -2,6 +2,7 @@ package clientapp
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"path/filepath"
 	"sync"
@@ -27,7 +28,7 @@ func (s *ClientAppServer) ReceiveReply(ctx context.Context, signedResponse *pb.S
 	response := signedResponse.Message
 
 	// Verify signature
-	ok := crypto.Verify(response, s.coordinator.nodes.GetPublicKey(response.NodeID), signedResponse.Signature)
+	ok := crypto.Verify(response, s.coordinator.nodes.GetPublicKey1(response.NodeID), signedResponse.Signature)
 	if !ok {
 		// log.Warnf("Invalid signature for reply from node %s", response.NodeID)
 		return &emptypb.Empty{}, nil
@@ -81,7 +82,7 @@ func (s *ClientAppServer) StartServer(mainCtx context.Context) {
 
 // CreateClientAppServer creates a client app server
 func CreateClientAppServer(mainCtx context.Context, client *models.Client, nodes map[string]*models.Node) (chan<- *TestSet, chan bool, error) {
-	privateKey, err := crypto.ReadPrivateKey(filepath.Join("./keys", "client", client.ID+".pem"))
+	privateKey, err := crypto.ReadPrivateKey(filepath.Join("./keys", "client", fmt.Sprintf("%s_secret.key", client.ID)))
 	if err != nil {
 		log.Fatal(err)
 	}

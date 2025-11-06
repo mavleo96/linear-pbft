@@ -84,7 +84,7 @@ func (n *LinearPBFTNode) SendViewChange(viewNumber int64) error {
 	}
 	signedViewChangeMessage := &pb.SignedViewChangeMessage{
 		Message:   viewChangeMessage,
-		Signature: crypto.Sign(viewChangeMessage, n.PrivateKey),
+		Signature: crypto.Sign(viewChangeMessage, n.PrivateKey1),
 	}
 	// Byzantine node behavior: sign attack
 	if n.Byzantine && n.SignAttack {
@@ -133,7 +133,7 @@ func (n *LinearPBFTNode) ViewChangeRequest(ctx context.Context, signedViewChange
 	viewNumber := viewChangeMessage.ViewNumber
 
 	// Verify signature
-	ok := crypto.Verify(viewChangeMessage, n.GetPublicKey(viewChangeMessage.NodeID), signedViewChangeMessage.Signature)
+	ok := crypto.Verify(viewChangeMessage, n.GetPublicKey1(viewChangeMessage.NodeID), signedViewChangeMessage.Signature)
 	if !ok {
 		log.Warnf("Rejected: %s; invalid signature", utils.LoggingString(viewChangeMessage))
 		return nil, status.Errorf(codes.Unauthenticated, "invalid signature")
@@ -149,7 +149,7 @@ func (n *LinearPBFTNode) ViewChangeRequest(ctx context.Context, signedViewChange
 	// TODO: need to verify digest
 	for _, signedCheckPointMessage := range viewChangeMessage.CheckPointMessages {
 		checkPointMessage := signedCheckPointMessage.Message
-		ok := crypto.Verify(checkPointMessage, n.GetPublicKey(checkPointMessage.NodeID), signedCheckPointMessage.Signature)
+		ok := crypto.Verify(checkPointMessage, n.GetPublicKey1(checkPointMessage.NodeID), signedCheckPointMessage.Signature)
 		if !ok {
 			log.Warnf("Rejected: %s; invalid signature on check point message", utils.LoggingString(viewChangeMessage))
 			return nil, status.Errorf(codes.FailedPrecondition, "invalid signature on check point message")
@@ -170,7 +170,7 @@ func (n *LinearPBFTNode) ViewChangeRequest(ctx context.Context, signedViewChange
 
 		// Verify preprepare message signature
 		proposerID := utils.ViewNumberToPrimaryID(viewNumber, n.N)
-		ok := crypto.Verify(prePrepareMessage, n.GetPublicKey(proposerID), signedPrePrepareMessage.Signature)
+		ok := crypto.Verify(prePrepareMessage, n.GetPublicKey1(proposerID), signedPrePrepareMessage.Signature)
 		if !ok {
 			log.Warnf("Rejected: %s; invalid signature on prepare message", utils.LoggingString(viewChangeMessage))
 			return nil, status.Errorf(codes.FailedPrecondition, "invalid signature on preprepare message")
@@ -184,7 +184,7 @@ func (n *LinearPBFTNode) ViewChangeRequest(ctx context.Context, signedViewChange
 		// Verify prepare messages signatures
 		for _, signedPrepareMessage := range signedPrepareMessages {
 			prepareMessage := signedPrepareMessage.Message
-			ok := crypto.Verify(prepareMessage, n.GetPublicKey(prepareMessage.NodeID), signedPrepareMessage.Signature)
+			ok := crypto.Verify(prepareMessage, n.GetPublicKey1(prepareMessage.NodeID), signedPrepareMessage.Signature)
 			if !ok {
 				log.Warnf("Rejected: %s; invalid signature on prepare message", utils.LoggingString(viewChangeMessage))
 				return nil, status.Errorf(codes.FailedPrecondition, "invalid signature on prepare message")

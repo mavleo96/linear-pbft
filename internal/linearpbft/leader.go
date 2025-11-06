@@ -66,7 +66,7 @@ func (n *LinearPBFTNode) SendPrePrepare(signedPreprepareMessage *pb.SignedPrePre
 	}
 	signedPrepareMessage := &pb.SignedPrepareMessage{
 		Message:   prepareMessage,
-		Signature: crypto.Sign(prepareMessage, n.PrivateKey),
+		Signature: crypto.Sign(prepareMessage, n.PrivateKey1),
 	}
 	// Byzantine node behavior: sign attack
 	if n.Byzantine && n.SignAttack {
@@ -84,7 +84,7 @@ func (n *LinearPBFTNode) SendPrePrepare(signedPreprepareMessage *pb.SignedPrePre
 		}
 
 		// Verify signature
-		ok := crypto.Verify(signedPrepareMsg.Message, n.Peers[signedPrepareMsg.Message.NodeID].PublicKey, signedPrepareMsg.Signature)
+		ok := crypto.Verify(signedPrepareMsg.Message, n.Peers[signedPrepareMsg.Message.NodeID].PublicKey1, signedPrepareMsg.Signature)
 		if !ok {
 			continue
 		}
@@ -156,7 +156,7 @@ func (n *LinearPBFTNode) SendPrepare(collectedSignedPrepareMessage *pb.Collected
 	}
 	signedCommitMessage := &pb.SignedCommitMessage{
 		Message:   commitMessage,
-		Signature: crypto.Sign(commitMessage, n.PrivateKey),
+		Signature: crypto.Sign(commitMessage, n.PrivateKey1),
 	}
 	// Byzantine node behavior: sign attack
 	if n.Byzantine && n.SignAttack {
@@ -173,7 +173,7 @@ func (n *LinearPBFTNode) SendPrepare(collectedSignedPrepareMessage *pb.Collected
 		}
 
 		// Verify signature
-		ok := crypto.Verify(signedCommitMsg.Message, n.Peers[signedCommitMsg.Message.NodeID].PublicKey, signedCommitMsg.Signature)
+		ok := crypto.Verify(signedCommitMsg.Message, n.Peers[signedCommitMsg.Message.NodeID].PublicKey1, signedCommitMsg.Signature)
 		if !ok {
 			continue
 		}

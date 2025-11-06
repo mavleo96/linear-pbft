@@ -59,7 +59,7 @@ func (n *LinearPBFTNode) NewViewRoutine(ctx context.Context, viewNumber int64) {
 			}
 			signedPrePrepareMessages[sequenceNum] = &pb.SignedPrePrepareMessage{
 				Message:   newPrePrepareMessage,
-				Signature: crypto.Sign(newPrePrepareMessage, n.PrivateKey),
+				Signature: crypto.Sign(newPrePrepareMessage, n.PrivateKey1),
 			}
 			// Byzantine node behavior: sign attack
 			if n.Byzantine && n.SignAttack {
@@ -83,7 +83,7 @@ func (n *LinearPBFTNode) NewViewRoutine(ctx context.Context, viewNumber int64) {
 			}
 			newSignedPrePrepareMessage = &pb.SignedPrePrepareMessage{
 				Message:   newPrePrepareMessage,
-				Signature: crypto.Sign(newPrePrepareMessage, n.PrivateKey),
+				Signature: crypto.Sign(newPrePrepareMessage, n.PrivateKey1),
 			}
 			// Byzantine node behavior: sign attack
 			if n.Byzantine && n.SignAttack {
@@ -149,7 +149,7 @@ func (n *LinearPBFTNode) NewViewRoutine(ctx context.Context, viewNumber int64) {
 	}
 	signedNewViewMessage := &pb.SignedNewViewMessage{
 		Message:   newViewMessage,
-		Signature: crypto.Sign(newViewMessage, n.PrivateKey),
+		Signature: crypto.Sign(newViewMessage, n.PrivateKey1),
 	}
 	// Byzantine node behavior: sign attack
 	if n.Byzantine && n.SignAttack {
@@ -187,7 +187,7 @@ func (n *LinearPBFTNode) NewViewRequest(signedNewViewMessage *pb.SignedNewViewMe
 
 	// Verify signature
 	primaryID := utils.ViewNumberToPrimaryID(viewNumber, n.N)
-	ok := crypto.Verify(newViewMessage, n.GetPublicKey(primaryID), signedNewViewMessage.Signature)
+	ok := crypto.Verify(newViewMessage, n.GetPublicKey1(primaryID), signedNewViewMessage.Signature)
 	if !ok {
 		log.Warnf("Rejected: %s; invalid signature", utils.LoggingString(newViewMessage))
 		return status.Errorf(codes.Unauthenticated, "invalid signature")
@@ -196,7 +196,7 @@ func (n *LinearPBFTNode) NewViewRequest(signedNewViewMessage *pb.SignedNewViewMe
 	// Verify view change messages signatures
 	for _, signedViewChangeMessage := range signedViewChangeMessages {
 		viewChangeMessage := signedViewChangeMessage.Message
-		ok := crypto.Verify(viewChangeMessage, n.GetPublicKey(viewChangeMessage.NodeID), signedViewChangeMessage.Signature)
+		ok := crypto.Verify(viewChangeMessage, n.GetPublicKey1(viewChangeMessage.NodeID), signedViewChangeMessage.Signature)
 		if !ok {
 			log.Warnf("Rejected: %s; invalid signature on view change message", utils.LoggingString(newViewMessage))
 			return status.Errorf(codes.Unauthenticated, "invalid signature on view change message")
@@ -206,7 +206,7 @@ func (n *LinearPBFTNode) NewViewRequest(signedNewViewMessage *pb.SignedNewViewMe
 	// Verify preprepare messages signatures
 	for _, signedPrePrepareMessage := range signedPrePrepareMessages {
 		prePrepareMessage := signedPrePrepareMessage.Message
-		ok := crypto.Verify(prePrepareMessage, n.GetPublicKey(primaryID), signedPrePrepareMessage.Signature)
+		ok := crypto.Verify(prePrepareMessage, n.GetPublicKey1(primaryID), signedPrePrepareMessage.Signature)
 		if !ok {
 			log.Warnf("Rejected: %s; invalid signature on preprepare message", utils.LoggingString(newViewMessage))
 			return status.Errorf(codes.Unauthenticated, "invalid signature on preprepare message")
@@ -312,7 +312,7 @@ func (n *LinearPBFTNode) SendNewView(signedNewViewMessage *pb.SignedNewViewMessa
 		sequenceNum := prepareMessage.SequenceNum
 
 		// Verify signature
-		ok := crypto.Verify(prepareMessage, n.GetPublicKey(prepareMessage.NodeID), signedPrepareMessage.Signature)
+		ok := crypto.Verify(prepareMessage, n.GetPublicKey1(prepareMessage.NodeID), signedPrepareMessage.Signature)
 		if !ok {
 			// log.Warnf("Rejected: %s; invalid signature on prepare message", utils.LoggingString(prepareMessage))
 			continue

@@ -1,6 +1,7 @@
 package linearpbft
 
 import (
+	"github.com/herumi/bls-eth-go-binary/bls"
 	"github.com/mavleo96/bft-mavleo96/internal/crypto"
 	"github.com/mavleo96/bft-mavleo96/pb"
 )
@@ -23,10 +24,18 @@ var NoOpTransactionRequest = &pb.SignedTransactionRequest{
 // DigestNoOp is the digest of the no-op transaction request
 var DigestNoOp = crypto.Digest(NoOpTransactionRequest)
 
-// GetPublicKey returns the public key of a node
-func (n *LinearPBFTNode) GetPublicKey(nodeID string) []byte {
+// GetPublicKey1 returns the public key 1 of a node
+func (n *LinearPBFTNode) GetPublicKey1(nodeID string) *bls.PublicKey {
 	if nodeID == n.ID {
-		return n.PublicKey
+		return n.PublicKey1
 	}
-	return n.Peers[nodeID].PublicKey
+	return n.Peers[nodeID].PublicKey1
+}
+
+// GetPublicKey2 returns the public key 2 of a node
+func (n *LinearPBFTNode) GetPublicKey2(nodeID string) *bls.PublicKey {
+	if nodeID == n.ID {
+		return n.PublicKey2
+	}
+	return n.Peers[nodeID].PublicKey2
 }

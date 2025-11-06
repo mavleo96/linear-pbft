@@ -109,7 +109,7 @@ func (n *LinearPBFTNode) ReadOnlyRequest(ctx context.Context, signedRequest *pb.
 	}
 	signedMessage := &pb.SignedTransactionResponse{
 		Message:   message,
-		Signature: crypto.Sign(message, n.PrivateKey),
+		Signature: crypto.Sign(message, n.PrivateKey1),
 	}
 	// Byzantine node behavior: sign attack
 	if n.Byzantine && n.SignAttack {
@@ -132,7 +132,7 @@ func (n *LinearPBFTNode) SendReply(sequenceNum int64, request *pb.TransactionReq
 	}
 	signedReply := &pb.SignedTransactionResponse{
 		Message:   reply,
-		Signature: crypto.Sign(reply, n.PrivateKey),
+		Signature: crypto.Sign(reply, n.PrivateKey1),
 	}
 	// Byzantine node behavior: sign attack
 	if n.Byzantine && n.SignAttack {

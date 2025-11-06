@@ -4,6 +4,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/herumi/bls-eth-go-binary/bls"
 	"github.com/mavleo96/bft-mavleo96/internal/database"
 	"github.com/mavleo96/bft-mavleo96/internal/models"
 	"github.com/mavleo96/bft-mavleo96/pb"
@@ -27,7 +28,8 @@ type ServerConfig struct {
 type LinearPBFTNode struct {
 	// Node information
 	*models.Node
-	PrivateKey []byte
+	PrivateKey1 *bls.SecretKey
+	PrivateKey2 *bls.SecretKey
 
 	// Node status
 	Alive                   bool
@@ -79,7 +81,7 @@ type LinearPBFTNode struct {
 }
 
 // CreateLinearPBFTNode creates a new LinearPBFT node
-func CreateLinearPBFTNode(selfNode *models.Node, peerNodes map[string]*models.Node, clientMap map[string]*models.Client, bankDB *database.Database, privateKey []byte) *LinearPBFTNode {
+func CreateLinearPBFTNode(selfNode *models.Node, peerNodes map[string]*models.Node, clientMap map[string]*models.Client, bankDB *database.Database, privateKey1 *bls.SecretKey, privateKey2 *bls.SecretKey) *LinearPBFTNode {
 
 	timer := CreateSafeTimer(ExecutionTimeout, ViewChangeTimeout)
 
@@ -121,7 +123,8 @@ func CreateLinearPBFTNode(selfNode *models.Node, peerNodes map[string]*models.No
 		TimeAttack:              false,
 		EquivocationAttack:      false,
 		EquivocationAttackNodes: make([]string, 0),
-		PrivateKey:              privateKey,
+		PrivateKey1:             privateKey1,
+		PrivateKey2:             privateKey2,
 		Peers:                   peerNodes,
 		Clients:                 clientMap,
 		F:                       int64(len(peerNodes) / 3),

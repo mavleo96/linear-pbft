@@ -35,9 +35,15 @@ func (n *LinearPBFTNode) PrePrepareRequest(ctx context.Context, signedMessage *p
 		return nil, status.Errorf(codes.Unavailable, "view change phase")
 	}
 
+	// Verify View Number
+	if prePrepareMessage.ViewNumber != n.State.GetViewNumber() {
+		log.Warnf("Rejected: %s; invalid view number (expected: %d)", utils.LoggingString(prePrepareMessage), n.State.GetViewNumber())
+		return nil, status.Errorf(codes.InvalidArgument, "invalid view number")
+	}
+
 	// Verify Node's signature
 	currentPrimaryID := utils.ViewNumberToPrimaryID(n.State.GetViewNumber(), n.N)
-	ok := crypto.Verify(prePrepareMessage, n.GetPublicKey(currentPrimaryID), signedMessage.Signature)
+	ok := crypto.Verify(prePrepareMessage, n.GetPublicKey1(currentPrimaryID), signedMessage.Signature)
 	if !ok {
 		log.Warnf("Rejected: %s; invalid signature", utils.LoggingString(prePrepareMessage))
 		return nil, status.Errorf(codes.Unauthenticated, "invalid signature")
@@ -71,12 +77,6 @@ func (n *LinearPBFTNode) PrePrepareRequest(ctx context.Context, signedMessage *p
 	if n.State.TransactionMap.Get(prePrepareMessage.Digest) == nil {
 		log.Infof("Adding request to transaction map: %s", utils.LoggingString(signedRequest.Request))
 		n.State.TransactionMap.Set(prePrepareMessage.Digest, signedRequest)
-	}
-
-	// Verify View Number
-	if prePrepareMessage.ViewNumber != n.State.GetViewNumber() {
-		log.Warnf("Rejected: %s; invalid view number (expected: %d)", utils.LoggingString(prePrepareMessage, request), n.State.GetViewNumber())
-		return nil, status.Errorf(codes.InvalidArgument, "invalid view number")
 	}
 
 	// Verify Digest
@@ -141,7 +141,7 @@ func (n *LinearPBFTNode) PrePrepareRequest(ctx context.Context, signedMessage *p
 	}
 	signedPrepareMessage := &pb.SignedPrepareMessage{
 		Message:   prepareMessage,
-		Signature: crypto.Sign(prepareMessage, n.PrivateKey),
+		Signature: crypto.Sign(prepareMessage, n.PrivateKey1),
 	}
 	// Byzantine node behavior: sign attack
 	if n.Byzantine && n.SignAttack {
@@ -219,7 +219,7 @@ func (n *LinearPBFTNode) PrepareRequest(ctx context.Context, signedPrepareMessag
 		prepareMessage := signedPrepareMessage.Message
 
 		// Verify Node's signature
-		ok := crypto.Verify(prepareMessage, n.GetPublicKey(prepareMessage.NodeID), signedPrepareMessage.Signature)
+		ok := crypto.Verify(prepareMessage, n.GetPublicKey1(prepareMessage.NodeID), signedPrepareMessage.Signature)
 		if !ok {
 			// log.Warnf("Rejected: %s; invalid signature", utils.LoggingString(prepareMessage, record.Request))
 			continue
@@ -267,7 +267,7 @@ func (n *LinearPBFTNode) PrepareRequest(ctx context.Context, signedPrepareMessag
 	}
 	signedCommitMessage := &pb.SignedCommitMessage{
 		Message:   commitMessage,
-		Signature: crypto.Sign(commitMessage, n.PrivateKey),
+		Signature: crypto.Sign(commitMessage, n.PrivateKey1),
 	}
 	// Byzantine node behavior: sign attack
 	if n.Byzantine && n.SignAttack {
@@ -345,7 +345,7 @@ func (n *LinearPBFTNode) CommitRequest(ctx context.Context, signedCommitMessages
 		commitMessage := signedCommitMessage.Message
 
 		// Verify Node's signature
-		ok := crypto.Verify(commitMessage, n.GetPublicKey(commitMessage.NodeID), signedCommitMessage.Signature)
+		ok := crypto.Verify(commitMessage, n.GetPublicKey1(commitMessage.NodeID), signedCommitMessage.Signature)
 		if !ok {
 			// log.Warnf("Rejected: %s; invalid signature", utils.LoggingString(commitMessage, record.Request))
 			continue

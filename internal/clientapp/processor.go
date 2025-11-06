@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/herumi/bls-eth-go-binary/bls"
 	"github.com/mavleo96/bft-mavleo96/internal/crypto"
 	"github.com/mavleo96/bft-mavleo96/internal/models"
 	"github.com/mavleo96/bft-mavleo96/internal/utils"
@@ -23,7 +24,7 @@ type Processor struct {
 	clientID   string
 	state      *ClientState
 	nodes      *NodeMap
-	privateKey []byte
+	privateKey *bls.SecretKey
 
 	// Channels
 	resultCh <-chan Result
@@ -141,7 +142,7 @@ func (p *Processor) processReadOnlyTransaction(ctx context.Context, signedReques
 			resp := signedResp.Message
 
 			// Verify signature
-			ok := crypto.Verify(resp, p.nodes.GetPublicKey(resp.NodeID), signedResp.Signature)
+			ok := crypto.Verify(resp, p.nodes.GetPublicKey1(resp.NodeID), signedResp.Signature)
 			if !ok {
 				continue
 			}

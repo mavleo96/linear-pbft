@@ -1,34 +1,41 @@
 package crypto
 
 import (
-	"crypto/ed25519"
-	"crypto/x509"
-	"encoding/pem"
 	"os"
+	"strings"
+
+	"github.com/herumi/bls-eth-go-binary/bls"
 )
 
-func ReadPrivateKey(path string) ([]byte, error) {
+// Read private key from file
+func ReadPrivateKey(path string) (*bls.SecretKey, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
-	block, _ := pem.Decode(data)
-	privateKey, err := x509.ParsePKCS8PrivateKey(block.Bytes)
-	if err != nil {
+	var sk bls.SecretKey
+	if err := sk.Deserialize(data); err != nil {
 		return nil, err
 	}
-	return privateKey.(ed25519.PrivateKey), nil
+	return &sk, nil
 }
 
-func ReadPublicKey(path string) ([]byte, error) {
+// Read public key from file
+func ReadPublicKey(path string) (*bls.PublicKey, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
-	block, _ := pem.Decode(data)
-	publicKey, err := x509.ParsePKIXPublicKey(block.Bytes)
-	if err != nil {
+	var pk bls.PublicKey
+	if err := pk.Deserialize(data); err != nil {
 		return nil, err
 	}
-	return publicKey.(ed25519.PublicKey), nil
+	return &pk, nil
+}
+
+// Convert node ID to BLS mask ID
+func NodeIDToBLSMaskID(nodeID string) bls.ID {
+	var id bls.ID
+	id.SetDecString(strings.ReplaceAll(nodeID, "n", ""))
+	return id
 }

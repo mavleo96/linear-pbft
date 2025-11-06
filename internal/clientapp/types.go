@@ -5,6 +5,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/herumi/bls-eth-go-binary/bls"
 	"github.com/mavleo96/bft-mavleo96/internal/models"
 	"github.com/mavleo96/bft-mavleo96/internal/utils"
 	"github.com/mavleo96/bft-mavleo96/pb"
@@ -44,18 +45,21 @@ type NodeMap struct {
 	mutex sync.RWMutex
 }
 
-func (n *NodeMap) GetPublicKey(nodeID string) []byte {
+// GetPublicKey1 returns the public key 1 of a node
+func (n *NodeMap) GetPublicKey1(nodeID string) *bls.PublicKey {
 	n.mutex.RLock()
 	defer n.mutex.RUnlock()
-	return n.nodes[nodeID].PublicKey
+	return n.nodes[nodeID].PublicKey1
 }
 
+// GetNodes returns all nodes
 func (n *NodeMap) GetNodes() []*models.Node {
 	n.mutex.RLock()
 	defer n.mutex.RUnlock()
 	return utils.Values(n.nodes)
 }
 
+// GetNode returns a node by ID
 func (n *NodeMap) GetNode(nodeID string) *models.Node {
 	n.mutex.RLock()
 	defer n.mutex.RUnlock()

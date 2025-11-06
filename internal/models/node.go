@@ -1,8 +1,10 @@
 package models
 
 import (
+	"fmt"
 	"path/filepath"
 
+	"github.com/herumi/bls-eth-go-binary/bls"
 	"github.com/mavleo96/bft-mavleo96/internal/config"
 	"github.com/mavleo96/bft-mavleo96/internal/crypto"
 	"github.com/mavleo96/bft-mavleo96/internal/utils"
@@ -11,17 +13,18 @@ import (
 
 // Node represents a node in the distributed system
 type Node struct {
-	ID        string `yaml:"id"`
-	Address   string `yaml:"address"`
-	PublicKey []byte
-	Client    *pb.LinearPBFTNodeClient
-	Close     func() error // TODO: this needs to be changed
+	ID         string `yaml:"id"`
+	Address    string `yaml:"address"`
+	PublicKey1 *bls.PublicKey
+	PublicKey2 *bls.PublicKey
+	Client     *pb.LinearPBFTNodeClient
+	Close      func() error // TODO: this needs to be changed
 }
 
 type Client struct {
 	ID        string `yaml:"id"`
 	Address   string `yaml:"address"`
-	PublicKey []byte
+	PublicKey *bls.PublicKey
 	Client    *pb.LinearPBFTClientAppClient
 	Close     func() error
 }
@@ -30,7 +33,11 @@ func GetNodeMap(nodeConfig map[string]*config.NodeEntry) (map[string]*Node, erro
 	nodeMap := make(map[string]*Node)
 	for id, node := range nodeConfig {
 		// Read and store public key
-		publicKey, err := crypto.ReadPublicKey(filepath.Join("./keys", "node", id+".pub.pem"))
+		publicKey1, err := crypto.ReadPublicKey(filepath.Join("./keys", "node", fmt.Sprintf("%s_public1.key", id)))
+		if err != nil {
+			return nil, err
+		}
+		publicKey2, err := crypto.ReadPublicKey(filepath.Join("./keys", "node", fmt.Sprintf("%s_public2.key", id)))
 		if err != nil {
 			return nil, err
 		}
@@ -44,11 +51,12 @@ func GetNodeMap(nodeConfig map[string]*config.NodeEntry) (map[string]*Node, erro
 
 		// Create node struct and store in map
 		nodeMap[id] = &Node{
-			ID:        node.ID,
-			Address:   node.Address,
-			PublicKey: publicKey,
-			Client:    &nodeClient,
-			Close:     func() error { return conn.Close() },
+			ID:         node.ID,
+			Address:    node.Address,
+			PublicKey1: publicKey1,
+			PublicKey2: publicKey2,
+			Client:     &nodeClient,
+			Close:      func() error { return conn.Close() },
 		}
 	}
 	return nodeMap, nil
@@ -58,7 +66,7 @@ func GetClientMap(clientConfig map[string]*config.ClientEntry) (map[string]*Clie
 	clientMap := make(map[string]*Client)
 	for id, client := range clientConfig {
 		// Read and store public key
-		publicKey, err := crypto.ReadPublicKey(filepath.Join("./keys", "client", id+".pub.pem"))
+		publicKey, err := crypto.ReadPublicKey(filepath.Join("./keys", "client", fmt.Sprintf("%s_public.key", id)))
 		if err != nil {
 			return nil, err
 		}

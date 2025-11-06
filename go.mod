@@ -4,6 +4,7 @@ go 1.25.1
 
 require (
 	github.com/google/go-cmp v0.7.0
+	github.com/herumi/bls-eth-go-binary v1.37.0
 	github.com/sirupsen/logrus v1.9.3
 	go.etcd.io/bbolt v1.4.3
 	google.golang.org/grpc v1.76.0

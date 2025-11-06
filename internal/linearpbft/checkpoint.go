@@ -91,7 +91,7 @@ func (n *LinearPBFTNode) SendCheckPointRequest(ctx context.Context, sequenceNum 
 	}
 	signedCheckPointMessage := &pb.SignedCheckPointMessage{
 		Message:   checkPointMessage,
-		Signature: crypto.Sign(checkPointMessage, n.PrivateKey),
+		Signature: crypto.Sign(checkPointMessage, n.PrivateKey1),
 	}
 
 	// Add check point message to check point message log
@@ -112,7 +112,7 @@ func (n *LinearPBFTNode) CheckPointRequest(ctx context.Context, signedCheckPoint
 	checkPointMessage := signedCheckPointMessage.Message
 
 	// Verify signature
-	ok := crypto.Verify(checkPointMessage, n.GetPublicKey(checkPointMessage.NodeID), signedCheckPointMessage.Signature)
+	ok := crypto.Verify(checkPointMessage, n.GetPublicKey1(checkPointMessage.NodeID), signedCheckPointMessage.Signature)
 	if !ok {
 		log.Warnf("Rejected: %s; invalid signature", utils.LoggingString(checkPointMessage))
 		return nil, status.Errorf(codes.Unauthenticated, "invalid signature")
@@ -179,7 +179,7 @@ func (n *LinearPBFTNode) CheckPointRoutine(ctx context.Context) {
 
 			// Update low and high water mark and purge log records
 			log.Infof("Updating low and high water mark and purging log records for sequence number %d", n.config.lowWaterMark+n.config.k)
-			n.config.lowWaterMark += n.config.k
+			// n.config.lowWaterMark += n.config.k
 			n.config.highWaterMark += n.config.k
 			n.Mutex.Lock()
 			// TODO: modify this to check between l-k and l

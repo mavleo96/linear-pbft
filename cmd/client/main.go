@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/herumi/bls-eth-go-binary/bls"
 	"github.com/mavleo96/bft-mavleo96/internal/clientapp"
 	"github.com/mavleo96/bft-mavleo96/internal/config"
 	"github.com/mavleo96/bft-mavleo96/internal/models"
@@ -17,6 +18,11 @@ import (
 
 func main() {
 	log.SetLevel(log.InfoLevel)
+
+	// Initialize BLS library
+	bls.Init(bls.BLS12_381)
+	bls.SetETHmode(bls.EthModeDraft07)
+
 	filePath := flag.String("file", "testdata/test1.csv", "The path to the test data file")
 	flag.Parse()
 

@@ -3,10 +3,12 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"net"
 	"path/filepath"
 	"sync"
 
+	"github.com/herumi/bls-eth-go-binary/bls"
 	"github.com/mavleo96/bft-mavleo96/internal/config"
 	"github.com/mavleo96/bft-mavleo96/internal/crypto"
 	"github.com/mavleo96/bft-mavleo96/internal/database"
@@ -20,6 +22,10 @@ import (
 
 func main() {
 	log.SetFormatter(&log.TextFormatter{TimestampFormat: "15:04.000"})
+
+	// Initialize BLS library
+	bls.Init(bls.BLS12_381)
+	bls.SetETHmode(bls.EthModeDraft07)
 
 	id := flag.String("id", "n1", "Node ID")
 	configPath := flag.String("config", "config.yaml", "Path to config file")
@@ -78,7 +84,11 @@ func main() {
 }
 
 func CreateServer(selfNode *models.Node, peerNodes map[string]*models.Node, clientMap map[string]*models.Client, dbDir string, initBalance int64) (*grpc.Server, error) {
-	privateKey, err := crypto.ReadPrivateKey(filepath.Join("./keys", "node", selfNode.ID+".pem"))
+	privateKey1, err := crypto.ReadPrivateKey(filepath.Join("./keys", "node", fmt.Sprintf("%s_secret1.key", selfNode.ID)))
+	if err != nil {
+		log.Fatal(err)
+	}
+	privateKey2, err := crypto.ReadPrivateKey(filepath.Join("./keys", "node", fmt.Sprintf("%s_secret2.key", selfNode.ID)))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -95,7 +105,7 @@ func CreateServer(selfNode *models.Node, peerNodes map[string]*models.Node, clie
 
 	grpcServer := grpc.NewServer()
 
-	node := linearpbft.CreateLinearPBFTNode(selfNode, peerNodes, clientMap, bankDB, privateKey)
+	node := linearpbft.CreateLinearPBFTNode(selfNode, peerNodes, clientMap, bankDB, privateKey1, privateKey2)
 	pb.RegisterLinearPBFTNodeServer(grpcServer, node)
 
 	go node.ViewChangeRoutine(context.Background())
