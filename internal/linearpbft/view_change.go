@@ -84,7 +84,7 @@ func (n *LinearPBFTNode) SendViewChange(viewNumber int64) error {
 	}
 	signedViewChangeMessage := &pb.SignedViewChangeMessage{
 		Message:   viewChangeMessage,
-		Signature: crypto.Sign(viewChangeMessage, n.PrivateKey1),
+		Signature: crypto.Sign(viewChangeMessage, n.Handler.privateKey1),
 	}
 	// Byzantine node behavior: sign attack
 	if n.Byzantine && n.SignAttack {
@@ -103,7 +103,7 @@ func (n *LinearPBFTNode) SendViewChange(viewNumber int64) error {
 
 	// Multicast view change message to all nodes
 	log.Infof("Sending view change message to all nodes: %s", utils.LoggingString(viewChangeMessage))
-	for _, peer := range n.Peers {
+	for _, peer := range n.Handler.peers {
 		go func(peer *models.Node) {
 			// Byzantine node behavior: dark attack
 			if n.Byzantine && n.DarkAttack && slices.Contains(n.DarkAttackNodes, peer.ID) {
@@ -169,7 +169,7 @@ func (n *LinearPBFTNode) ViewChangeRequest(ctx context.Context, signedViewChange
 		digest := prePrepareMessage.Digest
 
 		// Verify preprepare message signature
-		proposerID := utils.ViewNumberToPrimaryID(viewNumber, n.N)
+		proposerID := utils.ViewNumberToPrimaryID(viewNumber, n.Handler.N)
 		ok := crypto.Verify(prePrepareMessage, n.GetPublicKey1(proposerID), signedPrePrepareMessage.Signature)
 		if !ok {
 			log.Warnf("Rejected: %s; invalid signature on prepare message", utils.LoggingString(viewChangeMessage))
@@ -210,9 +210,9 @@ func (n *LinearPBFTNode) ViewChangeRequest(ctx context.Context, signedViewChange
 	}
 
 	// Send view change message to all nodes if f + 1 view change messages are collected
-	if n.State.GetViewChangeViewNumber() < viewNumber && len(viewChangeMessageLog) == int(n.F+1) {
+	if n.State.GetViewChangeViewNumber() < viewNumber && len(viewChangeMessageLog) == int(n.Handler.F+1) {
 		alreadyExpired := n.SafeTimer.Cleanup()
-		if !alreadyExpired || utils.ViewNumberToPrimaryID(viewNumber, n.N) != n.ID {
+		if !alreadyExpired || utils.ViewNumberToPrimaryID(viewNumber, n.Handler.N) != n.ID {
 			log.Infof("Sending view change message to all nodes since f + 1 view change messages are collected: %s", utils.LoggingString(viewChangeMessage))
 			go n.SendViewChange(viewNumber)
 		} else {
@@ -221,8 +221,8 @@ func (n *LinearPBFTNode) ViewChangeRequest(ctx context.Context, signedViewChange
 	}
 
 	// If 2f + 1 view change messages are collected and next primary then send new view message
-	if len(viewChangeMessageLog) == int(2*n.F+1) {
-		if utils.ViewNumberToPrimaryID(viewNumber, n.N) == n.ID {
+	if len(viewChangeMessageLog) == int(2*n.Handler.F+1) {
+		if utils.ViewNumberToPrimaryID(viewNumber, n.Handler.N) == n.ID {
 			// Byzantine node behavior: crash attack
 			if n.Byzantine && n.CrashAttack {
 				// log.Infof("Node %s is Byzantine and is performing crash attack", n.ID)

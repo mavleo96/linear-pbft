@@ -22,7 +22,7 @@ func (n *LinearPBFTNode) CreateMessageWithInvalidSequenceNumber(signedMessage *p
 	message.SequenceNum += 1
 	return &pb.SignedPrePrepareMessage{
 		Message:   message,
-		Signature: crypto.Sign(message, n.PrivateKey1),
+		Signature: crypto.Sign(message, n.Handler.privateKey1),
 		Request:   signedMessage.Request,
 	}
 }

@@ -59,7 +59,7 @@ func (n *LinearPBFTNode) NewViewRoutine(ctx context.Context, viewNumber int64) {
 			}
 			signedPrePrepareMessages[sequenceNum] = &pb.SignedPrePrepareMessage{
 				Message:   newPrePrepareMessage,
-				Signature: crypto.Sign(newPrePrepareMessage, n.PrivateKey1),
+				Signature: crypto.Sign(newPrePrepareMessage, n.Handler.privateKey1),
 			}
 			// Byzantine node behavior: sign attack
 			if n.Byzantine && n.SignAttack {
@@ -83,7 +83,7 @@ func (n *LinearPBFTNode) NewViewRoutine(ctx context.Context, viewNumber int64) {
 			}
 			newSignedPrePrepareMessage = &pb.SignedPrePrepareMessage{
 				Message:   newPrePrepareMessage,
-				Signature: crypto.Sign(newPrePrepareMessage, n.PrivateKey1),
+				Signature: crypto.Sign(newPrePrepareMessage, n.Handler.privateKey1),
 			}
 			// Byzantine node behavior: sign attack
 			if n.Byzantine && n.SignAttack {
@@ -149,7 +149,7 @@ func (n *LinearPBFTNode) NewViewRoutine(ctx context.Context, viewNumber int64) {
 	}
 	signedNewViewMessage := &pb.SignedNewViewMessage{
 		Message:   newViewMessage,
-		Signature: crypto.Sign(newViewMessage, n.PrivateKey1),
+		Signature: crypto.Sign(newViewMessage, n.Handler.privateKey1),
 	}
 	// Byzantine node behavior: sign attack
 	if n.Byzantine && n.SignAttack {
@@ -161,7 +161,7 @@ func (n *LinearPBFTNode) NewViewRoutine(ctx context.Context, viewNumber int64) {
 
 	// Send prepare messages to prepare channel
 	for sequenceNum := range collectedSignedPrepareMessages {
-		n.PrepareCh <- collectedSignedPrepareMessages[sequenceNum]
+		n.Handler.GetPrepareChannel() <- collectedSignedPrepareMessages[sequenceNum]
 	}
 }
 
@@ -186,7 +186,7 @@ func (n *LinearPBFTNode) NewViewRequest(signedNewViewMessage *pb.SignedNewViewMe
 	}
 
 	// Verify signature
-	primaryID := utils.ViewNumberToPrimaryID(viewNumber, n.N)
+	primaryID := utils.ViewNumberToPrimaryID(viewNumber, n.Handler.N)
 	ok := crypto.Verify(newViewMessage, n.GetPublicKey1(primaryID), signedNewViewMessage.Signature)
 	if !ok {
 		log.Warnf("Rejected: %s; invalid signature", utils.LoggingString(newViewMessage))
@@ -251,8 +251,8 @@ func (n *LinearPBFTNode) SendNewView(signedNewViewMessage *pb.SignedNewViewMessa
 	// Multicast new view message to all nodes and collect signed prepare messages
 	log.Infof("Sending new view message: %s", utils.LoggingString(viewMessage))
 	wg := sync.WaitGroup{}
-	responseCh := make(chan *pb.SignedPrepareMessage, len(n.Peers))
-	for _, peer := range n.Peers {
+	responseCh := make(chan *pb.SignedPrepareMessage, len(n.Handler.peers))
+	for _, peer := range n.Handler.peers {
 		wg.Add(1)
 		go func(peer *models.Node) {
 			defer wg.Done()
@@ -343,7 +343,7 @@ func (n *LinearPBFTNode) SendNewView(signedNewViewMessage *pb.SignedNewViewMessa
 
 	// Purge sequence numbers with less than 2f + 1 prepare messages
 	for sequenceNum, signedPrepareMessages := range collectedSignedPrepareMessages {
-		if len(signedPrepareMessages) < int(n.N-n.F) {
+		if len(signedPrepareMessages) < int(n.Handler.N-n.Handler.F) {
 			log.Warnf("Purged: %d; not enough prepare messages (collected: %d)", sequenceNum, len(signedPrepareMessages))
 			delete(collectedSignedPrepareMessages, sequenceNum)
 		}

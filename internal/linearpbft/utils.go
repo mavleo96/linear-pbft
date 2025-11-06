@@ -29,7 +29,7 @@ func (n *LinearPBFTNode) GetPublicKey1(nodeID string) *bls.PublicKey {
 	if nodeID == n.ID {
 		return n.PublicKey1
 	}
-	return n.Peers[nodeID].PublicKey1
+	return n.Handler.peers[nodeID].PublicKey1
 }
 
 // GetPublicKey2 returns the public key 2 of a node
@@ -37,5 +37,5 @@ func (n *LinearPBFTNode) GetPublicKey2(nodeID string) *bls.PublicKey {
 	if nodeID == n.ID {
 		return n.PublicKey2
 	}
-	return n.Peers[nodeID].PublicKey2
+	return n.Handler.peers[nodeID].PublicKey2
 }

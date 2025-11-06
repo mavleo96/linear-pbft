@@ -19,6 +19,7 @@ const (
 // type ServerState struct {
 
 type ServerConfig struct {
+	mutex         sync.RWMutex
 	lowWaterMark  int64
 	highWaterMark int64
 	k             int64
@@ -28,8 +29,6 @@ type ServerConfig struct {
 type LinearPBFTNode struct {
 	// Node information
 	*models.Node
-	PrivateKey1 *bls.SecretKey
-	PrivateKey2 *bls.SecretKey
 
 	// Node status
 	Alive                   bool
@@ -41,11 +40,6 @@ type LinearPBFTNode struct {
 	TimeAttack              bool
 	EquivocationAttack      bool
 	EquivocationAttackNodes []string
-
-	// Peer nodes and their information
-	Peers map[string]*models.Node
-	F     int64
-	N     int64
 
 	config *ServerConfig
 
@@ -62,14 +56,17 @@ type LinearPBFTNode struct {
 	// Executor
 	Executor *Executor
 
+	// Protocol handler
+	Handler *ProtocolHandler
+
 	// Timer instance
 	SafeTimer *SafeTimer
 
 	// Channels
 	CheckPointRoutineCh chan bool
-	RequestCh           chan *pb.SignedTransactionRequest
-	PrepareCh           chan []*pb.SignedPrepareMessage
-	CommitCh            chan []*pb.SignedCommitMessage
+	// RequestCh           chan *pb.SignedTransactionRequest
+	// PrepareCh           chan []*pb.SignedPrepareMessage
+	// CommitCh            chan []*pb.SignedCommitMessage
 
 	// Message logs
 	ViewChangeMessageLog map[int64]map[string]*pb.SignedViewChangeMessage // v -> (id -> msg)
@@ -86,6 +83,7 @@ func CreateLinearPBFTNode(selfNode *models.Node, peerNodes map[string]*models.No
 	timer := CreateSafeTimer(ExecutionTimeout, ViewChangeTimeout)
 
 	serverConfig := &ServerConfig{
+		mutex:         sync.RWMutex{},
 		lowWaterMark:  0,
 		highWaterMark: 100,
 		k:             10,
@@ -103,13 +101,28 @@ func CreateLinearPBFTNode(selfNode *models.Node, peerNodes map[string]*models.No
 
 	checkPointCh := make(chan bool)
 
+	executeChannel := make(chan int64, 20)
+
 	executor := &Executor{
 		db:           bankDB,
 		safeTimer:    timer,
 		state:        serverState,
 		config:       serverConfig,
-		executeCh:    make(chan int64, 20),
+		executeCh:    executeChannel,
 		checkPointCh: checkPointCh,
+	}
+
+	handler := &ProtocolHandler{
+		id:          selfNode.ID,
+		state:       serverState,
+		privateKey1: privateKey1,
+		peers:       peerNodes,
+		F:           int64(len(peerNodes) / 3),
+		N:           int64(len(peerNodes) + 1),
+		executeCh:   executeChannel,
+		requestCh:   make(chan *pb.SignedTransactionRequest, 20),
+		prepareCh:   make(chan []*pb.SignedPrepareMessage, 20),
+		commitCh:    make(chan []*pb.SignedCommitMessage, 20),
 	}
 
 	server := &LinearPBFTNode{
@@ -123,29 +136,33 @@ func CreateLinearPBFTNode(selfNode *models.Node, peerNodes map[string]*models.No
 		TimeAttack:              false,
 		EquivocationAttack:      false,
 		EquivocationAttackNodes: make([]string, 0),
-		PrivateKey1:             privateKey1,
-		PrivateKey2:             privateKey2,
-		Peers:                   peerNodes,
-		Clients:                 clientMap,
-		F:                       int64(len(peerNodes) / 3),
-		N:                       int64(len(peerNodes) + 1),
-		config:                  serverConfig,
-		Mutex:                   sync.RWMutex{},
-		LastReply:               &LastReply{Mutex: sync.RWMutex{}, ReplyMap: make(map[string]*pb.TransactionResponse)},
-		State:                   serverState,
-		SafeTimer:               timer,
-		Executor:                executor,
-		CheckPointRoutineCh:     checkPointCh,
-		RequestCh:               make(chan *pb.SignedTransactionRequest, 20),
-		PrepareCh:               make(chan []*pb.SignedPrepareMessage, 20),
-		CommitCh:                make(chan []*pb.SignedCommitMessage, 20),
-		ViewChangeMessageLog:    make(map[int64]map[string]*pb.SignedViewChangeMessage),
-		ForwardedRequestsLog:    make([]*pb.SignedTransactionRequest, 0),
-		CheckPointLog:           &CheckpointLog{Mutex: sync.RWMutex{}, LastCheckPointSequenceNum: 0, Log: make(map[int64]map[string]*pb.SignedCheckPointMessage), Quorum: 2*int64(len(peerNodes)/3) + 1},
+
+		Clients:              clientMap,
+		config:               serverConfig,
+		Mutex:                sync.RWMutex{},
+		LastReply:            &LastReply{Mutex: sync.RWMutex{}, ReplyMap: make(map[string]*pb.TransactionResponse)},
+		State:                serverState,
+		SafeTimer:            timer,
+		Executor:             executor,
+		Handler:              handler,
+		CheckPointRoutineCh:  checkPointCh,
+		ViewChangeMessageLog: make(map[int64]map[string]*pb.SignedViewChangeMessage),
+		ForwardedRequestsLog: make([]*pb.SignedTransactionRequest, 0),
+		CheckPointLog:        &CheckpointLog{Mutex: sync.RWMutex{}, LastCheckPointSequenceNum: 0, Log: make(map[int64]map[string]*pb.SignedCheckPointMessage), Quorum: 2*int64(len(peerNodes)/3) + 1},
 	}
 
 	executor.sendReply = func(sequenceNum int64, request *pb.TransactionRequest, result int64) {
 		server.SendReply(sequenceNum, request, result)
+	}
+
+	handler.SendPrePrepare = func(signedPreprepareMessage *pb.SignedPrePrepareMessage, sequenceNum int64) error {
+		return server.SendPrePrepare(signedPreprepareMessage, sequenceNum)
+	}
+	handler.SendPrepare = func(collectedSignedPrepareMessages *pb.CollectedSignedPrepareMessage) error {
+		return server.SendPrepare(collectedSignedPrepareMessages)
+	}
+	handler.SendCommit = func(collectedSignedCommitMessages *pb.CollectedSignedCommitMessage) error {
+		return server.SendCommit(collectedSignedCommitMessages)
 	}
 
 	return server

@@ -45,8 +45,14 @@ func (n *LinearPBFTNode) TransferRequest(ctx context.Context, signedRequest *pb.
 		return &emptypb.Empty{}, nil
 	}
 
+	// Add request to transaction map
+	if n.State.TransactionMap.Get(crypto.Digest(signedRequest)) == nil {
+		log.Infof("Adding request to transaction map: %s", utils.LoggingString(request))
+		n.State.TransactionMap.Set(crypto.Digest(signedRequest), signedRequest)
+	}
+
 	// Forward request to primary if not primary
-	if n.ID != utils.ViewNumberToPrimaryID(n.State.GetViewNumber(), n.N) {
+	if n.ID != utils.ViewNumberToPrimaryID(n.State.GetViewNumber(), n.Handler.N) {
 		n.SafeTimer.IncrementWaitCountOrStart()
 		ctx := n.SafeTimer.GetContext()
 		go n.ForwardRequest(ctx, signedRequest)
@@ -58,7 +64,7 @@ func (n *LinearPBFTNode) TransferRequest(ctx context.Context, signedRequest *pb.
 		// return &emptypb.Empty{}, nil
 	}
 	log.Infof("Received request from client %s: %s", request.Sender, utils.LoggingString(request))
-	n.RequestCh <- signedRequest
+	n.Handler.GetRequestChannel() <- signedRequest
 	log.Infof("Sent request to request channel: %s", utils.LoggingString(request))
 	return &emptypb.Empty{}, nil
 }
@@ -109,7 +115,7 @@ func (n *LinearPBFTNode) ReadOnlyRequest(ctx context.Context, signedRequest *pb.
 	}
 	signedMessage := &pb.SignedTransactionResponse{
 		Message:   message,
-		Signature: crypto.Sign(message, n.PrivateKey1),
+		Signature: crypto.Sign(message, n.Handler.privateKey1),
 	}
 	// Byzantine node behavior: sign attack
 	if n.Byzantine && n.SignAttack {
@@ -132,7 +138,7 @@ func (n *LinearPBFTNode) SendReply(sequenceNum int64, request *pb.TransactionReq
 	}
 	signedReply := &pb.SignedTransactionResponse{
 		Message:   reply,
-		Signature: crypto.Sign(reply, n.PrivateKey1),
+		Signature: crypto.Sign(reply, n.Handler.privateKey1),
 	}
 	// Byzantine node behavior: sign attack
 	if n.Byzantine && n.SignAttack {
@@ -152,14 +158,14 @@ func (n *LinearPBFTNode) SendReply(sequenceNum int64, request *pb.TransactionReq
 // ForwardRequest forwards a transaction request to the primary
 func (n *LinearPBFTNode) ForwardRequest(ctx context.Context, signedRequest *pb.SignedTransactionRequest) {
 	// Forward request to primary
-	primaryID := utils.ViewNumberToPrimaryID(n.State.GetViewNumber(), n.N)
+	primaryID := utils.ViewNumberToPrimaryID(n.State.GetViewNumber(), n.Handler.N)
 	// Byzantine node behavior: dark attack
 	if n.Byzantine && n.DarkAttack && slices.Contains(n.DarkAttackNodes, primaryID) {
 		log.Infof("Node %s is Byzantine and is performing dark attack on node %s", n.ID, primaryID)
 		return
 	}
 	log.Infof("Forwarding to primary %s: %s", primaryID, utils.LoggingString(signedRequest.Request))
-	_, err := (*n.Peers[primaryID].Client).TransferRequest(context.Background(), signedRequest)
+	_, err := (*n.Handler.peers[primaryID].Client).TransferRequest(context.Background(), signedRequest)
 	if err != nil {
 		log.Warnf("Forwarding Failed: %s; %s", utils.LoggingString(signedRequest.Request), err.Error())
 	}

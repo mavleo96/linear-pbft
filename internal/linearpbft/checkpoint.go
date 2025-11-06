@@ -91,7 +91,7 @@ func (n *LinearPBFTNode) SendCheckPointRequest(ctx context.Context, sequenceNum 
 	}
 	signedCheckPointMessage := &pb.SignedCheckPointMessage{
 		Message:   checkPointMessage,
-		Signature: crypto.Sign(checkPointMessage, n.PrivateKey1),
+		Signature: crypto.Sign(checkPointMessage, n.Handler.privateKey1),
 	}
 
 	// Add check point message to check point message log
@@ -100,7 +100,7 @@ func (n *LinearPBFTNode) SendCheckPointRequest(ctx context.Context, sequenceNum 
 
 	// Multicast check point message to all nodes
 	log.Infof("Sending check point message for sequence number %d to all nodes", sequenceNum)
-	for _, peer := range n.Peers {
+	for _, peer := range n.Handler.peers {
 		go (*peer.Client).CheckPointRequest(context.Background(), signedCheckPointMessage)
 	}
 
@@ -122,7 +122,7 @@ func (n *LinearPBFTNode) CheckPointRequest(ctx context.Context, signedCheckPoint
 	n.CheckPointLog.AddMessage(checkPointMessage.SequenceNum, checkPointMessage.NodeID, signedCheckPointMessage)
 
 	// Signal the checkpoint routine if 2f + 1 check point messages are collected
-	if len(n.CheckPointLog.GetMessages(checkPointMessage.SequenceNum)) == int(n.N-n.F) {
+	if len(n.CheckPointLog.GetMessages(checkPointMessage.SequenceNum)) == int(n.Handler.N-n.Handler.F) {
 		log.Infof("Received 2f + 1 check point messages for sequence number %d", checkPointMessage.SequenceNum)
 		n.CheckPointRoutineCh <- true
 	}
@@ -147,7 +147,7 @@ func (n *LinearPBFTNode) CheckPointRoutine(ctx context.Context) {
 			}
 
 			// Check if 2f + 1 check point messages are collected
-			if len(n.CheckPointLog.GetMessages(n.config.lowWaterMark+n.config.k)) >= int(n.N-n.F) {
+			if len(n.CheckPointLog.GetMessages(n.config.lowWaterMark+n.config.k)) >= int(n.Handler.N-n.Handler.F) {
 				// Create checkpoint Digest
 				n.Mutex.RLock()
 				records := make([]*LogRecord, 0)
@@ -168,7 +168,7 @@ func (n *LinearPBFTNode) CheckPointRoutine(ctx context.Context) {
 						verifiedCount++
 					}
 				}
-				if verifiedCount < int(n.N-n.F) {
+				if verifiedCount < int(n.Handler.N-n.Handler.F) {
 					log.Warnf("Check point digest not verified for sequence number %d", n.config.lowWaterMark+n.config.k)
 					continue
 				}
