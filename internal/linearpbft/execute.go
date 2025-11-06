@@ -15,7 +15,7 @@ type Executor struct {
 	state        *ServerState
 	config       *ServerConfig
 	executeCh    chan int64
-	sendReply    func(sequenceNum int64, request *pb.TransactionRequest, result int64)
+	sendReply    func(signedRequest *pb.SignedTransactionRequest, result int64)
 	checkPointCh chan bool
 }
 
@@ -52,7 +52,8 @@ func (e *Executor) ExecuteRoutine(ctx context.Context) {
 				}
 
 				// Execute transaction
-				request := e.state.TransactionMap.Get(record.Digest).Request
+				signedRequest := e.state.TransactionMap.Get(record.Digest)
+				request := signedRequest.Request
 				var result int64
 				var err error
 				switch request.Transaction.Type {
@@ -76,7 +77,7 @@ func (e *Executor) ExecuteRoutine(ctx context.Context) {
 				e.safeTimer.DecrementWaitCountAndResetOrStopIfZero()
 				log.Infof("Executed (v: %d, s: %d): %s", e.state.GetViewNumber(), i, utils.LoggingString(request.Transaction))
 				if request.Transaction.Type != "null" {
-					go e.sendReply(i, request, result)
+					go e.sendReply(signedRequest, result)
 				}
 				e.state.SetLastExecutedSequenceNum(i)
 

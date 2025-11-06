@@ -39,12 +39,12 @@ func (n *LinearPBFTNode) TransferRequest(ctx context.Context, signedRequest *pb.
 
 	// Send reply to client if duplicate request
 	if n.LastReply.Get(request.Sender) != nil && request.Timestamp == n.LastReply.Get(request.Sender).Timestamp {
-		sequenceNum, _ := n.State.StateLog.GetOrAssignSequenceNumber(signedRequest)
 		log.Infof("Received duplicate request from client %s for request %s, sending reply", request.Sender, utils.LoggingString(request))
-		go n.SendReply(sequenceNum, request, n.LastReply.Get(request.Sender).Result)
+		go n.SendReply(signedRequest, n.LastReply.Get(request.Sender).Result)
 		return &emptypb.Empty{}, nil
 	}
 
+	// TODO: this does not belong here, it should be part of the request handler
 	// Add request to transaction map
 	if n.State.TransactionMap.Get(crypto.Digest(signedRequest)) == nil {
 		log.Infof("Adding request to transaction map: %s", utils.LoggingString(request))
@@ -127,7 +127,8 @@ func (n *LinearPBFTNode) ReadOnlyRequest(ctx context.Context, signedRequest *pb.
 }
 
 // SendReply sends a reply to a client
-func (n *LinearPBFTNode) SendReply(sequenceNum int64, request *pb.TransactionRequest, result int64) {
+func (n *LinearPBFTNode) SendReply(signedRequest *pb.SignedTransactionRequest, result int64) {
+	request := signedRequest.Request
 	// Create signed transaction response message
 	reply := &pb.TransactionResponse{
 		ViewNumber: n.State.GetViewNumber(),

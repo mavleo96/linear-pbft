@@ -152,8 +152,8 @@ func CreateLinearPBFTNode(selfNode *models.Node, peerNodes map[string]*models.No
 		CheckPointLog:        &CheckpointLog{Mutex: sync.RWMutex{}, LastCheckPointSequenceNum: 0, Log: make(map[int64]map[string]*pb.SignedCheckPointMessage), Quorum: 2*int64(len(peerNodes)/3) + 1},
 	}
 
-	executor.sendReply = func(sequenceNum int64, request *pb.TransactionRequest, result int64) {
-		server.SendReply(sequenceNum, request, result)
+	executor.sendReply = func(signedRequest *pb.SignedTransactionRequest, result int64) {
+		server.SendReply(signedRequest, result)
 	}
 
 	handler.SendPrePrepare = func(signedPreprepareMessage *pb.SignedPrePrepareMessage, sequenceNum int64) error {
