@@ -12,6 +12,7 @@ import (
 	"github.com/mavleo96/bft-mavleo96/internal/utils"
 )
 
+// generateShares generates secret and public shares for a given master secret and node IDs
 func generateShares(masterSec bls.SecretKey, ids []string, t int) (map[string]*bls.SecretKey, map[string]*bls.PublicKey) {
 	// create (t-1)-coefficient polynomial
 	msk := masterSec.GetMasterSecretKey(t - 1)
@@ -32,6 +33,7 @@ func generateShares(masterSec bls.SecretKey, ids []string, t int) (map[string]*b
 	return secretShares, publicShares
 }
 
+// generateMasterKeys generates a master secret and public key
 func generateMasterKeys() (bls.SecretKey, bls.PublicKey) {
 	var masterSec bls.SecretKey
 	masterSec.SetByCSPRNG()
@@ -39,6 +41,7 @@ func generateMasterKeys() (bls.SecretKey, bls.PublicKey) {
 	return masterSec, *masterPub
 }
 
+// saveToFile saves data to a file
 func saveToFile(path string, data []byte) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
 		return err
@@ -68,13 +71,14 @@ func main() {
 	bls.SetETHmode(bls.EthModeDraft07)
 
 	// Generate and save node master secret and public key
-	masterSec, masterPub := generateMasterKeys()
-	saveToFile(filepath.Join(*keysDir, "node", "master_secret.key"), masterSec.Serialize())
-	saveToFile(filepath.Join(*keysDir, "node", "master_public.key"), masterPub.Serialize())
+	masterSec1, masterPub1 := generateMasterKeys()
+	saveToFile(filepath.Join(*keysDir, "node", "master_public1.key"), masterPub1.Serialize())
+	masterSec2, masterPub2 := generateMasterKeys()
+	saveToFile(filepath.Join(*keysDir, "node", "master_public2.key"), masterPub2.Serialize())
 	fmt.Println("Generated Node TSS Master Secret and Public Key")
 
 	// Generate and save node shares t of n
-	secretShares1, publicShares1 := generateShares(masterSec, nodeIDs, t)
+	secretShares1, publicShares1 := generateShares(masterSec1, nodeIDs, t)
 
 	for i := range n {
 		id := nodeIDs[i]
@@ -86,7 +90,7 @@ func main() {
 	fmt.Printf("Generated Node TSS Shares %d-of-%d\n", t, n)
 
 	// Generate and save node shares n of n
-	secretShares2, publicShares2 := generateShares(masterSec, nodeIDs, n)
+	secretShares2, publicShares2 := generateShares(masterSec2, nodeIDs, n)
 
 	for i := range n {
 		id := nodeIDs[i]

@@ -173,10 +173,11 @@ func (n *LinearPBFTNode) PrePrepareRequest(ctx context.Context, signedMessage *p
 // }
 
 // Prepare handles incoming prepare messages
-func (n *LinearPBFTNode) PrepareRequest(ctx context.Context, signedPrepareMessages *pb.CollectedSignedPrepareMessage) (*pb.SignedCommitMessage, error) {
-	viewNumber := signedPrepareMessages.ViewNumber
-	sequenceNum := signedPrepareMessages.SequenceNum
-	digest := signedPrepareMessages.Digest
+func (n *LinearPBFTNode) PrepareRequest(ctx context.Context, signedPrepareMessage *pb.SignedPrepareMessage) (*pb.SignedCommitMessage, error) {
+	prepareMessage := signedPrepareMessage.Message
+	viewNumber := prepareMessage.ViewNumber
+	// sequenceNum := signedPrepareMessages.SequenceNum
+	// digest := signedPrepareMessages.Digest
 
 	// Ignore if not alive
 	if !n.Alive {
@@ -186,52 +187,59 @@ func (n *LinearPBFTNode) PrepareRequest(ctx context.Context, signedPrepareMessag
 
 	// Ignore if already in view change
 	if n.State.IsViewChangePhase() {
-		log.Infof("Ignored: %s; view change phase", utils.LoggingString(signedPrepareMessages))
+		log.Infof("Ignored: %s; view change phase", utils.LoggingString(signedPrepareMessage))
 		return nil, status.Errorf(codes.Unavailable, "view change phase")
 	}
 
 	// Verify View Number
 	if viewNumber != n.State.GetViewNumber() {
-		log.Warnf("Rejected: %s; invalid view number (expected: %d)", utils.LoggingString(signedPrepareMessages), n.State.GetViewNumber())
+		log.Warnf("Rejected: %s; invalid view number (expected: %d)", utils.LoggingString(signedPrepareMessage), n.State.GetViewNumber())
 		return nil, status.Errorf(codes.InvalidArgument, "invalid view number")
 	}
 
-	// Verify Matching Prepare Messages
-	verifiedCount := 0
-	for _, signedPrepareMessage := range signedPrepareMessages.Messages {
-		// TODO: remove this check later if we are sure that the prepare messages are not nil
-		if signedPrepareMessage == nil {
-			log.Fatal("Signed prepare message is nil")
-		}
-		prepareMessage := signedPrepareMessage.Message
-
-		// Verify Node's signature
-		ok := crypto.Verify(prepareMessage, n.GetPublicKey1(prepareMessage.NodeID), signedPrepareMessage.Signature)
-		if !ok {
-			// log.Warnf("Rejected: %s; invalid signature", utils.LoggingString(prepareMessage, record.Request))
-			continue
-		}
-
-		// Check if the prepare message matches preprepare message (here actually the view number in log record)
-		if prepareMessage.ViewNumber != viewNumber ||
-			prepareMessage.SequenceNum != sequenceNum ||
-			!cmp.Equal(prepareMessage.Digest, digest) {
-			// log.Warnf("Rejected: %s; does not match log record", utils.LoggingString(prepareMessage, record.Request))
-			continue
-		}
-
-		// Increment verified count
-		verifiedCount++
+	// Verify Signature
+	ok := crypto.Verify(prepareMessage, n.Handler.masterPublicKey1, signedPrepareMessage.Signature)
+	if !ok {
+		log.Warnf("Rejected: %s; invalid signature", utils.LoggingString(signedPrepareMessage))
+		return nil, status.Errorf(codes.Unauthenticated, "invalid signature")
 	}
 
-	// If verified count is less than 2f + 1 then return nil
-	if verifiedCount < int(2*n.Handler.F+1) {
-		log.Warnf("Ignored: %d; not enough prepare messages (verified: %d)", sequenceNum, verifiedCount)
-		return nil, status.Errorf(codes.FailedPrecondition, "not enough prepare messages")
-	}
+	// // Verify Matching Prepare Messages
+	// verifiedCount := 0
+	// for _, signedPrepareMessage := range signedPrepareMessages.Messages {
+	// 	// TODO: remove this check later if we are sure that the prepare messages are not nil
+	// 	if signedPrepareMessage == nil {
+	// 		log.Fatal("Signed prepare message is nil")
+	// 	}
+	// 	prepareMessage := signedPrepareMessage.Message
+
+	// 	// Verify Node's signature
+	// 	ok := crypto.Verify(prepareMessage, n.GetPublicKey1(prepareMessage.NodeID), signedPrepareMessage.Signature)
+	// 	if !ok {
+	// 		// log.Warnf("Rejected: %s; invalid signature", utils.LoggingString(prepareMessage, record.Request))
+	// 		continue
+	// 	}
+
+	// 	// Check if the prepare message matches preprepare message (here actually the view number in log record)
+	// 	if prepareMessage.ViewNumber != viewNumber ||
+	// 		prepareMessage.SequenceNum != sequenceNum ||
+	// 		!cmp.Equal(prepareMessage.Digest, digest) {
+	// 		// log.Warnf("Rejected: %s; does not match log record", utils.LoggingString(prepareMessage, record.Request))
+	// 		continue
+	// 	}
+
+	// 	// Increment verified count
+	// 	verifiedCount++
+	// }
+
+	// // If verified count is less than 2f + 1 then return nil
+	// if verifiedCount < int(2*n.Handler.F+1) {
+	// 	log.Warnf("Ignored: %d; not enough prepare messages (verified: %d)", sequenceNum, verifiedCount)
+	// 	return nil, status.Errorf(codes.FailedPrecondition, "not enough prepare messages")
+	// }
 
 	// TODO: Give control to protocol handler
-	return n.Handler.HandlePrepareRequestBackup(signedPrepareMessages)
+	return n.Handler.HandlePrepareRequestBackup(signedPrepareMessage)
 }
 
 // // Get the record from log record or create new one
@@ -338,10 +346,11 @@ func (n *LinearPBFTNode) PrepareRequest(ctx context.Context, signedPrepareMessag
 // }
 
 // Commit handles incoming commit messages
-func (n *LinearPBFTNode) CommitRequest(ctx context.Context, signedCommitMessages *pb.CollectedSignedCommitMessage) (*emptypb.Empty, error) {
-	viewNumber := signedCommitMessages.ViewNumber
-	sequenceNum := signedCommitMessages.SequenceNum
-	digest := signedCommitMessages.Digest
+func (n *LinearPBFTNode) CommitRequest(ctx context.Context, signedCommitMessage *pb.SignedCommitMessage) (*emptypb.Empty, error) {
+	commitMessage := signedCommitMessage.Message
+	viewNumber := commitMessage.ViewNumber
+	// sequenceNum := signedCommitMessages.SequenceNum
+	// digest := signedCommitMessages.Digest
 
 	// Ignore if not alive
 	if !n.Alive {
@@ -351,52 +360,59 @@ func (n *LinearPBFTNode) CommitRequest(ctx context.Context, signedCommitMessages
 
 	// Ignore if already in view change
 	if n.State.IsViewChangePhase() {
-		log.Infof("Ignored: %s; view change phase", utils.LoggingString(signedCommitMessages))
+		log.Infof("Ignored: %s; view change phase", utils.LoggingString(signedCommitMessage))
 		return nil, status.Errorf(codes.Unavailable, "view change phase")
 	}
 
 	// Verify View Number
 	if viewNumber != n.State.GetViewNumber() {
-		log.Warnf("Rejected: %s; invalid view number (expected: %d)", utils.LoggingString(signedCommitMessages), n.State.GetViewNumber())
+		log.Warnf("Rejected: %s; invalid view number (expected: %d)", utils.LoggingString(signedCommitMessage), n.State.GetViewNumber())
 		return nil, status.Errorf(codes.InvalidArgument, "invalid view number")
 	}
 
-	// Verify Commit Messages
-	verifiedCount := 0
-	for _, signedCommitMessage := range signedCommitMessages.Messages {
-		// TODO: remove this check later if we are sure that the commit messages are not nil
-		if signedCommitMessage == nil {
-			log.Fatal("Signed commit message is nil")
-		}
-		commitMessage := signedCommitMessage.Message
-
-		// Verify Node's signature
-		ok := crypto.Verify(commitMessage, n.GetPublicKey1(commitMessage.NodeID), signedCommitMessage.Signature)
-		if !ok {
-			// log.Warnf("Rejected: %s; invalid signature", utils.LoggingString(commitMessage, record.Request))
-			continue
-		}
-
-		// Check if the commit message matches prepare message
-		if commitMessage.ViewNumber != viewNumber ||
-			commitMessage.SequenceNum != sequenceNum ||
-			!cmp.Equal(commitMessage.Digest, digest) {
-			// log.Warnf("Rejected: %s; does not match log record", utils.LoggingString(commitMessage, record.Request))
-			continue
-		}
-
-		// Increment verified count
-		verifiedCount++
+	// Verify Signature
+	ok := crypto.Verify(commitMessage, n.Handler.masterPublicKey1, signedCommitMessage.Signature)
+	if !ok {
+		log.Warnf("Rejected: %s; invalid signature", utils.LoggingString(signedCommitMessage))
+		return nil, status.Errorf(codes.Unauthenticated, "invalid signature")
 	}
 
-	// If verified count is less than 2f + 1 then return nil
-	if verifiedCount < int(2*n.Handler.F+1) {
-		log.Warnf("Ignored: %d; not enough commit messages (verified: %d)", sequenceNum, verifiedCount)
-		return nil, status.Errorf(codes.FailedPrecondition, "not enough commit messages")
-	}
+	// // Verify Commit Messages
+	// verifiedCount := 0
+	// for _, signedCommitMessage := range signedCommitMessages.Messages {
+	// 	// TODO: remove this check later if we are sure that the commit messages are not nil
+	// 	if signedCommitMessage == nil {
+	// 		log.Fatal("Signed commit message is nil")
+	// 	}
+	// 	commitMessage := signedCommitMessage.Message
+
+	// 	// Verify Node's signature
+	// 	ok := crypto.Verify(commitMessage, n.GetPublicKey1(commitMessage.NodeID), signedCommitMessage.Signature)
+	// 	if !ok {
+	// 		// log.Warnf("Rejected: %s; invalid signature", utils.LoggingString(commitMessage, record.Request))
+	// 		continue
+	// 	}
+
+	// 	// Check if the commit message matches prepare message
+	// 	if commitMessage.ViewNumber != viewNumber ||
+	// 		commitMessage.SequenceNum != sequenceNum ||
+	// 		!cmp.Equal(commitMessage.Digest, digest) {
+	// 		// log.Warnf("Rejected: %s; does not match log record", utils.LoggingString(commitMessage, record.Request))
+	// 		continue
+	// 	}
+
+	// 	// Increment verified count
+	// 	verifiedCount++
+	// }
+
+	// // If verified count is less than 2f + 1 then return nil
+	// if verifiedCount < int(2*n.Handler.F+1) {
+	// 	log.Warnf("Ignored: %d; not enough commit messages (verified: %d)", sequenceNum, verifiedCount)
+	// 	return nil, status.Errorf(codes.FailedPrecondition, "not enough commit messages")
+	// }
 
 	// TODO: Give control to protocol handler
-	return n.Handler.HandleCommitRequestBackup(signedCommitMessages)
+	return n.Handler.HandleCommitRequestBackup(signedCommitMessage)
 }
 
 // // Get the record from log record or create new one

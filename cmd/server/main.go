@@ -92,6 +92,14 @@ func CreateServer(selfNode *models.Node, peerNodes map[string]*models.Node, clie
 	if err != nil {
 		log.Fatal(err)
 	}
+	masterPublicKey1, err := crypto.ReadPublicKey(filepath.Join("./keys", "node", "master_public1.key"))
+	if err != nil {
+		log.Fatal(err)
+	}
+	masterPublicKey2, err := crypto.ReadPublicKey(filepath.Join("./keys", "node", "master_public2.key"))
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	bankDB := &database.Database{}
 	dbPath := filepath.Join(dbDir, selfNode.ID+".db")
@@ -105,7 +113,7 @@ func CreateServer(selfNode *models.Node, peerNodes map[string]*models.Node, clie
 
 	grpcServer := grpc.NewServer()
 
-	node := linearpbft.CreateLinearPBFTNode(selfNode, peerNodes, clientMap, bankDB, privateKey1, privateKey2)
+	node := linearpbft.CreateLinearPBFTNode(selfNode, peerNodes, clientMap, bankDB, privateKey1, privateKey2, masterPublicKey1, masterPublicKey2)
 	pb.RegisterLinearPBFTNodeServer(grpcServer, node)
 
 	go node.ViewChangeRoutine(context.Background())

@@ -12,8 +12,8 @@ service LinearPBFTNode {
     rpc ReadOnlyRequest (SignedTransactionRequest) returns (SignedTransactionResponse);
 
     rpc PrePrepareRequest (SignedPrePrepareMessage) returns (SignedPrepareMessage);
-    rpc PrepareRequest (CollectedSignedPrepareMessage) returns (SignedCommitMessage);
-    rpc CommitRequest (CollectedSignedCommitMessage) returns (google.protobuf.Empty);
+    rpc PrepareRequest (SignedPrepareMessage) returns (SignedCommitMessage);
+    rpc CommitRequest (SignedCommitMessage) returns (google.protobuf.Empty);
 
     rpc CheckPointRequest(SignedCheckPointMessage) returns (google.protobuf.Empty);
 
@@ -85,7 +85,6 @@ message SignedPrePrepareMessage {
     SignedTransactionRequest request = 3;
 }
 
-
 // -------------- Prepare --------------
 
 message PrepareMessage {
@@ -98,13 +97,6 @@ message PrepareMessage {
 message SignedPrepareMessage {
     PrepareMessage message = 1;
     bytes signature = 2;
-}
-
-message CollectedSignedPrepareMessage {
-    int64 viewNumber = 1;
-    int64 sequenceNum = 2;
-    bytes digest = 3;
-    repeated SignedPrepareMessage messages = 4;
 }
 
 // -------------- Commit --------------
@@ -120,14 +112,6 @@ message SignedCommitMessage {
     CommitMessage message = 1;
     bytes signature = 2;
 }
-
-message CollectedSignedCommitMessage {
-    int64 viewNumber = 1;
-    int64 sequenceNum = 2;
-    bytes digest = 3;
-    repeated SignedCommitMessage messages = 4;
-}
-
 
 // -------------- CheckPointRequest --------------
 
@@ -146,7 +130,7 @@ message SignedCheckPointMessage {
 
 message PrepareProof {
     SignedPrePrepareMessage signedPrePrepareMessage = 1;
-    repeated SignedPrepareMessage signedPrepareMessages = 2;
+    SignedPrepareMessage signedPrepareMessage = 2;
 }
 
 message ViewChangeMessage {

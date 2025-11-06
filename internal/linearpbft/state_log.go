@@ -158,8 +158,8 @@ type LogRecord struct {
 	committed         bool
 	executed          bool
 	prePrepareMessage *pb.SignedPrePrepareMessage
-	prepareMessages   []*pb.SignedPrepareMessage
-	commitMessages    []*pb.SignedCommitMessage
+	prepareMessage    *pb.SignedPrepareMessage
+	commitMessage     *pb.SignedCommitMessage
 }
 
 // IsPrePrepared returns true if the log record is preprepared
@@ -195,14 +195,14 @@ func (l *LogRecord) AddPrePrepareMessage(signedPrePrepareMessage *pb.SignedPrePr
 }
 
 // AddPrepareMessages adds prepare messages to the log record
-func (l *LogRecord) AddPrepareMessages(signedPrepareMessages []*pb.SignedPrepareMessage) {
-	l.prepareMessages = signedPrepareMessages
+func (l *LogRecord) AddPrepareMessages(prepareMessage *pb.SignedPrepareMessage) {
+	l.prepareMessage = prepareMessage
 	l.updateLogState()
 }
 
 // AddCommitMessages adds commit messages to the log record
-func (l *LogRecord) AddCommitMessages(signedCommitMessages []*pb.SignedCommitMessage) {
-	l.commitMessages = signedCommitMessages
+func (l *LogRecord) AddCommitMessages(commitMessage *pb.SignedCommitMessage) {
+	l.commitMessage = commitMessage
 	l.updateLogState()
 }
 
@@ -210,7 +210,7 @@ func (l *LogRecord) AddCommitMessages(signedCommitMessages []*pb.SignedCommitMes
 func (l *LogRecord) GetPrepareProof() *pb.PrepareProof {
 	return &pb.PrepareProof{
 		SignedPrePrepareMessage: l.prePrepareMessage,
-		SignedPrepareMessages:   l.prepareMessages,
+		SignedPrepareMessage:    l.prepareMessage,
 	}
 }
 
@@ -221,8 +221,8 @@ func (l *LogRecord) Reset(viewNumber int64, digest []byte) error {
 	l.prepared = false
 	l.committed = false
 	l.prePrepareMessage = nil
-	l.prepareMessages = nil
-	l.commitMessages = nil
+	l.prepareMessage = nil
+	l.commitMessage = nil
 
 	if l.executed && !cmp.Equal(l.Digest, digest) {
 		return errors.New("resetting log record with different digest that is already executed")
@@ -242,8 +242,8 @@ func CreateLogRecord(viewNumber int64, sequenceNumber int64, digest []byte) *Log
 		committed:         false,
 		executed:          false,
 		prePrepareMessage: nil,
-		prepareMessages:   nil,
-		commitMessages:    nil,
+		prepareMessage:    nil,
+		commitMessage:     nil,
 	}
 }
 
@@ -257,14 +257,14 @@ func (l *LogRecord) updateLogState() {
 		log.Infof("Preprepared (v: %d, s: %d)", l.ViewNumber, l.SequenceNum)
 	}
 	l.prePrepared = true
-	if len(l.prepareMessages) == 0 {
+	if l.prepareMessage == nil {
 		return
 	}
 	if !l.prepared {
 		log.Infof("Prepared (v: %d, s: %d)", l.ViewNumber, l.SequenceNum)
 	}
 	l.prepared = true
-	if len(l.commitMessages) == 0 {
+	if l.commitMessage == nil {
 		return
 	}
 	if !l.committed {

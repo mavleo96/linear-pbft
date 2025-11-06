@@ -3,6 +3,7 @@ package linearpbft
 import (
 	"context"
 
+	"github.com/herumi/bls-eth-go-binary/bls"
 	"github.com/mavleo96/bft-mavleo96/internal/crypto"
 	"github.com/mavleo96/bft-mavleo96/pb"
 	log "github.com/sirupsen/logrus"
@@ -65,24 +66,37 @@ func (h *ProtocolHandler) ServiceRoutine(ctx context.Context) {
 			// Add prepare messages to log record
 			sequenceNum := signedPrepareMessages[0].Message.SequenceNum
 			record, _ := h.state.StateLog.Get(sequenceNum)
-			record.AddPrepareMessages(signedPrepareMessages)
+
+			// Aggregate signatures
+			signatureMap := make(map[bls.ID][]byte)
+			for _, signedPrepareMessage := range signedPrepareMessages {
+				signatureMap[crypto.NodeIDToBLSMaskID(signedPrepareMessage.Message.NodeID)] = signedPrepareMessage.Signature
+			}
+			signature := crypto.AggregateSignatures(signatureMap)
+
+			// Create collected signed prepare message
+			prepareMessage := &pb.PrepareMessage{
+				ViewNumber:  h.state.GetViewNumber(),
+				SequenceNum: sequenceNum,
+				Digest:      record.Digest,
+				NodeID:      h.id,
+			}
+			signedPrepareMessage := &pb.SignedPrepareMessage{
+				Message:   prepareMessage,
+				Signature: signature,
+			}
+
+			// Add prepare message to log record
+			record.AddPrepareMessages(signedPrepareMessage)
 			// Byzantine node behavior: crash attack
 			// if n.Byzantine && n.CrashAttack {
 			// 	// log.Infof("Node %s is Byzantine and is performing crash attack", n.ID)
 			// 	record.MaliciousUpdateLogState()
 			// }
 
-			// Create collected signed prepare message
-			collectedSignedPrepareMessages := &pb.CollectedSignedPrepareMessage{
-				ViewNumber:  h.state.GetViewNumber(),
-				SequenceNum: sequenceNum,
-				Digest:      record.Digest,
-				Messages:    signedPrepareMessages,
-			}
-
 			// Multicast prepare message to all nodes
 			go func() {
-				err := h.SendPrepare(collectedSignedPrepareMessages)
+				err := h.SendPrepare(signedPrepareMessage)
 				if err != nil {
 					return
 				}
@@ -92,19 +106,32 @@ func (h *ProtocolHandler) ServiceRoutine(ctx context.Context) {
 			// Add commit messages to log record
 			sequenceNum := signedCommitMessages[0].Message.SequenceNum
 			record, _ := h.state.StateLog.Get(sequenceNum)
-			record.AddCommitMessages(signedCommitMessages)
+
+			// Aggregate signatures
+			signatureMap := make(map[bls.ID][]byte)
+			for _, signedCommitMessage := range signedCommitMessages {
+				signatureMap[crypto.NodeIDToBLSMaskID(signedCommitMessage.Message.NodeID)] = signedCommitMessage.Signature
+			}
+			signature := crypto.AggregateSignatures(signatureMap)
 
 			// Create collected signed commit message
-			collectedSignedCommitMessage := &pb.CollectedSignedCommitMessage{
+			commitMessage := &pb.CommitMessage{
 				ViewNumber:  h.state.GetViewNumber(),
 				SequenceNum: sequenceNum,
 				Digest:      record.Digest,
-				Messages:    signedCommitMessages,
+				NodeID:      h.id,
 			}
+			signedCommitMessage := &pb.SignedCommitMessage{
+				Message:   commitMessage,
+				Signature: signature,
+			}
+
+			// Add commit message to log record
+			record.AddCommitMessages(signedCommitMessage)
 
 			// Multicast commit message to all nodes
 			go func() {
-				err := h.SendCommit(collectedSignedCommitMessage)
+				err := h.SendCommit(signedCommitMessage)
 				if err != nil {
 					return
 				}

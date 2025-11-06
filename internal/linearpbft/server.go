@@ -78,7 +78,7 @@ type LinearPBFTNode struct {
 }
 
 // CreateLinearPBFTNode creates a new LinearPBFT node
-func CreateLinearPBFTNode(selfNode *models.Node, peerNodes map[string]*models.Node, clientMap map[string]*models.Client, bankDB *database.Database, privateKey1 *bls.SecretKey, privateKey2 *bls.SecretKey) *LinearPBFTNode {
+func CreateLinearPBFTNode(selfNode *models.Node, peerNodes map[string]*models.Node, clientMap map[string]*models.Client, bankDB *database.Database, privateKey1 *bls.SecretKey, privateKey2 *bls.SecretKey, masterPublicKey1 *bls.PublicKey, masterPublicKey2 *bls.PublicKey) *LinearPBFTNode {
 
 	timer := CreateSafeTimer(ExecutionTimeout, ViewChangeTimeout)
 
@@ -113,16 +113,17 @@ func CreateLinearPBFTNode(selfNode *models.Node, peerNodes map[string]*models.No
 	}
 
 	handler := &ProtocolHandler{
-		id:          selfNode.ID,
-		state:       serverState,
-		privateKey1: privateKey1,
-		peers:       peerNodes,
-		F:           int64(len(peerNodes) / 3),
-		N:           int64(len(peerNodes) + 1),
-		executeCh:   executeChannel,
-		requestCh:   make(chan *pb.SignedTransactionRequest, 20),
-		prepareCh:   make(chan []*pb.SignedPrepareMessage, 20),
-		commitCh:    make(chan []*pb.SignedCommitMessage, 20),
+		id:               selfNode.ID,
+		state:            serverState,
+		privateKey1:      privateKey1,
+		masterPublicKey1: masterPublicKey1,
+		peers:            peerNodes,
+		F:                int64(len(peerNodes) / 3),
+		N:                int64(len(peerNodes) + 1),
+		executeCh:        executeChannel,
+		requestCh:        make(chan *pb.SignedTransactionRequest, 20),
+		prepareCh:        make(chan []*pb.SignedPrepareMessage, 20),
+		commitCh:         make(chan []*pb.SignedCommitMessage, 20),
 	}
 
 	server := &LinearPBFTNode{
@@ -158,11 +159,11 @@ func CreateLinearPBFTNode(selfNode *models.Node, peerNodes map[string]*models.No
 	handler.SendPrePrepare = func(signedPreprepareMessage *pb.SignedPrePrepareMessage, sequenceNum int64) error {
 		return server.SendPrePrepare(signedPreprepareMessage, sequenceNum)
 	}
-	handler.SendPrepare = func(collectedSignedPrepareMessages *pb.CollectedSignedPrepareMessage) error {
-		return server.SendPrepare(collectedSignedPrepareMessages)
+	handler.SendPrepare = func(signedPrepareMessage *pb.SignedPrepareMessage) error {
+		return server.SendPrepare(signedPrepareMessage)
 	}
-	handler.SendCommit = func(collectedSignedCommitMessages *pb.CollectedSignedCommitMessage) error {
-		return server.SendCommit(collectedSignedCommitMessages)
+	handler.SendCommit = func(signedCommitMessage *pb.SignedCommitMessage) error {
+		return server.SendCommit(signedCommitMessage)
 	}
 
 	return server

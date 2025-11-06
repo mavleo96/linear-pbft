@@ -19,9 +19,10 @@ type ProtocolHandler struct {
 	state       *ServerState
 	privateKey1 *bls.SecretKey
 	// privateKey2    *bls.SecretKey
-	peers map[string]*models.Node
-	F     int64
-	N     int64
+	masterPublicKey1 *bls.PublicKey
+	peers            map[string]*models.Node
+	F                int64
+	N                int64
 
 	// Channels
 	executeCh chan int64
@@ -31,8 +32,8 @@ type ProtocolHandler struct {
 
 	// Functions
 	SendPrePrepare func(signedPreprepareMessage *pb.SignedPrePrepareMessage, sequenceNum int64) error
-	SendPrepare    func(collectedSignedPrepareMessages *pb.CollectedSignedPrepareMessage) error
-	SendCommit     func(collectedSignedCommitMessages *pb.CollectedSignedCommitMessage) error
+	SendPrepare    func(signedPrepareMessage *pb.SignedPrepareMessage) error
+	SendCommit     func(signedCommitMessage *pb.SignedCommitMessage) error
 }
 
 func (h *ProtocolHandler) GetRequestChannel() chan<- *pb.SignedTransactionRequest {
@@ -130,10 +131,11 @@ func (h *ProtocolHandler) HandlePrePrepareRequestBackup(signedPrePrepareMessage 
 
 }
 
-func (h *ProtocolHandler) HandlePrepareRequestBackup(collectedSignedPrepareMessages *pb.CollectedSignedPrepareMessage) (*pb.SignedCommitMessage, error) {
-	viewNumber := collectedSignedPrepareMessages.ViewNumber
-	sequenceNum := collectedSignedPrepareMessages.SequenceNum
-	digest := collectedSignedPrepareMessages.Digest
+func (h *ProtocolHandler) HandlePrepareRequestBackup(signedPrepareMessage *pb.SignedPrepareMessage) (*pb.SignedCommitMessage, error) {
+	prepareMessage := signedPrepareMessage.Message
+	viewNumber := prepareMessage.ViewNumber
+	sequenceNum := prepareMessage.SequenceNum
+	digest := prepareMessage.Digest
 
 	// Get or create log record
 	record, exists := h.state.StateLog.Get(sequenceNum)
@@ -145,7 +147,7 @@ func (h *ProtocolHandler) HandlePrepareRequestBackup(collectedSignedPrepareMessa
 	}
 
 	// Log the prepare messages in record
-	record.AddPrepareMessages(collectedSignedPrepareMessages.Messages)
+	record.AddPrepareMessages(signedPrepareMessage)
 	// if n.Byzantine && n.CrashAttack {
 	// 	record.MaliciousUpdateLogState()
 	// }
@@ -181,10 +183,11 @@ func (h *ProtocolHandler) HandlePrepareRequestBackup(collectedSignedPrepareMessa
 
 }
 
-func (h *ProtocolHandler) HandleCommitRequestBackup(collectedSignedCommitMessages *pb.CollectedSignedCommitMessage) (*emptypb.Empty, error) {
-	viewNumber := collectedSignedCommitMessages.ViewNumber
-	sequenceNum := collectedSignedCommitMessages.SequenceNum
-	digest := collectedSignedCommitMessages.Digest
+func (h *ProtocolHandler) HandleCommitRequestBackup(signedCommitMessage *pb.SignedCommitMessage) (*emptypb.Empty, error) {
+	commitMessage := signedCommitMessage.Message
+	viewNumber := commitMessage.ViewNumber
+	sequenceNum := commitMessage.SequenceNum
+	digest := commitMessage.Digest
 
 	// Get or create log record
 	record, exists := h.state.StateLog.Get(sequenceNum)
@@ -196,7 +199,7 @@ func (h *ProtocolHandler) HandleCommitRequestBackup(collectedSignedCommitMessage
 	}
 
 	// Log the commit messages in record
-	record.AddCommitMessages(collectedSignedCommitMessages.Messages)
+	record.AddCommitMessages(signedCommitMessage)
 	// if n.Byzantine && n.CrashAttack {
 	// 	record.MaliciousUpdateLogState()
 	// }

@@ -44,8 +44,8 @@ type LinearPBFTNodeClient interface {
 	TransferRequest(ctx context.Context, in *SignedTransactionRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	ReadOnlyRequest(ctx context.Context, in *SignedTransactionRequest, opts ...grpc.CallOption) (*SignedTransactionResponse, error)
 	PrePrepareRequest(ctx context.Context, in *SignedPrePrepareMessage, opts ...grpc.CallOption) (*SignedPrepareMessage, error)
-	PrepareRequest(ctx context.Context, in *CollectedSignedPrepareMessage, opts ...grpc.CallOption) (*SignedCommitMessage, error)
-	CommitRequest(ctx context.Context, in *CollectedSignedCommitMessage, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	PrepareRequest(ctx context.Context, in *SignedPrepareMessage, opts ...grpc.CallOption) (*SignedCommitMessage, error)
+	CommitRequest(ctx context.Context, in *SignedCommitMessage, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	CheckPointRequest(ctx context.Context, in *SignedCheckPointMessage, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	ViewChangeRequest(ctx context.Context, in *SignedViewChangeMessage, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	NewViewRequest(ctx context.Context, in *SignedNewViewMessage, opts ...grpc.CallOption) (LinearPBFTNode_NewViewRequestClient, error)
@@ -92,7 +92,7 @@ func (c *linearPBFTNodeClient) PrePrepareRequest(ctx context.Context, in *Signed
 	return out, nil
 }
 
-func (c *linearPBFTNodeClient) PrepareRequest(ctx context.Context, in *CollectedSignedPrepareMessage, opts ...grpc.CallOption) (*SignedCommitMessage, error) {
+func (c *linearPBFTNodeClient) PrepareRequest(ctx context.Context, in *SignedPrepareMessage, opts ...grpc.CallOption) (*SignedCommitMessage, error) {
 	out := new(SignedCommitMessage)
 	err := c.cc.Invoke(ctx, LinearPBFTNode_PrepareRequest_FullMethodName, in, out, opts...)
 	if err != nil {
@@ -101,7 +101,7 @@ func (c *linearPBFTNodeClient) PrepareRequest(ctx context.Context, in *Collected
 	return out, nil
 }
 
-func (c *linearPBFTNodeClient) CommitRequest(ctx context.Context, in *CollectedSignedCommitMessage, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *linearPBFTNodeClient) CommitRequest(ctx context.Context, in *SignedCommitMessage, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, LinearPBFTNode_CommitRequest_FullMethodName, in, out, opts...)
 	if err != nil {
@@ -221,8 +221,8 @@ type LinearPBFTNodeServer interface {
 	TransferRequest(context.Context, *SignedTransactionRequest) (*emptypb.Empty, error)
 	ReadOnlyRequest(context.Context, *SignedTransactionRequest) (*SignedTransactionResponse, error)
 	PrePrepareRequest(context.Context, *SignedPrePrepareMessage) (*SignedPrepareMessage, error)
-	PrepareRequest(context.Context, *CollectedSignedPrepareMessage) (*SignedCommitMessage, error)
-	CommitRequest(context.Context, *CollectedSignedCommitMessage) (*emptypb.Empty, error)
+	PrepareRequest(context.Context, *SignedPrepareMessage) (*SignedCommitMessage, error)
+	CommitRequest(context.Context, *SignedCommitMessage) (*emptypb.Empty, error)
 	CheckPointRequest(context.Context, *SignedCheckPointMessage) (*emptypb.Empty, error)
 	ViewChangeRequest(context.Context, *SignedViewChangeMessage) (*emptypb.Empty, error)
 	NewViewRequest(*SignedNewViewMessage, LinearPBFTNode_NewViewRequestServer) error
@@ -248,10 +248,10 @@ func (UnimplementedLinearPBFTNodeServer) ReadOnlyRequest(context.Context, *Signe
 func (UnimplementedLinearPBFTNodeServer) PrePrepareRequest(context.Context, *SignedPrePrepareMessage) (*SignedPrepareMessage, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method PrePrepareRequest not implemented")
 }
-func (UnimplementedLinearPBFTNodeServer) PrepareRequest(context.Context, *CollectedSignedPrepareMessage) (*SignedCommitMessage, error) {
+func (UnimplementedLinearPBFTNodeServer) PrepareRequest(context.Context, *SignedPrepareMessage) (*SignedCommitMessage, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method PrepareRequest not implemented")
 }
-func (UnimplementedLinearPBFTNodeServer) CommitRequest(context.Context, *CollectedSignedCommitMessage) (*emptypb.Empty, error) {
+func (UnimplementedLinearPBFTNodeServer) CommitRequest(context.Context, *SignedCommitMessage) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CommitRequest not implemented")
 }
 func (UnimplementedLinearPBFTNodeServer) CheckPointRequest(context.Context, *SignedCheckPointMessage) (*emptypb.Empty, error) {
@@ -349,7 +349,7 @@ func _LinearPBFTNode_PrePrepareRequest_Handler(srv interface{}, ctx context.Cont
 }
 
 func _LinearPBFTNode_PrepareRequest_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(CollectedSignedPrepareMessage)
+	in := new(SignedPrepareMessage)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -361,13 +361,13 @@ func _LinearPBFTNode_PrepareRequest_Handler(srv interface{}, ctx context.Context
 		FullMethod: LinearPBFTNode_PrepareRequest_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(LinearPBFTNodeServer).PrepareRequest(ctx, req.(*CollectedSignedPrepareMessage))
+		return srv.(LinearPBFTNodeServer).PrepareRequest(ctx, req.(*SignedPrepareMessage))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
 func _LinearPBFTNode_CommitRequest_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(CollectedSignedCommitMessage)
+	in := new(SignedCommitMessage)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -379,7 +379,7 @@ func _LinearPBFTNode_CommitRequest_Handler(srv interface{}, ctx context.Context,
 		FullMethod: LinearPBFTNode_CommitRequest_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(LinearPBFTNodeServer).CommitRequest(ctx, req.(*CollectedSignedCommitMessage))
+		return srv.(LinearPBFTNodeServer).CommitRequest(ctx, req.(*SignedCommitMessage))
 	}
 	return interceptor(ctx, in, info, handler)
 }

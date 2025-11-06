@@ -161,7 +161,8 @@ func (n *LinearPBFTNode) ViewChangeRequest(ctx context.Context, signedViewChange
 		// Get signed preprepare message and prepare messages
 		signedPrePrepareMessage := prepareProof.SignedPrePrepareMessage
 		prePrepareMessage := signedPrePrepareMessage.Message
-		signedPrepareMessages := prepareProof.SignedPrepareMessages
+		signedPrepareMessage := prepareProof.SignedPrepareMessage
+		prepareMessage := signedPrepareMessage.Message
 
 		// Get view number, sequence number and digest
 		viewNumber := prePrepareMessage.ViewNumber
@@ -182,20 +183,34 @@ func (n *LinearPBFTNode) ViewChangeRequest(ctx context.Context, signedViewChange
 		// digest may not be possible to verify if request not availables
 
 		// Verify prepare messages signatures
-		for _, signedPrepareMessage := range signedPrepareMessages {
-			prepareMessage := signedPrepareMessage.Message
-			ok := crypto.Verify(prepareMessage, n.GetPublicKey1(prepareMessage.NodeID), signedPrepareMessage.Signature)
-			if !ok {
-				log.Warnf("Rejected: %s; invalid signature on prepare message", utils.LoggingString(viewChangeMessage))
-				return nil, status.Errorf(codes.FailedPrecondition, "invalid signature on prepare message")
-			}
+		// for _, signedPrepareMessage := range signedPrepareMessages {
+		// 	prepareMessage := signedPrepareMessage.Message
+		// 	ok := crypto.Verify(prepareMessage, n.GetPublicKey1(prepareMessage.NodeID), signedPrepareMessage.Signature)
+		// 	if !ok {
+		// 		log.Warnf("Rejected: %s; invalid signature on prepare message", utils.LoggingString(viewChangeMessage))
+		// 		return nil, status.Errorf(codes.FailedPrecondition, "invalid signature on prepare message")
+		// 	}
 
-			// Verify prepare message digest, view number and sequence number
-			if prepareMessage.ViewNumber != viewNumber ||
-				prepareMessage.SequenceNum != sequenceNum ||
-				!cmp.Equal(prepareMessage.Digest, digest) {
-				return nil, status.Errorf(codes.FailedPrecondition, "invalid digest on prepare message")
-			}
+		// 	// Verify prepare message digest, view number and sequence number
+		// 	if prepareMessage.ViewNumber != viewNumber ||
+		// 		prepareMessage.SequenceNum != sequenceNum ||
+		// 		!cmp.Equal(prepareMessage.Digest, digest) {
+		// 		return nil, status.Errorf(codes.FailedPrecondition, "invalid digest on prepare message")
+		// 	}
+		// }
+
+		// Verify prepare message signature
+		ok = crypto.Verify(prepareMessage, n.Handler.masterPublicKey1, signedPrepareMessage.Signature)
+		if !ok {
+			log.Warnf("Rejected: %s; invalid signature on prepare message", utils.LoggingString(viewChangeMessage))
+			return nil, status.Errorf(codes.FailedPrecondition, "invalid signature on prepare message")
+		}
+
+		// Verify prepare message digest, view number and sequence number
+		if prepareMessage.ViewNumber != viewNumber ||
+			prepareMessage.SequenceNum != sequenceNum ||
+			!cmp.Equal(prepareMessage.Digest, digest) {
+			return nil, status.Errorf(codes.FailedPrecondition, "invalid digest on prepare message")
 		}
 	}
 

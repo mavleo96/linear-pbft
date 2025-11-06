@@ -1,7 +1,9 @@
 package crypto
 
 import (
+	"fmt"
 	"os"
+	"regexp"
 	"strings"
 
 	"github.com/herumi/bls-eth-go-binary/bls"
@@ -38,4 +40,10 @@ func NodeIDToBLSMaskID(nodeID string) bls.ID {
 	var id bls.ID
 	id.SetDecString(strings.ReplaceAll(nodeID, "n", ""))
 	return id
+}
+
+// Remove key from json marshalled string
+func regexRemoveKey(data string, key string) string {
+	re := regexp.MustCompile(fmt.Sprintf("\"%s\":\"n\\d+\"", key))
+	return re.ReplaceAllString(data, "")
 }

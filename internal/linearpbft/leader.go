@@ -112,11 +112,11 @@ func (n *LinearPBFTNode) SendPrePrepare(signedPreprepareMessage *pb.SignedPrePre
 }
 
 // SendPrepare sends a prepare message to all nodes
-func (n *LinearPBFTNode) SendPrepare(collectedSignedPrepareMessage *pb.CollectedSignedPrepareMessage) error {
+func (n *LinearPBFTNode) SendPrepare(signedPrepareMessage *pb.SignedPrepareMessage) error {
 
-	viewNumber := collectedSignedPrepareMessage.ViewNumber
-	sequenceNum := collectedSignedPrepareMessage.SequenceNum
-	digest := collectedSignedPrepareMessage.Digest
+	viewNumber := signedPrepareMessage.Message.ViewNumber
+	sequenceNum := signedPrepareMessage.Message.SequenceNum
+	digest := signedPrepareMessage.Message.Digest
 
 	// Multicast prepare message to all nodes
 	responseCh := make(chan *pb.SignedCommitMessage, len(n.Handler.peers))
@@ -134,7 +134,7 @@ func (n *LinearPBFTNode) SendPrepare(collectedSignedPrepareMessage *pb.Collected
 				// log.Infof("Node %s is Byzantine and is performing time attack", peer.ID)
 				time.Sleep(TimeAttackDelay)
 			}
-			signedCommitMsg, err := (*peer.Client).PrepareRequest(context.Background(), collectedSignedPrepareMessage)
+			signedCommitMsg, err := (*peer.Client).PrepareRequest(context.Background(), signedPrepareMessage)
 			if err != nil {
 				return
 			}
@@ -201,9 +201,9 @@ func (n *LinearPBFTNode) SendPrepare(collectedSignedPrepareMessage *pb.Collected
 }
 
 // SendCommit sends a commit message to all nodes
-func (n *LinearPBFTNode) SendCommit(collectedSignedCommitMessage *pb.CollectedSignedCommitMessage) error {
+func (n *LinearPBFTNode) SendCommit(signedCommitMessage *pb.SignedCommitMessage) error {
 
-	sequenceNum := collectedSignedCommitMessage.SequenceNum
+	sequenceNum := signedCommitMessage.Message.SequenceNum
 
 	// Multicast commit message to all nodes
 	log.Infof("Sending commit message for sequence number %d", sequenceNum)
@@ -219,7 +219,7 @@ func (n *LinearPBFTNode) SendCommit(collectedSignedCommitMessage *pb.CollectedSi
 				// log.Infof("Node %s is Byzantine and is performing time attack", peer.ID)
 				time.Sleep(TimeAttackDelay)
 			}
-			_, err := (*peer.Client).CommitRequest(context.Background(), collectedSignedCommitMessage)
+			_, err := (*peer.Client).CommitRequest(context.Background(), signedCommitMessage)
 			if err != nil {
 				return
 			}
