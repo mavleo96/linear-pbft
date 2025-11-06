@@ -72,7 +72,7 @@ func (h *ProtocolHandler) ServiceRoutine(ctx context.Context) {
 			for _, signedPrepareMessage := range signedPrepareMessages {
 				signatureMap[crypto.NodeIDToBLSMaskID(signedPrepareMessage.Message.NodeID)] = signedPrepareMessage.Signature
 			}
-			signature := crypto.AggregateSignatures(signatureMap)
+			signature := crypto.RecoverSignature(signatureMap)
 
 			// Create collected signed prepare message
 			prepareMessage := &pb.PrepareMessage{
@@ -112,7 +112,7 @@ func (h *ProtocolHandler) ServiceRoutine(ctx context.Context) {
 			for _, signedCommitMessage := range signedCommitMessages {
 				signatureMap[crypto.NodeIDToBLSMaskID(signedCommitMessage.Message.NodeID)] = signedCommitMessage.Signature
 			}
-			signature := crypto.AggregateSignatures(signatureMap)
+			signature := crypto.RecoverSignature(signatureMap)
 
 			// Create collected signed commit message
 			commitMessage := &pb.CommitMessage{

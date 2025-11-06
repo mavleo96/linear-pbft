@@ -24,8 +24,8 @@ func Verify[T any](message T, publicKey *bls.PublicKey, signature []byte) bool {
 	return sig.VerifyByte(publicKey, msgBytes)
 }
 
-// AggregateSignatures aggregates signatures from a map of node IDs to signatures
-func AggregateSignatures(signatureMap map[bls.ID][]byte) []byte {
+// RecoverSignature combines partial signatures and recovers a signature from a map of node IDs to signatures
+func RecoverSignature(signatureMap map[bls.ID][]byte) []byte {
 	signatures := make([]bls.Sign, 0)
 	ids := make([]bls.ID, 0)
 	for id, signature := range signatureMap {

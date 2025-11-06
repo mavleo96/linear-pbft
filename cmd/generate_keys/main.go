@@ -15,7 +15,7 @@ import (
 // generateShares generates secret and public shares for a given master secret and node IDs
 func generateShares(masterSec bls.SecretKey, ids []string, t int) (map[string]*bls.SecretKey, map[string]*bls.PublicKey) {
 	// create (t-1)-coefficient polynomial
-	msk := masterSec.GetMasterSecretKey(t - 1)
+	msk := masterSec.GetMasterSecretKey(t)
 
 	// generate and save secret/public shares for all nodes
 	secretShares := make(map[string]*bls.SecretKey)
