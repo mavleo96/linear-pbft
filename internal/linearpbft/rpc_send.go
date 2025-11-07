@@ -180,3 +180,12 @@ func (n *LinearPBFTNode) SendNewViewMessageToNode(signedNewViewMessage *pb.Signe
 	}
 	return nil
 }
+
+// SendCheckPointMessageToNode sends a check point message to a node
+func (n *LinearPBFTNode) SendCheckPointMessageToNode(signedCheckPointMessage *pb.SignedCheckPointMessage, nodeID string) error {
+	_, err := (*n.Handler.peers[nodeID].Client).CheckPointRequest(context.Background(), signedCheckPointMessage)
+	if err != nil {
+		return err
+	}
+	return nil
+}

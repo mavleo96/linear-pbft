@@ -37,7 +37,7 @@ func (n *LinearPBFTNode) PrintLog(ctx context.Context, req *emptypb.Empty) (*emp
 func (n *LinearPBFTNode) PrintDB(ctx context.Context, req *emptypb.Empty) (*emptypb.Empty, error) {
 	log.Infof("Print database command received")
 	fmt.Println("Printing database:")
-	db_state, err := n.Executor.db.PrintDB()
+	db_state, err := n.Executor.db.GetDBState()
 	if err != nil {
 		log.Fatal(err)
 	}

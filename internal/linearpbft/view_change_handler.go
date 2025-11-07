@@ -131,8 +131,7 @@ func (n *LinearPBFTNode) CreateViewChangeMessage(viewNumber int64) *pb.SignedVie
 	preparedSet := n.State.StateLog.GetPrepareProof()
 
 	// Get check point messages
-	stableCheckpointSequenceNum := n.CheckPointLog.GetStableCheckpointSequenceNum()
-	signedCheckPointMessages := n.CheckPointLog.GetMessages(stableCheckpointSequenceNum)
+	signedCheckPointMessages := n.CheckPointManager.GetMessages(n.config.lowWaterMark)
 
 	// Create signed view change message
 	viewChangeMessage := &pb.ViewChangeMessage{

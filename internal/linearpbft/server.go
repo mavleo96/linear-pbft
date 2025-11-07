@@ -23,6 +23,8 @@ type ServerConfig struct {
 	lowWaterMark  int64
 	highWaterMark int64
 	k             int64
+	n             int64
+	f             int64
 }
 
 // LinearPBFTNode represents a LinearPBFT node
@@ -62,16 +64,16 @@ type LinearPBFTNode struct {
 	// View change manager
 	ViewChangeManager *ViewChangeManager
 
+	// Check point manager
+	CheckPointManager *CheckPointManager
+
 	// Timer instance
 	SafeTimer *SafeTimer
-
-	// Channels
-	CheckPointRoutineCh chan bool
 
 	// Message logs
 	ViewChangeMessageLog map[int64]map[string]*pb.SignedViewChangeMessage // v -> (id -> msg)
 	ForwardedRequestsLog []*pb.SignedTransactionRequest
-	CheckPointLog        *CheckpointLog
+	// CheckPointLog        *CheckpointLog
 
 	// UnimplementedLinearPBFTNodeServer is the server interface for the LinearPBFT node
 	*pb.UnimplementedLinearPBFTNodeServer
@@ -99,17 +101,26 @@ func CreateLinearPBFTNode(selfNode *models.Node, peerNodes map[string]*models.No
 		TransactionMap:          CreateTransactionMap(),
 	}
 
-	checkPointCh := make(chan bool)
-
 	executeChannel := make(chan int64, 20)
 
+	CheckPointManager := &CheckPointManager{
+		mutex:               sync.RWMutex{},
+		log:                 make(map[int64]map[string]*pb.SignedCheckPointMessage),
+		digestMap:           make(map[int64][]byte),
+		f:                   int64(len(peerNodes) / 3),
+		state:               serverState,
+		config:              serverConfig,
+		checkPointCreateCh:  make(chan int64, 5),
+		checkPointRequestCh: make(chan int64, 5),
+	}
+
 	executor := &Executor{
-		db:           bankDB,
-		safeTimer:    timer,
-		state:        serverState,
-		config:       serverConfig,
-		executeCh:    executeChannel,
-		checkPointCh: checkPointCh,
+		db:                bankDB,
+		safeTimer:         timer,
+		state:             serverState,
+		config:            serverConfig,
+		executeCh:         executeChannel,
+		CheckPointManager: CheckPointManager,
 	}
 
 	handler := &ProtocolHandler{
@@ -164,10 +175,9 @@ func CreateLinearPBFTNode(selfNode *models.Node, peerNodes map[string]*models.No
 		Executor:             executor,
 		Handler:              handler,
 		ViewChangeManager:    ViewChangeManager,
-		CheckPointRoutineCh:  checkPointCh,
+		CheckPointManager:    CheckPointManager,
 		ViewChangeMessageLog: make(map[int64]map[string]*pb.SignedViewChangeMessage),
 		ForwardedRequestsLog: make([]*pb.SignedTransactionRequest, 0),
-		CheckPointLog:        &CheckpointLog{Mutex: sync.RWMutex{}, LastCheckPointSequenceNum: 0, Log: make(map[int64]map[string]*pb.SignedCheckPointMessage), Quorum: 2*int64(len(peerNodes)/3) + 1},
 	}
 
 	executor.sendReply = func(signedRequest *pb.SignedTransactionRequest, result int64) {

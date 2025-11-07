@@ -118,7 +118,8 @@ func CreateServer(selfNode *models.Node, peerNodes map[string]*models.Node, clie
 
 	// go node.ViewChangeRoutine(context.Background())
 	go node.ViewChangeManager.ViewChangeRoutine(context.Background())
-	go node.CheckPointRoutine(context.Background())
+	// go node.CheckPointRoutine(context.Background())
+	go node.CheckPointManager.CheckPointRoutine(context.Background())
 	// go node.ServiceRoutine(context.Background())
 	// go node.Handler.ServiceRoutine(context.Background())
 	go node.RouteAndCollectRoutine(context.Background())

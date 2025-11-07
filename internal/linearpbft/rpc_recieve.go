@@ -263,6 +263,21 @@ func (n *LinearPBFTNode) NewViewRequest(signedNewViewMessage *pb.SignedNewViewMe
 	return nil
 }
 
+// CheckPointRequest validates incoming check point messages and routes it to the check point manager
+func (n *LinearPBFTNode) CheckPointRequest(ctx context.Context, signedCheckPointMessage *pb.SignedCheckPointMessage) (*emptypb.Empty, error) {
+	checkPointMessage := signedCheckPointMessage.Message
+
+	// Verify signature
+	ok := crypto.Verify(checkPointMessage, n.GetPublicKey1(checkPointMessage.NodeID), signedCheckPointMessage.Signature)
+	if !ok {
+		log.Warnf("Rejected: %s; invalid signature", utils.LoggingString(checkPointMessage))
+		return nil, status.Errorf(codes.Unauthenticated, "invalid signature")
+	}
+
+	go n.CheckPointManager.CheckPointMessageHandler(signedCheckPointMessage)
+	return &emptypb.Empty{}, nil
+}
+
 // GetRequest returns a signed transaction request for a given digest
 func (n *LinearPBFTNode) GetRequest(ctx context.Context, getRequestMessage *pb.GetRequestMessage) (*pb.SignedTransactionRequest, error) {
 	n.Mutex.RLock()

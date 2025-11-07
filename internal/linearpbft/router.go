@@ -157,6 +157,17 @@ func (n *LinearPBFTNode) RouteAndCollectRoutine(ctx context.Context) {
 			// Collect prepare messages from all nodes and send to handler
 			go n.CollectPrepareMessages(responseCh)
 
+		// Route check point message from check point manager to all nodes
+		case sequenceNum := <-n.CheckPointManager.GetCheckPointCreateChannel():
+			signedCheckPointMessage := n.CreateCheckPointMessage(sequenceNum)
+			log.Infof("Router is trying to log check point message: %s", utils.LoggingString(signedCheckPointMessage.Message))
+			n.Executor.CheckPointManager.CheckPointMessageHandler(signedCheckPointMessage)
+
+			// Multicast check point message to all nodes
+			for _, peer := range n.Handler.peers {
+				go n.SendCheckPointMessageToNode(signedCheckPointMessage, peer.ID)
+			}
+
 		}
 
 		// NOTE: The executor is signalled everytime may be redundant; but it is safe to do so
@@ -188,8 +199,8 @@ func (n *LinearPBFTNode) CollectPrepareMessages(responseCh chan *pb.SignedPrepar
 		// If we have 2f + 1 prepare messages for a sequence number, send to handler
 		if len(signedPrepareMessageMap[sequenceNum]) == int(2*n.Handler.F) {
 			log.Infof("New view prepare collector: Collected 2f prepare messages for sequence number %d", sequenceNum)
-			// Convert map to slice of signed prepare messages
-			signedPrepareMessages := make([]*pb.SignedPrepareMessage, 0)
+			// Convert map to slice of signed prepare messages and add self's prepare message
+			signedPrepareMessages := utils.Values(signedPrepareMessageMap[sequenceNum])
 			prepareMessage := &pb.PrepareMessage{
 				ViewNumber:  signedPrepareMessage.Message.ViewNumber,
 				SequenceNum: sequenceNum,
@@ -201,9 +212,6 @@ func (n *LinearPBFTNode) CollectPrepareMessages(responseCh chan *pb.SignedPrepar
 				Signature: crypto.Sign(prepareMessage, n.Handler.privateKey1),
 			}
 			signedPrepareMessages = append(signedPrepareMessages, signedPrepareMessage)
-			for _, signedPrepareMessage := range signedPrepareMessageMap[sequenceNum] {
-				signedPrepareMessages = append(signedPrepareMessages, signedPrepareMessage)
-			}
 			go n.Handler.LeaderPrepareMessageHandler(signedPrepareMessages)
 		}
 	}

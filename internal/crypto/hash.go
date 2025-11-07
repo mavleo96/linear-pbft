@@ -1,7 +1,6 @@
 package crypto
 
 import (
-	"bytes"
 	"crypto/sha256"
 	"encoding/json"
 
@@ -15,12 +14,9 @@ func Digest(request *pb.SignedTransactionRequest) []byte {
 	return digest[:]
 }
 
-func DigestAny[T any](messages ...T) []byte {
-	fullMsgBytes := bytes.NewBuffer([]byte{})
-	for _, message := range messages {
-		msgBytes, _ := json.Marshal(message)
-		fullMsgBytes.Write(msgBytes)
-	}
-	digest := sha256.Sum256(fullMsgBytes.Bytes())
+// DigestAny hashes any message
+func DigestAny(msg any) []byte {
+	msgBytes, _ := json.Marshal(msg)
+	digest := sha256.Sum256(msgBytes)
 	return digest[:]
 }

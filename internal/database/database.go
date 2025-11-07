@@ -139,8 +139,8 @@ func (d *Database) SetBalance(account string, balance int64) error {
 	})
 }
 
-// PrintDB prints the current state of the database.
-func (d *Database) PrintDB() (map[string]int64, error) {
+// GetDBState gets the current state of the database.
+func (d *Database) GetDBState() (map[string]int64, error) {
 	dbState := make(map[string]int64)
 
 	err := d.db.View(func(tx *bbolt.Tx) error {

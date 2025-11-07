@@ -3,6 +3,7 @@ package linearpbft
 import (
 	"context"
 
+	"github.com/mavleo96/bft-mavleo96/internal/crypto"
 	"github.com/mavleo96/bft-mavleo96/internal/database"
 	"github.com/mavleo96/bft-mavleo96/internal/utils"
 	"github.com/mavleo96/bft-mavleo96/pb"
@@ -10,13 +11,13 @@ import (
 )
 
 type Executor struct {
-	db           *database.Database
-	safeTimer    *SafeTimer
-	state        *ServerState
-	config       *ServerConfig
-	executeCh    chan int64
-	sendReply    func(signedRequest *pb.SignedTransactionRequest, result int64)
-	checkPointCh chan bool
+	db                *database.Database
+	safeTimer         *SafeTimer
+	state             *ServerState
+	config            *ServerConfig
+	executeCh         chan int64
+	sendReply         func(signedRequest *pb.SignedTransactionRequest, result int64)
+	CheckPointManager *CheckPointManager
 }
 
 func (e *Executor) GetExecuteChannel() chan<- int64 {
@@ -79,7 +80,14 @@ func (e *Executor) ExecuteRoutine(ctx context.Context) {
 
 				// Signal the checkpoint routine if the last executed sequence number is a multiple of k
 				if i%e.config.k == 0 {
-					e.checkPointCh <- true
+					dbState, err := e.db.GetDBState()
+					if err != nil {
+						log.Fatal(err)
+					}
+					checkpointDigest := crypto.DigestAny(dbState)
+					e.CheckPointManager.AddDigest(i, checkpointDigest)
+					log.Infof("Signal to create check point message for sequence number %d", i)
+					e.CheckPointManager.GetCheckPointCreateChannel() <- i
 				}
 			}
 		}
