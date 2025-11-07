@@ -51,22 +51,10 @@ func (v *ViewChangeManager) ViewChangeRequestHandler(signedViewChangeMessage *pb
 }
 
 func (n *LinearPBFTNode) CreateViewChangeMessage(viewNumber int64) *pb.SignedViewChangeMessage {
-	maxSequenceNum := n.State.StateLog.MaxSequenceNum()
 	lowerSequenceNum := n.config.lowWaterMark
 
 	// Get prepared message proof set
-	preparedSet := make([]*pb.PrepareProof, 0)
-	for sequenceNum := lowerSequenceNum + 1; sequenceNum <= maxSequenceNum; sequenceNum++ {
-		record, exists := n.State.StateLog.Get(sequenceNum)
-		if !exists {
-			continue
-		}
-		if record == nil || !record.IsPrepared() {
-			continue
-		}
-		prepareProof := record.GetPrepareProof()
-		preparedSet = append(preparedSet, prepareProof)
-	}
+	preparedSet := n.State.StateLog.GetPrepareProof()
 
 	// Get check point messages
 	stableCheckpointSequenceNum := n.CheckPointLog.GetStableCheckpointSequenceNum()

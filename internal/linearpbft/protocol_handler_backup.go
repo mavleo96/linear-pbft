@@ -41,23 +41,24 @@ func (h *ProtocolHandler) BackupPrePrepareRequestHandler(signedPrePrepareMessage
 	}
 
 	// Get or create log record
-	record, exists := h.state.StateLog.Get(sequenceNum)
-	if !exists {
-		record = CreateLogRecord(prePrepareMessage.ViewNumber, sequenceNum, digest)
-		h.state.StateLog.Set(sequenceNum, record)
-	} else if record.ViewNumber < prePrepareMessage.ViewNumber {
-		record.Reset(prePrepareMessage.ViewNumber, digest)
-	}
+	h.state.StateLog.CreateRecordIfNotExists(prePrepareMessage.ViewNumber, sequenceNum, digest)
+	// record, exists := h.state.StateLog.Get(sequenceNum)
+	// if !exists {
+	// 	record = CreateLogRecord(prePrepareMessage.ViewNumber, sequenceNum, digest)
+	// 	h.state.StateLog.Set(sequenceNum, record)
+	// } else if record.ViewNumber < prePrepareMessage.ViewNumber {
+	// 	record.Reset(prePrepareMessage.ViewNumber, digest)
+	// }
 
 	// Verify if previously accepted preprepare message with different digest for same view and sequence number
-	if record.IsPrePrepared() && !cmp.Equal(record.Digest, digest) {
-		log.Warnf("Rejected: %s; previously accepted %s", utils.LoggingString(prePrepareMessage, request), utils.LoggingString(h.state.TransactionMap.Get(record.Digest).Request))
+	if h.state.StateLog.IsPrePrepared(sequenceNum) && !cmp.Equal(h.state.StateLog.GetDigest(sequenceNum), digest) {
+		log.Warnf("Rejected: %s; previously accepted %s", utils.LoggingString(prePrepareMessage, request), utils.LoggingString(h.state.TransactionMap.Get(h.state.StateLog.GetDigest(sequenceNum)).Request))
 		return nil, status.Errorf(codes.FailedPrecondition, "previously accepted preprepare message with different digest")
 	}
 
 	// Log the preprepare message in record
 	log.Infof("Logging preprepare message: %s", utils.LoggingString(prePrepareMessage))
-	status := record.AddPrePrepareMessage(signedPrePrepareMessage)
+	status := h.state.StateLog.AddPrePrepareMessage(sequenceNum, signedPrePrepareMessage)
 	log.Infof("v: %d s: %d status: %s req: %s", prePrepareMessage.ViewNumber, prePrepareMessage.SequenceNum, status, utils.LoggingString(request))
 	// if n.Byzantine && n.CrashAttack {
 	// 	record.MaliciousUpdateLogState()
@@ -104,18 +105,19 @@ func (h *ProtocolHandler) BackupPrepareRequestHandler(signedPrepareMessage *pb.S
 	digest := prepareMessage.Digest
 
 	// Get or create log record
-	record, exists := h.state.StateLog.Get(sequenceNum)
-	if !exists {
-		record = CreateLogRecord(viewNumber, sequenceNum, digest)
-		h.state.StateLog.Set(sequenceNum, record)
-	} else if record.ViewNumber < viewNumber {
-		record.Reset(viewNumber, digest)
-	}
+	h.state.StateLog.CreateRecordIfNotExists(viewNumber, sequenceNum, digest)
+	// record, exists := h.state.StateLog.Get(sequenceNum)
+	// if !exists {
+	// 	record = CreateLogRecord(viewNumber, sequenceNum, digest)
+	// 	h.state.StateLog.Set(sequenceNum, record)
+	// } else if record.ViewNumber < viewNumber {
+	// 	record.Reset(viewNumber, digest)
+	// }
 
 	// Log the prepare messages in record
 	request := h.state.TransactionMap.Get(signedPrepareMessage.Message.Digest).Request
 	log.Infof("Logging prepare message: %s", utils.LoggingString(prepareMessage, request))
-	status := record.AddPrepareMessages(signedPrepareMessage)
+	status := h.state.StateLog.AddPrepareMessages(sequenceNum, signedPrepareMessage)
 	log.Infof("v: %d s: %d status: %s req: %s", viewNumber, sequenceNum, status, utils.LoggingString(request))
 	// if n.Byzantine && n.CrashAttack {
 	// 	record.MaliciousUpdateLogState()
@@ -130,7 +132,7 @@ func (h *ProtocolHandler) BackupPrepareRequestHandler(signedPrepareMessage *pb.S
 	commitMessage := &pb.CommitMessage{
 		ViewNumber:  viewNumber,
 		SequenceNum: sequenceNum,
-		Digest:      record.Digest,
+		Digest:      h.state.StateLog.GetDigest(sequenceNum),
 		NodeID:      h.id,
 	}
 	signedCommitMessage := &pb.SignedCommitMessage{
@@ -160,18 +162,19 @@ func (h *ProtocolHandler) BackupCommitRequestHandler(signedCommitMessage *pb.Sig
 	digest := commitMessage.Digest
 
 	// Get or create log record
-	record, exists := h.state.StateLog.Get(sequenceNum)
-	if !exists {
-		record = CreateLogRecord(viewNumber, sequenceNum, digest)
-		h.state.StateLog.Set(sequenceNum, record)
-	} else if record.ViewNumber < viewNumber {
-		record.Reset(viewNumber, digest)
-	}
+	h.state.StateLog.CreateRecordIfNotExists(viewNumber, sequenceNum, digest)
+	// record, exists := h.state.StateLog.Get(sequenceNum)
+	// if !exists {
+	// 	record = CreateLogRecord(viewNumber, sequenceNum, digest)
+	// 	h.state.StateLog.Set(sequenceNum, record)
+	// } else if record.ViewNumber < viewNumber {
+	// 	record.Reset(viewNumber, digest)
+	// }
 
 	// Log the commit messages in record
 	request := h.state.TransactionMap.Get(signedCommitMessage.Message.Digest).Request
 	log.Infof("Logging commit message: %s", utils.LoggingString(commitMessage, request))
-	status := record.AddCommitMessages(signedCommitMessage)
+	status := h.state.StateLog.AddCommitMessages(sequenceNum, signedCommitMessage)
 	log.Infof("v: %d s: %d status: %s req: %s", viewNumber, sequenceNum, status, utils.LoggingString(request))
 	// if n.Byzantine && n.CrashAttack {
 	// 	record.MaliciousUpdateLogState()

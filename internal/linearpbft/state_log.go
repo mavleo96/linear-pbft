@@ -1,86 +1,12 @@
 package linearpbft
 
 import (
-	"errors"
 	"sync"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/mavleo96/bft-mavleo96/internal/crypto"
 	"github.com/mavleo96/bft-mavleo96/internal/utils"
 	"github.com/mavleo96/bft-mavleo96/pb"
-	log "github.com/sirupsen/logrus"
 )
-
-// ServerState represents the state of the server
-type ServerState struct {
-	mutex                   sync.RWMutex
-	viewNumber              int64
-	viewChangePhase         bool
-	viewChangeViewNumber    int64
-	lastExecutedSequenceNum int64
-
-	// Self managed components
-	StateLog       *StateLog
-	TransactionMap *TransactionMap
-}
-
-// GetViewNumber returns the current view number
-func (s *ServerState) GetViewNumber() int64 {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-	return s.viewNumber
-}
-
-// SetViewNumber sets the current view number
-func (s *ServerState) SetViewNumber(viewNumber int64) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-	s.viewNumber = viewNumber
-}
-
-// IsViewChangePhase returns true if the server is in view change phase
-func (s *ServerState) IsViewChangePhase() bool {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-	return s.viewChangePhase
-}
-
-// SetViewChangePhase sets the view change phase
-func (s *ServerState) SetViewChangePhase(viewChangePhase bool) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-	s.viewChangePhase = viewChangePhase
-}
-
-// GetViewChangeViewNumber returns the current view change view number
-func (s *ServerState) GetViewChangeViewNumber() int64 {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-	return s.viewChangeViewNumber
-}
-
-// SetViewChangeViewNumber sets the current view change view number
-func (s *ServerState) SetViewChangeViewNumber(viewChangeViewNumber int64) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-	s.viewChangeViewNumber = viewChangeViewNumber
-}
-
-// GetLastExecutedSequenceNum returns the last executed sequence number
-func (s *ServerState) GetLastExecutedSequenceNum() int64 {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-	return s.lastExecutedSequenceNum
-}
-
-// SetLastExecutedSequenceNum sets the last executed sequence number
-func (s *ServerState) SetLastExecutedSequenceNum(lastExecutedSequenceNum int64) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-	s.lastExecutedSequenceNum = lastExecutedSequenceNum
-}
-
-// ---------------------------------------------------------- //
 
 // StateLog represents the state log of the server
 type StateLog struct {
@@ -88,19 +14,56 @@ type StateLog struct {
 	log   map[int64]*LogRecord
 }
 
-// Get returns the log record for a given sequence number
-func (s *StateLog) Get(sequenceNum int64) (*LogRecord, bool) {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-	record, ok := s.log[sequenceNum]
-	return record, ok
+// LogRecord represents a log record for a transaction
+type LogRecord struct {
+	viewNumber        int64
+	sequenceNum       int64
+	digest            []byte
+	prePrepared       bool
+	prepared          bool
+	committed         bool
+	executed          bool
+	prePrepareMessage *pb.SignedPrePrepareMessage
+	prepareMessage    *pb.SignedPrepareMessage
+	commitMessage     *pb.SignedCommitMessage
 }
 
-// Set sets the log record for a given sequence number
-func (s *StateLog) Set(sequenceNum int64, logRecord *LogRecord) {
+func (s *StateLog) AssignSequenceNumberAndCreateRecord(digest []byte) (int64, bool) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	s.log[sequenceNum] = logRecord
+
+	// Check if request is already in log record
+	for sequenceNum := range s.log {
+		record, exists := s.log[sequenceNum]
+		if !exists {
+			continue
+		}
+		if record != nil && cmp.Equal(record.digest, digest) {
+			return record.sequenceNum, false
+		}
+	}
+
+	// If request is not in log record, assign new sequence number
+	sequenceNum := utils.Max(utils.Keys(s.log)) + 1
+	// TODO: -1 is a placeholder for view number, need to change this later
+	s.log[sequenceNum] = CreateLogRecord(-1, sequenceNum, digest)
+	return sequenceNum, true
+}
+
+func (s *StateLog) CreateRecordIfNotExists(viewNumber int64, sequenceNum int64, digest []byte) bool {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	if _, exists := s.log[sequenceNum]; !exists {
+		s.log[sequenceNum] = CreateLogRecord(viewNumber, sequenceNum, digest)
+		return true
+	}
+	if s.log[sequenceNum].viewNumber < viewNumber {
+		// TODO: need to assert that digest is not different if status is > PP
+		s.log[sequenceNum].viewNumber = viewNumber
+		s.log[sequenceNum].digest = digest
+		return true
+	}
+	return false
 }
 
 // Delete deletes the log record for a given sequence number
@@ -117,126 +80,161 @@ func (s *StateLog) MaxSequenceNum() int64 {
 	return utils.Max(utils.Keys(s.log))
 }
 
-// GetOrAssignSequenceNumber gets the sequence number of a transaction request from the log record
-// or assigns a new sequence number to the request
-func (s *StateLog) GetOrAssignSequenceNumber(signedRequest *pb.SignedTransactionRequest) (int64, bool) {
+// GetDigest returns the digest of a log record for a given sequence number
+func (s *StateLog) GetDigest(sequenceNum int64) []byte {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	record, exists := s.log[sequenceNum]
+	if !exists {
+		return nil
+	}
+	return record.digest
+}
+
+// IsPrePrepared returns true if the log record is preprepared
+func (s *StateLog) IsPrePrepared(sequenceNum int64) bool {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	record, exists := s.log[sequenceNum]
+	if !exists {
+		return false
+	}
+	return record.prePrepared
+}
+
+// IsPrepared returns true if the log record is prepared
+func (s *StateLog) IsPrepared(sequenceNum int64) bool {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	record, exists := s.log[sequenceNum]
+	if !exists {
+		return false
+	}
+	return record.prepared
+}
+
+// IsCommitted returns true if the log record is committed
+func (s *StateLog) IsCommitted(sequenceNum int64) bool {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	record, exists := s.log[sequenceNum]
+	if !exists {
+		return false
+	}
+	return record.committed
+}
+
+// IsExecuted returns true if the log record is executed
+func (s *StateLog) IsExecuted(sequenceNum int64) bool {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	record, exists := s.log[sequenceNum]
+	if !exists {
+		return false
+	}
+	return record.executed
+}
+
+// SetExecuted sets the log record to executed
+func (s *StateLog) SetExecuted(sequenceNum int64) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
+	record, exists := s.log[sequenceNum]
+	if !exists {
+		return
+	}
+	record.executed = true
+}
 
-	// Compute digest of request
-	digest := crypto.Digest(signedRequest)
+// AddPrePrepareMessage adds a preprepare message to the log record
+func (s *StateLog) AddPrePrepareMessage(sequenceNum int64, signedPrePrepareMessage *pb.SignedPrePrepareMessage) string {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	record, exists := s.log[sequenceNum]
+	if !exists {
+		return ""
+	}
+	record.prePrepareMessage = signedPrePrepareMessage
+	return record.updateLogState()
+}
 
-	// Check if request is already in log record
+// AddPrepareMessages adds prepare messages to the log record
+func (s *StateLog) AddPrepareMessages(sequenceNum int64, prepareMessage *pb.SignedPrepareMessage) string {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	record, exists := s.log[sequenceNum]
+	if !exists {
+		return ""
+	}
+	record.prepareMessage = prepareMessage
+	return record.updateLogState()
+}
+
+// AddCommitMessages adds commit messages to the log record
+func (s *StateLog) AddCommitMessages(sequenceNum int64, commitMessage *pb.SignedCommitMessage) string {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	record, exists := s.log[sequenceNum]
+	if !exists {
+		return ""
+	}
+	record.commitMessage = commitMessage
+	return record.updateLogState()
+}
+
+// GetPrepareProof returns the prepare proofs for all prepared log records
+func (s *StateLog) GetPrepareProof() []*pb.PrepareProof {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	prepareProofs := make([]*pb.PrepareProof, 0)
 	for sequenceNum := range s.log {
 		record, exists := s.log[sequenceNum]
 		if !exists {
 			continue
 		}
-		// TODO: remove this later
-		if record == nil {
-			log.Fatal("Log record is nil")
+		if record.prepared {
+			prepareProofs = append(prepareProofs, &pb.PrepareProof{
+				SignedPrePrepareMessage: record.prePrepareMessage,
+				SignedPrepareMessage:    record.prepareMessage,
+			})
 		}
-		if record != nil && cmp.Equal(record.Digest, digest) {
-			return record.SequenceNum, true
-		}
 	}
-
-	// If request is not in log record, assign new sequence number
-	sequenceNum := utils.Max(utils.Keys(s.log)) + 1
-	return sequenceNum, false
+	return prepareProofs
 }
 
-// ---------------------------------------------------------- //
-
-// LogRecord represents a log record for a transaction
-type LogRecord struct {
-	ViewNumber        int64
-	SequenceNum       int64
-	Digest            []byte
-	prePrepared       bool
-	prepared          bool
-	committed         bool
-	executed          bool
-	prePrepareMessage *pb.SignedPrePrepareMessage
-	prepareMessage    *pb.SignedPrepareMessage
-	commitMessage     *pb.SignedCommitMessage
-}
-
-// IsPrePrepared returns true if the log record is preprepared
-func (l *LogRecord) IsPrePrepared() bool {
-	return l.prePrepared
-}
-
-// IsPrepared returns true if the log record is prepared
-func (l *LogRecord) IsPrepared() bool {
-	return l.prepared
-}
-
-// IsCommitted returns true if the log record is committed
-func (l *LogRecord) IsCommitted() bool {
-	return l.committed
-}
-
-// IsExecuted returns true if the log record is executed
-func (l *LogRecord) IsExecuted() bool {
-	return l.executed
-}
-
-// SetExecuted sets the log record to executed
-func (l *LogRecord) SetExecuted() {
-	l.executed = true
-}
-
-// AddPrePrepareMessage adds a preprepare message to the log record
-func (l *LogRecord) AddPrePrepareMessage(signedPrePrepareMessage *pb.SignedPrePrepareMessage) string {
-	l.prePrepareMessage = signedPrePrepareMessage
-	// l.Request = signedPrePrepareMessage.Request
-	return l.updateLogState()
-}
-
-// AddPrepareMessages adds prepare messages to the log record
-func (l *LogRecord) AddPrepareMessages(prepareMessage *pb.SignedPrepareMessage) string {
-	l.prepareMessage = prepareMessage
-	return l.updateLogState()
-}
-
-// AddCommitMessages adds commit messages to the log record
-func (l *LogRecord) AddCommitMessages(commitMessage *pb.SignedCommitMessage) string {
-	l.commitMessage = commitMessage
-	return l.updateLogState()
-}
-
-// GetPrepareProof returns the prepare proof for the log record
-func (l *LogRecord) GetPrepareProof() *pb.PrepareProof {
-	return &pb.PrepareProof{
-		SignedPrePrepareMessage: l.prePrepareMessage,
-		SignedPrepareMessage:    l.prepareMessage,
+func (s *StateLog) GetLogRecord(sequenceNum int64) *LogRecord {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	record, exists := s.log[sequenceNum]
+	if !exists {
+		return nil
 	}
+	return record
 }
 
-// Reset resets the log record
-func (l *LogRecord) Reset(viewNumber int64, digest []byte) error {
-	l.ViewNumber = viewNumber
-	l.prePrepared = false
-	l.prepared = false
-	l.committed = false
-	l.prePrepareMessage = nil
-	l.prepareMessage = nil
-	l.commitMessage = nil
+// // Reset resets the log record
+// func (l *LogRecord) Reset(viewNumber int64, digest []byte) error {
+// 	l.viewNumber = viewNumber
+// 	l.prePrepared = false
+// 	l.prepared = false
+// 	l.committed = false
+// 	l.prePrepareMessage = nil
+// 	l.prepareMessage = nil
+// 	l.commitMessage = nil
 
-	if l.executed && !cmp.Equal(l.Digest, digest) {
-		return errors.New("resetting log record with different digest that is already executed")
-	}
-	l.Digest = digest
-	return nil
-}
+// 	if l.executed && !cmp.Equal(l.digest, digest) {
+// 		return errors.New("resetting log record with different digest that is already executed")
+// 	}
+// 	l.digest = digest
+// 	return nil
+// }
 
 // CreateLogRecord creates a new log record
 func CreateLogRecord(viewNumber int64, sequenceNumber int64, digest []byte) *LogRecord {
 	return &LogRecord{
-		ViewNumber:        viewNumber,
-		SequenceNum:       sequenceNumber,
-		Digest:            digest,
+		viewNumber:        viewNumber,
+		sequenceNum:       sequenceNumber,
+		digest:            digest,
 		prePrepared:       false,
 		prepared:          false,
 		committed:         false,
@@ -248,28 +246,18 @@ func CreateLogRecord(viewNumber int64, sequenceNumber int64, digest []byte) *Log
 }
 
 // updateLogState updates the log state
-// TODO: should maybe ensure everthing is in same view number
 func (l *LogRecord) updateLogState() string {
 	if l.prePrepareMessage == nil {
 		return "X"
 	}
-	// if !l.prePrepared {
-	// log.Infof("Preprepared (v: %d, s: %d)", l.ViewNumber, l.SequenceNum)
-	// }
 	l.prePrepared = true
 	if l.prepareMessage == nil {
 		return "PP"
 	}
-	// if !l.prepared {
-	// log.Infof("Prepared (v: %d, s: %d)", l.ViewNumber, l.SequenceNum)
-	// }
 	l.prepared = true
 	if l.commitMessage == nil {
 		return "P"
 	}
-	// if !l.committed {
-	// log.Infof("Committed (v: %d, s: %d)", l.ViewNumber, l.SequenceNum)
-	// }
 	l.committed = true
 	return "C"
 }

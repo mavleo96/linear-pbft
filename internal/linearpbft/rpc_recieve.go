@@ -26,7 +26,7 @@ func (n *LinearPBFTNode) PrePrepareRequest(ctx context.Context, signedMessage *p
 	}
 
 	// Ignore if already in view change
-	if n.State.IsViewChangePhase() {
+	if n.State.InViewChangePhase() {
 		log.Infof("Ignored: %s; view change phase", utils.LoggingString(prePrepareMessage))
 		return nil, status.Errorf(codes.Unavailable, "view change phase")
 	}
@@ -68,7 +68,7 @@ func (n *LinearPBFTNode) PrepareRequest(ctx context.Context, signedPrepareMessag
 	}
 
 	// Ignore if already in view change
-	if n.State.IsViewChangePhase() {
+	if n.State.InViewChangePhase() {
 		log.Infof("Ignored: %s; view change phase", utils.LoggingString(signedPrepareMessage))
 		return nil, status.Errorf(codes.Unavailable, "view change phase")
 	}
@@ -101,7 +101,7 @@ func (n *LinearPBFTNode) CommitRequest(ctx context.Context, signedCommitMessage 
 	}
 
 	// Ignore if already in view change
-	if n.State.IsViewChangePhase() {
+	if n.State.InViewChangePhase() {
 		log.Infof("Ignored: %s; view change phase", utils.LoggingString(signedCommitMessage))
 		return nil, status.Errorf(codes.Unavailable, "view change phase")
 	}

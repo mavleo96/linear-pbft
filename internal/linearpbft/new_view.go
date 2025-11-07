@@ -115,30 +115,14 @@ func (n *LinearPBFTNode) NewViewRoutine(ctx context.Context, viewNumber int64) {
 		}
 
 		// Get record from log record or create new one
-		record, exists := n.State.StateLog.Get(sequenceNum)
-		if !exists {
-			// Create new log record if no record exists for this sequence number
-			record = CreateLogRecord(viewNumber, sequenceNum, prePrepareMessage.Digest)
-			n.State.StateLog.Set(sequenceNum, record)
-		} else {
-			err := record.Reset(viewNumber, prePrepareMessage.Digest)
-			if err != nil {
-				log.Fatal(err)
-			}
-		}
+		n.State.StateLog.CreateRecordIfNotExists(viewNumber, sequenceNum, prePrepareMessage.Digest)
 		log.Infof("Logging preprepare message: %s", utils.LoggingString(prePrepareMessage))
-		status := record.AddPrePrepareMessage(signedPrePrepareMessage)
+		status := n.State.StateLog.AddPrePrepareMessage(sequenceNum, signedPrePrepareMessage)
 		log.Infof("v: %d s: %d status: %s req: %s", prePrepareMessage.ViewNumber, prePrepareMessage.SequenceNum, status, utils.LoggingString(signedRequest.Request))
 	}
-	// Purge log records with older view number
-	for sequenceNum := range n.State.StateLog.log {
-		record, exists := n.State.StateLog.Get(sequenceNum)
-		if !exists {
-			continue
-		}
-		if record.ViewNumber < viewNumber {
-			n.State.StateLog.Delete(sequenceNum)
-		}
+	// Purge log records with older view number / greater than maxSequenceNum
+	for i := maxSequenceNum + 1; i <= n.State.StateLog.MaxSequenceNum(); i++ {
+		n.State.StateLog.Delete(i)
 	}
 	// Purge forwarded requests
 	n.ForwardedRequestsLog = make([]*pb.SignedTransactionRequest, 0)

@@ -73,8 +73,8 @@ func (n *LinearPBFTNode) SendCheckPointRequest(ctx context.Context, sequenceNum 
 	// Fetch log record between low and high water mark
 	logRecords := make([]*LogRecord, 0)
 	for i := sequenceNum - n.config.k + 1; i <= sequenceNum; i++ {
-		record, exists := n.State.StateLog.Get(i)
-		if !exists {
+		record := n.State.StateLog.GetLogRecord(i)
+		if record == nil {
 			continue
 		}
 		logRecords = append(logRecords, record)
@@ -152,8 +152,8 @@ func (n *LinearPBFTNode) CheckPointRoutine(ctx context.Context) {
 				n.Mutex.RLock()
 				records := make([]*LogRecord, 0)
 				for i := n.config.lowWaterMark + 1; i <= n.config.lowWaterMark+n.config.k; i++ {
-					record, exists := n.State.StateLog.Get(i)
-					if !exists {
+					record := n.State.StateLog.GetLogRecord(i)
+					if record == nil {
 						continue
 					}
 					records = append(records, record)

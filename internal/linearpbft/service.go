@@ -25,7 +25,7 @@ func (n *LinearPBFTNode) TransferRequest(ctx context.Context, signedRequest *pb.
 	}
 
 	// Ignore request if in view change phase
-	if n.State.IsViewChangePhase() {
+	if n.State.InViewChangePhase() {
 		log.Infof("Ignored: %s; view change phase", utils.LoggingString(request))
 		return &emptypb.Empty{}, status.Errorf(codes.Unavailable, "view change phase")
 	}
@@ -79,7 +79,7 @@ func (n *LinearPBFTNode) ReadOnlyRequest(ctx context.Context, signedRequest *pb.
 	}
 
 	// Ignore request if in view change phase
-	if n.State.IsViewChangePhase() {
+	if n.State.InViewChangePhase() {
 		log.Infof("Ignored: %s; view change phase", utils.LoggingString(request))
 		return nil, status.Errorf(codes.Unavailable, "view change phase")
 	}

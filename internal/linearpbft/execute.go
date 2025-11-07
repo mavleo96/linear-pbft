@@ -38,21 +38,17 @@ func (e *Executor) ExecuteRoutine(ctx context.Context) {
 
 		tryLoop:
 			for i := sequenceNum + 1; i <= maxSequenceNum; i++ {
-				record, exists := e.state.StateLog.Get(i)
-				if !exists {
+				if !e.state.StateLog.IsCommitted(i) {
 					break tryLoop
 				}
-				if record == nil || !record.IsCommitted() {
-					break tryLoop
-				}
-				if record.IsExecuted() {
+				if e.state.StateLog.IsExecuted(i) {
 					// e.state.SetLastExecutedSequenceNum(i)
 					log.Fatalf("Sequence number %d was executed but state maxexecuted sequence number is %d", i, e.state.GetLastExecutedSequenceNum())
 					continue tryLoop
 				}
 
 				// Execute transaction
-				signedRequest := e.state.TransactionMap.Get(record.Digest)
+				signedRequest := e.state.TransactionMap.Get(e.state.StateLog.GetDigest(i))
 				request := signedRequest.Request
 				var result int64
 				var err error
@@ -72,7 +68,7 @@ func (e *Executor) ExecuteRoutine(ctx context.Context) {
 				}
 
 				// Add to executed log and send reply if transaction is not null
-				record.SetExecuted()
+				e.state.StateLog.SetExecuted(i)
 				// TODO: make this elegant since primary doesn't have a safe timer running
 				e.safeTimer.DecrementWaitCountAndResetOrStopIfZero()
 				log.Infof("Executed (v: %d, s: %d): %s", e.state.GetViewNumber(), i, utils.LoggingString(request.Transaction))

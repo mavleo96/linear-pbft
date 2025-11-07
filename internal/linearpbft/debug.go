@@ -17,15 +17,15 @@ func (n *LinearPBFTNode) PrintLog(ctx context.Context, req *emptypb.Empty) (*emp
 	fmt.Println("Printing log records:")
 	maxSequenceNum := n.State.StateLog.MaxSequenceNum()
 	for i := int64(1); i <= maxSequenceNum; i++ {
-		record, exists := n.State.StateLog.Get(i)
-		if !exists {
+		record := n.State.StateLog.GetLogRecord(i)
+		if record == nil {
 			continue
 		}
-		signedRequest := n.State.TransactionMap.Get(record.Digest)
+		signedRequest := n.State.TransactionMap.Get(record.digest)
 		fmt.Printf(
 			"%s, v: %d, s: %d, %s\n",
 			utils.LoggingString(signedRequest.Request),
-			record.ViewNumber, record.SequenceNum,
+			record.viewNumber, record.sequenceNum,
 			recordStatus(record))
 	}
 	fmt.Println("")
@@ -60,13 +60,13 @@ func (n *LinearPBFTNode) PrintStatus(ctx context.Context, req *wrapperspb.Int64V
 	fmt.Println("Printing status:")
 
 	sequenceNum := req.Value
-	record, exists := n.State.StateLog.Get(sequenceNum)
-	if !exists {
+	record := n.State.StateLog.GetLogRecord(sequenceNum)
+	if record == nil {
 		fmt.Printf("Sequence Number: %d, Status: X\n", sequenceNum)
 		return &emptypb.Empty{}, nil
 	}
 
-	signedRequest := n.State.TransactionMap.Get(record.Digest)
+	signedRequest := n.State.TransactionMap.Get(record.digest)
 	if signedRequest == nil {
 		fmt.Printf("Request not found in transaction map for sequence number %d\n", sequenceNum)
 		return &emptypb.Empty{}, nil
@@ -78,11 +78,11 @@ func (n *LinearPBFTNode) PrintStatus(ctx context.Context, req *wrapperspb.Int64V
 
 // recordStatus returns the status of a log record
 func recordStatus(record *LogRecord) string {
-	if record.IsExecuted() {
+	if record.executed {
 		return "E"
-	} else if record.IsCommitted() {
+	} else if record.committed {
 		return "C"
-	} else if record.IsPrepared() {
+	} else if record.prepared {
 		return "P"
 	} else {
 		return "PP"

@@ -13,12 +13,7 @@ func (h *ProtocolHandler) LeaderTransactionRequestHandler(signedRequest *pb.Sign
 	// request := signedRequest.Request
 
 	// Get or assign sequence number
-	sequenceNum, exists := h.state.StateLog.GetOrAssignSequenceNumber(signedRequest)
-	if !exists {
-		// Add request to log record
-		h.state.StateLog.Set(sequenceNum, CreateLogRecord(h.state.GetViewNumber(), sequenceNum, crypto.Digest(signedRequest)))
-	}
-	record, _ := h.state.StateLog.Get(sequenceNum)
+	sequenceNum, _ := h.state.StateLog.AssignSequenceNumberAndCreateRecord(crypto.Digest(signedRequest))
 
 	// // Add request to transaction map
 	// if n.State.TransactionMap.Get(crypto.Digest(signedRequest)) == nil {
@@ -45,7 +40,7 @@ func (h *ProtocolHandler) LeaderTransactionRequestHandler(signedRequest *pb.Sign
 	// }
 
 	// Preprepare the transaction
-	status := record.AddPrePrepareMessage(signedPreprepare)
+	status := h.state.StateLog.AddPrePrepareMessage(sequenceNum, signedPreprepare)
 	log.Infof("v: %d s: %d status: %s req: %s", preprepare.ViewNumber, preprepare.SequenceNum, status, utils.LoggingString(signedRequest.Request))
 
 	h.preprepareCh <- signedPreprepare
@@ -56,7 +51,7 @@ func (h *ProtocolHandler) LeaderTransactionRequestHandler(signedRequest *pb.Sign
 // LeaderPrepareMessageHandler handles the prepare message for the leader
 func (h *ProtocolHandler) LeaderPrepareMessageHandler(signedPrepareMessages []*pb.SignedPrepareMessage) error {
 	sequenceNum := signedPrepareMessages[0].Message.SequenceNum
-	record, _ := h.state.StateLog.Get(sequenceNum)
+	// h.state.StateLog.CreateRecordIfNotExists(h.state.GetViewNumber(), sequenceNum, signedPrepareMessages[0].Message.Digest)
 
 	// Aggregate signatures
 	signatureMap := make(map[bls.ID][]byte)
@@ -69,7 +64,7 @@ func (h *ProtocolHandler) LeaderPrepareMessageHandler(signedPrepareMessages []*p
 	prepareMessage := &pb.PrepareMessage{
 		ViewNumber:  h.state.GetViewNumber(),
 		SequenceNum: sequenceNum,
-		Digest:      record.Digest,
+		Digest:      h.state.StateLog.GetDigest(sequenceNum),
 		NodeID:      h.id,
 	}
 	signedPrepareMessage := &pb.SignedPrepareMessage{
@@ -80,7 +75,7 @@ func (h *ProtocolHandler) LeaderPrepareMessageHandler(signedPrepareMessages []*p
 	// Add prepare message to log record
 	request := h.state.TransactionMap.Get(signedPrepareMessage.Message.Digest).Request
 	log.Infof("Logging prepare message: %s", utils.LoggingString(prepareMessage, request))
-	status := record.AddPrepareMessages(signedPrepareMessage)
+	status := h.state.StateLog.AddPrepareMessages(sequenceNum, signedPrepareMessage)
 	log.Infof("v: %d s: %d status: %s req: %s", prepareMessage.ViewNumber, prepareMessage.SequenceNum, status, utils.LoggingString(request))
 
 	// Byzantine node behavior: crash attack
@@ -97,7 +92,7 @@ func (h *ProtocolHandler) LeaderPrepareMessageHandler(signedPrepareMessages []*p
 // LeaderCommitMessageHandler handles the commit message for the leader
 func (h *ProtocolHandler) LeaderCommitMessageHandler(signedCommitMessages []*pb.SignedCommitMessage) error {
 	sequenceNum := signedCommitMessages[0].Message.SequenceNum
-	record, _ := h.state.StateLog.Get(sequenceNum)
+	// h.state.StateLog.CreateRecordIfNotExists(h.state.GetViewNumber(), sequenceNum, signedCommitMessages[0].Message.Digest)
 
 	// Aggregate signatures
 	signatureMap := make(map[bls.ID][]byte)
@@ -110,7 +105,7 @@ func (h *ProtocolHandler) LeaderCommitMessageHandler(signedCommitMessages []*pb.
 	commitMessage := &pb.CommitMessage{
 		ViewNumber:  h.state.GetViewNumber(),
 		SequenceNum: sequenceNum,
-		Digest:      record.Digest,
+		Digest:      h.state.StateLog.GetDigest(sequenceNum),
 		NodeID:      h.id,
 	}
 	signedCommitMessage := &pb.SignedCommitMessage{
@@ -121,7 +116,7 @@ func (h *ProtocolHandler) LeaderCommitMessageHandler(signedCommitMessages []*pb.
 	// Add commit message to log record
 	request := h.state.TransactionMap.Get(signedCommitMessage.Message.Digest).Request
 	log.Infof("Logging commit message: %s", utils.LoggingString(commitMessage, request))
-	status := record.AddCommitMessages(signedCommitMessage)
+	status := h.state.StateLog.AddCommitMessages(sequenceNum, signedCommitMessage)
 	log.Infof("v: %d s: %d status: %s req: %s", commitMessage.ViewNumber, commitMessage.SequenceNum, status, utils.LoggingString(request))
 
 	h.commitCh <- signedCommitMessage
