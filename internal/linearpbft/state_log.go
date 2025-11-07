@@ -259,7 +259,10 @@ func (l *LogRecord) updateLogState() string {
 		return "P"
 	}
 	l.committed = true
-	return "C"
+	if !l.executed {
+		return "C"
+	}
+	return "E"
 }
 
 // ---------------------------------------------------------- //

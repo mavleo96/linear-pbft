@@ -186,8 +186,25 @@ func (n *LinearPBFTNode) CollectPrepareMessages(responseCh chan *pb.SignedPrepar
 		signedPrepareMessageMap[sequenceNum][prepareMessage.NodeID] = signedPrepareMessage
 
 		// If we have 2f + 1 prepare messages for a sequence number, send to handler
-		if len(signedPrepareMessageMap[sequenceNum]) == int(n.Handler.N-n.Handler.F) {
-			n.Handler.LeaderPrepareMessageHandler(utils.Values(signedPrepareMessageMap[sequenceNum]))
+		if len(signedPrepareMessageMap[sequenceNum]) == int(2*n.Handler.F) {
+			log.Infof("New view prepare collector: Collected 2f prepare messages for sequence number %d", sequenceNum)
+			// Convert map to slice of signed prepare messages
+			signedPrepareMessages := make([]*pb.SignedPrepareMessage, 0)
+			prepareMessage := &pb.PrepareMessage{
+				ViewNumber:  signedPrepareMessage.Message.ViewNumber,
+				SequenceNum: sequenceNum,
+				Digest:      signedPrepareMessage.Message.Digest,
+				NodeID:      n.ID,
+			}
+			signedPrepareMessage := &pb.SignedPrepareMessage{
+				Message:   prepareMessage,
+				Signature: crypto.Sign(prepareMessage, n.Handler.privateKey1),
+			}
+			signedPrepareMessages = append(signedPrepareMessages, signedPrepareMessage)
+			for _, signedPrepareMessage := range signedPrepareMessageMap[sequenceNum] {
+				signedPrepareMessages = append(signedPrepareMessages, signedPrepareMessage)
+			}
+			go n.Handler.LeaderPrepareMessageHandler(signedPrepareMessages)
 		}
 	}
 }
