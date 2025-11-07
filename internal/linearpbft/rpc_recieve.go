@@ -38,7 +38,7 @@ func (n *LinearPBFTNode) PrePrepareRequest(ctx context.Context, signedMessage *p
 	}
 
 	// Verify Node's signature
-	currentPrimaryID := utils.ViewNumberToPrimaryID(n.State.GetViewNumber(), n.Handler.N)
+	currentPrimaryID := utils.ViewNumberToPrimaryID(n.State.GetViewNumber(), n.config.N)
 	ok := crypto.Verify(prePrepareMessage, n.GetPublicKey1(currentPrimaryID), signedMessage.Signature)
 	if !ok {
 		log.Warnf("Rejected: %s; invalid signature", utils.LoggingString(prePrepareMessage))
@@ -164,7 +164,7 @@ func (n *LinearPBFTNode) ViewChangeRequest(ctx context.Context, signedViewChange
 		prepareMessage := signedPrepareMessage.Message
 
 		// Verify preprepare message signature
-		proposerID := utils.ViewNumberToPrimaryID(prePrepareMessage.ViewNumber, n.Handler.N)
+		proposerID := utils.ViewNumberToPrimaryID(prePrepareMessage.ViewNumber, n.config.N)
 		ok := crypto.Verify(prePrepareMessage, n.GetPublicKey1(proposerID), signedPrePrepareMessage.Signature)
 		if !ok {
 			log.Warnf("Rejected: %s; invalid signature on preprepare message", utils.LoggingString(viewChangeMessage))
@@ -213,7 +213,7 @@ func (n *LinearPBFTNode) NewViewRequest(signedNewViewMessage *pb.SignedNewViewMe
 	}
 
 	// Verify signature
-	primaryID := utils.ViewNumberToPrimaryID(viewNumber, n.Handler.N)
+	primaryID := utils.ViewNumberToPrimaryID(viewNumber, n.config.N)
 	ok := crypto.Verify(newViewMessage, n.GetPublicKey1(primaryID), signedNewViewMessage.Signature)
 	if !ok {
 		log.Warnf("Rejected: %s; invalid signature", utils.LoggingString(newViewMessage))

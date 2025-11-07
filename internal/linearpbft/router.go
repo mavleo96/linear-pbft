@@ -63,7 +63,7 @@ func (n *LinearPBFTNode) RouteAndCollectRoutine(ctx context.Context) {
 					continue
 				}
 				signedPrepareMsgs = append(signedPrepareMsgs, signedPrepareMsg)
-				if len(signedPrepareMsgs) == int(n.Handler.N-n.Handler.F) {
+				if len(signedPrepareMsgs) == int(n.config.N-n.config.F) {
 					n.Handler.LeaderPrepareMessageHandler(signedPrepareMsgs)
 				}
 				// Rest are just ignored after collection
@@ -106,7 +106,7 @@ func (n *LinearPBFTNode) RouteAndCollectRoutine(ctx context.Context) {
 					continue
 				}
 				signedCommitMsgs = append(signedCommitMsgs, signedCommitMsg)
-				if len(signedCommitMsgs) == int(n.Handler.N-n.Handler.F) {
+				if len(signedCommitMsgs) == int(n.config.N-n.config.F) {
 					n.Handler.LeaderCommitMessageHandler(signedCommitMsgs)
 				}
 				// Rest are just ignored after collection
@@ -197,7 +197,7 @@ func (n *LinearPBFTNode) CollectPrepareMessages(responseCh chan *pb.SignedPrepar
 		signedPrepareMessageMap[sequenceNum][prepareMessage.NodeID] = signedPrepareMessage
 
 		// If we have 2f + 1 prepare messages for a sequence number, send to handler
-		if len(signedPrepareMessageMap[sequenceNum]) == int(2*n.Handler.F) {
+		if len(signedPrepareMessageMap[sequenceNum]) == int(2*n.config.F) {
 			log.Infof("New view prepare collector: Collected 2f prepare messages for sequence number %d", sequenceNum)
 			// Convert map to slice of signed prepare messages and add self's prepare message
 			signedPrepareMessages := utils.Values(signedPrepareMessageMap[sequenceNum])

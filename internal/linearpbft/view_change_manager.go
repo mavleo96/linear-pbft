@@ -17,8 +17,7 @@ type ViewChangeManager struct {
 	newViewLog    map[int64]*pb.SignedNewViewMessage
 	SafeTimer     *SafeTimer
 	state         *ServerState
-	f             int64
-	n             int64
+	config        *ServerConfig
 
 	// Channels
 	viewChangeRequestCh chan bool

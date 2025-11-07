@@ -14,8 +14,7 @@ type ProtocolHandler struct {
 	// privateKey2    *bls.SecretKey
 	masterPublicKey1 *bls.PublicKey
 	peers            map[string]*models.Node
-	F                int64
-	N                int64
+	config           *ServerConfig
 
 	// Channels
 	executeCh    chan int64

@@ -14,7 +14,7 @@ func (c *CheckPointManager) CheckPointMessageHandler(signedCheckPointMessage *pb
 	nodeID := checkPointMessage.NodeID
 
 	// Add check point message to check point log if higher than low water mark
-	if sequenceNum < c.config.lowWaterMark {
+	if sequenceNum < c.config.LowWaterMark {
 		log.Warnf("Check point message for sequence number %d is lower than low water mark", sequenceNum)
 		return
 	}
@@ -29,7 +29,7 @@ func (c *CheckPointManager) CheckPointMessageHandler(signedCheckPointMessage *pb
 			break
 		}
 	}
-	if len(c.GetMessages(sequenceNum)) >= int(2*c.f+1) && hasSelfCheckPointMessage {
+	if len(c.GetMessages(sequenceNum)) >= int(2*c.config.F+1) && hasSelfCheckPointMessage {
 		log.Infof("Received 2f + 1 check point messages for sequence number %d", sequenceNum)
 		c.checkPointRequestCh <- sequenceNum
 	}

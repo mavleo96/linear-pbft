@@ -79,7 +79,7 @@ func (e *Executor) ExecuteRoutine(ctx context.Context) {
 				e.state.SetLastExecutedSequenceNum(i)
 
 				// Signal the checkpoint routine if the last executed sequence number is a multiple of k
-				if i%e.config.k == 0 {
+				if i%e.config.K == 0 {
 					dbState, err := e.db.GetDBState()
 					if err != nil {
 						log.Fatal(err)

@@ -17,9 +17,9 @@ func (v *ViewChangeManager) ViewChangeRequestHandler(signedViewChangeMessage *pb
 	v.AddViewChangeMessage(signedViewChangeMessage)
 
 	// Send view change message to all nodes if f + 1 view change messages are collected
-	if v.state.GetViewChangeViewNumber() < viewNumber && len(v.viewChangeLog[viewNumber]) == int(v.f+1) {
+	if v.state.GetViewChangeViewNumber() < viewNumber && len(v.viewChangeLog[viewNumber]) == int(v.config.F+1) {
 		alreadyExpired := v.SafeTimer.Cleanup()
-		if !alreadyExpired || utils.ViewNumberToPrimaryID(viewNumber, v.n) != v.id {
+		if !alreadyExpired || utils.ViewNumberToPrimaryID(viewNumber, v.config.N) != v.id {
 			// log.Infof("Sending view change message to all nodes since f + 1 view change messages are collected: %s", utils.LoggingString(viewChangeMessage))
 			// go v.SendViewChange(viewNumber)
 			// TODO: signal view change request channel
@@ -31,8 +31,8 @@ func (v *ViewChangeManager) ViewChangeRequestHandler(signedViewChangeMessage *pb
 	}
 
 	// If 2f + 1 view change messages are collected and next primary then send new view message
-	if len(v.viewChangeLog[viewNumber]) == int(2*v.f+1) {
-		if utils.ViewNumberToPrimaryID(viewNumber, v.n) == v.id {
+	if len(v.viewChangeLog[viewNumber]) == int(2*v.config.F+1) {
+		if utils.ViewNumberToPrimaryID(viewNumber, v.config.N) == v.id {
 			// // Byzantine node behavior: crash attack
 			// if v.byzantine && v.crashAttack {
 			// 	// log.Infof("Node %s is Byzantine and is performing crash attack", v.id)
@@ -125,13 +125,13 @@ func (v *ViewChangeManager) LeaderNewViewRequestHandler(signedNewViewMessage *pb
 }
 
 func (n *LinearPBFTNode) CreateViewChangeMessage(viewNumber int64) *pb.SignedViewChangeMessage {
-	lowerSequenceNum := n.config.lowWaterMark
+	lowerSequenceNum := n.config.LowWaterMark
 
 	// Get prepared message proof set
 	preparedSet := n.State.StateLog.GetPrepareProof()
 
 	// Get check point messages
-	signedCheckPointMessages := n.CheckPointManager.GetMessages(n.config.lowWaterMark)
+	signedCheckPointMessages := n.CheckPointManager.GetMessages(n.config.LowWaterMark)
 
 	// Create signed view change message
 	viewChangeMessage := &pb.ViewChangeMessage{

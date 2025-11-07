@@ -52,7 +52,7 @@ func (n *LinearPBFTNode) TransferRequest(ctx context.Context, signedRequest *pb.
 	}
 
 	// Forward request to primary if not primary
-	if n.ID != utils.ViewNumberToPrimaryID(n.State.GetViewNumber(), n.Handler.N) {
+	if n.ID != utils.ViewNumberToPrimaryID(n.State.GetViewNumber(), n.config.N) {
 		n.SafeTimer.IncrementWaitCountOrStart()
 		ctx := n.SafeTimer.GetContext()
 		go n.ForwardRequest(ctx, signedRequest)
@@ -157,7 +157,7 @@ func (n *LinearPBFTNode) SendReply(signedRequest *pb.SignedTransactionRequest, r
 // ForwardRequest forwards a transaction request to the primary
 func (n *LinearPBFTNode) ForwardRequest(ctx context.Context, signedRequest *pb.SignedTransactionRequest) {
 	// Forward request to primary
-	primaryID := utils.ViewNumberToPrimaryID(n.State.GetViewNumber(), n.Handler.N)
+	primaryID := utils.ViewNumberToPrimaryID(n.State.GetViewNumber(), n.config.N)
 	// Byzantine node behavior: dark attack
 	if n.Byzantine && n.DarkAttack && slices.Contains(n.DarkAttackNodes, primaryID) {
 		log.Infof("Node %s is Byzantine and is performing dark attack on node %s", n.ID, primaryID)

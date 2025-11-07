@@ -20,11 +20,11 @@ const (
 
 type ServerConfig struct {
 	mutex         sync.RWMutex
-	lowWaterMark  int64
-	highWaterMark int64
-	k             int64
-	n             int64
-	f             int64
+	LowWaterMark  int64
+	HighWaterMark int64
+	K             int64
+	N             int64
+	F             int64
 }
 
 // LinearPBFTNode represents a LinearPBFT node
@@ -86,9 +86,11 @@ func CreateLinearPBFTNode(selfNode *models.Node, peerNodes map[string]*models.No
 
 	serverConfig := &ServerConfig{
 		mutex:         sync.RWMutex{},
-		lowWaterMark:  0,
-		highWaterMark: 100,
-		k:             10,
+		LowWaterMark:  0,
+		HighWaterMark: 100,
+		K:             10,
+		N:             int64(len(peerNodes) + 1),
+		F:             int64(len(peerNodes) / 3),
 	}
 
 	serverState := &ServerState{
@@ -129,8 +131,7 @@ func CreateLinearPBFTNode(selfNode *models.Node, peerNodes map[string]*models.No
 		privateKey1:      privateKey1,
 		masterPublicKey1: masterPublicKey1,
 		peers:            peerNodes,
-		F:                int64(len(peerNodes) / 3),
-		N:                int64(len(peerNodes) + 1),
+		config:           serverConfig,
 		executeCh:        executeChannel,
 		requestCh:        make(chan *pb.SignedTransactionRequest, 20),
 		preprepareCh:     make(chan *pb.SignedPrePrepareMessage, 20),
@@ -145,8 +146,7 @@ func CreateLinearPBFTNode(selfNode *models.Node, peerNodes map[string]*models.No
 		newViewLog:    make(map[int64]*pb.SignedNewViewMessage),
 		SafeTimer:     timer,
 		state:         serverState,
-		f:             int64(len(peerNodes) / 3),
-		n:             int64(len(peerNodes) + 1),
+		config:        serverConfig,
 
 		viewChangeRequestCh: make(chan bool, 5),
 		newViewRequestCh:    make(chan bool, 5),
