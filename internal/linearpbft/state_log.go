@@ -187,7 +187,7 @@ func (s *StateLog) GetPrepareProof() []*pb.PrepareProof {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 	prepareProofs := make([]*pb.PrepareProof, 0)
-	for sequenceNum := range s.log {
+	for sequenceNum := utils.Min(utils.Keys(s.log)); sequenceNum <= utils.Max(utils.Keys(s.log)); sequenceNum++ {
 		record, exists := s.log[sequenceNum]
 		if !exists {
 			continue

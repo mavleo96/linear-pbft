@@ -24,6 +24,20 @@ func Max[T cmp.Ordered](slice []T) T {
 	return max
 }
 
+// Min returns the minimum value of a slice
+func Min[T cmp.Ordered](slice []T) T {
+	if len(slice) == 0 {
+		return *new(T)
+	}
+	min := slice[0]
+	for _, v := range slice {
+		if cmp.Compare(v, min) < 0 {
+			min = v
+		}
+	}
+	return min
+}
+
 // Keys returns the keys of a map
 func Keys[K comparable, V any](m map[K]V) []K {
 	keys := make([]K, 0)
