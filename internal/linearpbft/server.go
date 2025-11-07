@@ -59,6 +59,9 @@ type LinearPBFTNode struct {
 	// Protocol handler
 	Handler *ProtocolHandler
 
+	// View change manager
+	ViewChangeManager *ViewChangeManager
+
 	// Timer instance
 	SafeTimer *SafeTimer
 
@@ -124,6 +127,20 @@ func CreateLinearPBFTNode(selfNode *models.Node, peerNodes map[string]*models.No
 		commitCh:         make(chan *pb.SignedCommitMessage, 20),
 	}
 
+	ViewChangeManager := &ViewChangeManager{
+		id:        selfNode.ID,
+		mutex:     sync.RWMutex{},
+		log:       make(map[int64]map[string]*pb.SignedViewChangeMessage),
+		SafeTimer: timer,
+		state:     serverState,
+		f:         int64(len(peerNodes) / 3),
+		n:         int64(len(peerNodes) + 1),
+
+		viewChangeRequestCh: make(chan bool, 5),
+		signalRouterCh:      make(chan int64, 5),
+		newViewRequestCh:    make(chan bool, 5),
+	}
+
 	server := &LinearPBFTNode{
 		Node:                    selfNode,
 		Alive:                   true,
@@ -144,6 +161,7 @@ func CreateLinearPBFTNode(selfNode *models.Node, peerNodes map[string]*models.No
 		SafeTimer:            timer,
 		Executor:             executor,
 		Handler:              handler,
+		ViewChangeManager:    ViewChangeManager,
 		CheckPointRoutineCh:  checkPointCh,
 		ViewChangeMessageLog: make(map[int64]map[string]*pb.SignedViewChangeMessage),
 		ForwardedRequestsLog: make([]*pb.SignedTransactionRequest, 0),

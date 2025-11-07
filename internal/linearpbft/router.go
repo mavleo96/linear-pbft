@@ -6,9 +6,9 @@ import (
 
 	"github.com/mavleo96/bft-mavleo96/internal/crypto"
 	"github.com/mavleo96/bft-mavleo96/internal/models"
+	"github.com/mavleo96/bft-mavleo96/internal/utils"
 	"github.com/mavleo96/bft-mavleo96/pb"
 	log "github.com/sirupsen/logrus"
-	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 func (n *LinearPBFTNode) RouterRoutine(ctx context.Context) {
@@ -111,20 +111,25 @@ func (n *LinearPBFTNode) RouterRoutine(ctx context.Context) {
 
 		case signedCommitMessage := <-n.Handler.GetCommitChannel():
 			// Multicast commit message to all nodes
-			responseCh := make(chan *emptypb.Empty, len(n.Handler.peers))
-			wg := sync.WaitGroup{}
 			for _, peer := range n.Handler.peers {
-				wg.Add(1)
 				go func(peer *models.Node) {
-					defer wg.Done()
 					_ = n.SendCommitToNode(signedCommitMessage, peer.ID)
-					responseCh <- &emptypb.Empty{}
 				}(peer)
 			}
-			go func() {
-				wg.Wait()
-				close(responseCh)
-			}()
+		case viewNumber := <-n.ViewChangeManager.GetViewChangeChannel():
+			// NOte: this should be part of the view change manager
+			// but view change manager does not have access to the check point log
+			signedViewChangeMessage := n.CreateViewChangeMessage(viewNumber)
+			log.Infof("Router routine has logged view change message: %s", utils.LoggingString(signedViewChangeMessage))
+			n.ViewChangeManager.AddViewChangeMessage(signedViewChangeMessage)
+
+			// Multicast view change message to all nodes
+			log.Infof("Router routine is multicasting view change message to all nodes: %s", utils.LoggingString(signedViewChangeMessage))
+			for _, peer := range n.Handler.peers {
+				go func(peer *models.Node) {
+					_ = n.SendViewChangeMessageToNode(signedViewChangeMessage, peer.ID)
+				}(peer)
+			}
 		}
 		n.Executor.GetExecuteChannel() <- 0
 

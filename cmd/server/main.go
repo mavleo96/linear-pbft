@@ -116,7 +116,8 @@ func CreateServer(selfNode *models.Node, peerNodes map[string]*models.Node, clie
 	node := linearpbft.CreateLinearPBFTNode(selfNode, peerNodes, clientMap, bankDB, privateKey1, privateKey2, masterPublicKey1, masterPublicKey2)
 	pb.RegisterLinearPBFTNodeServer(grpcServer, node)
 
-	go node.ViewChangeRoutine(context.Background())
+	// go node.ViewChangeRoutine(context.Background())
+	go node.ViewChangeManager.ViewChangeRoutine(context.Background())
 	go node.CheckPointRoutine(context.Background())
 	// go node.ServiceRoutine(context.Background())
 	// go node.Handler.ServiceRoutine(context.Background())
