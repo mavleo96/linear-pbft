@@ -9,6 +9,7 @@ import (
 	"github.com/mavleo96/bft-mavleo96/pb"
 )
 
+// SendPrePrepareToNode sends a preprepare message to a node and returns the signed prepare message from the node
 func (n *LinearPBFTNode) SendPrePrepareToNode(signedPreprepareMessage *pb.SignedPrePrepareMessage, nodeID string) (*pb.SignedPrepareMessage, error) {
 	prePrepareMessage := signedPreprepareMessage.Message
 
@@ -54,6 +55,7 @@ func (n *LinearPBFTNode) SendPrePrepareToNode(signedPreprepareMessage *pb.Signed
 	return signedPrepareMsg, nil
 }
 
+// SendPrepareToNode sends a prepare message to a node and returns the signed commit message from the node
 func (n *LinearPBFTNode) SendPrepareToNode(signedPrepareMessage *pb.SignedPrepareMessage, nodeID string) (*pb.SignedCommitMessage, error) {
 	prepareMessage := signedPrepareMessage.Message
 
@@ -94,6 +96,7 @@ func (n *LinearPBFTNode) SendPrepareToNode(signedPrepareMessage *pb.SignedPrepar
 	return signedCommitMsg, nil
 }
 
+// SendCommitToNode sends a commit message to a node
 func (n *LinearPBFTNode) SendCommitToNode(signedCommitMessage *pb.SignedCommitMessage, nodeID string) error {
 	// request := n.State.TransactionMap.Get(commitMessage.Digest)
 	// Byzantine node behavior: dark attack
@@ -113,5 +116,15 @@ func (n *LinearPBFTNode) SendCommitToNode(signedCommitMessage *pb.SignedCommitMe
 	}
 
 	// Return nil
+	return nil
+}
+
+// SendViewChangeMessageToNode sends a view change message to a node
+func (n *LinearPBFTNode) SendViewChangeMessageToNode(signedViewChangeMessage *pb.SignedViewChangeMessage, nodeID string) error {
+
+	_, err := (*n.Handler.peers[nodeID].Client).ViewChangeRequest(context.Background(), signedViewChangeMessage)
+	if err != nil {
+		return err
+	}
 	return nil
 }

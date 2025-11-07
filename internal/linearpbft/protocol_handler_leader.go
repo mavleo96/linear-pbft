@@ -3,9 +3,12 @@ package linearpbft
 import (
 	"github.com/herumi/bls-eth-go-binary/bls"
 	"github.com/mavleo96/bft-mavleo96/internal/crypto"
+	"github.com/mavleo96/bft-mavleo96/internal/utils"
 	"github.com/mavleo96/bft-mavleo96/pb"
+	log "github.com/sirupsen/logrus"
 )
 
+// LeaderTransactionRequestHandler handles the transaction request for the leader
 func (h *ProtocolHandler) LeaderTransactionRequestHandler(signedRequest *pb.SignedTransactionRequest) error {
 	// request := signedRequest.Request
 
@@ -42,13 +45,15 @@ func (h *ProtocolHandler) LeaderTransactionRequestHandler(signedRequest *pb.Sign
 	// }
 
 	// Preprepare the transaction
-	record.AddPrePrepareMessage(signedPreprepare)
+	status := record.AddPrePrepareMessage(signedPreprepare)
+	log.Infof("v: %d s: %d status: %s req: %s", preprepare.ViewNumber, preprepare.SequenceNum, status, utils.LoggingString(signedRequest.Request))
 
 	h.preprepareCh <- signedPreprepare
 
 	return nil
 }
 
+// LeaderPrepareMessageHandler handles the prepare message for the leader
 func (h *ProtocolHandler) LeaderPrepareMessageHandler(signedPrepareMessages []*pb.SignedPrepareMessage) error {
 	sequenceNum := signedPrepareMessages[0].Message.SequenceNum
 	record, _ := h.state.StateLog.Get(sequenceNum)
@@ -56,7 +61,7 @@ func (h *ProtocolHandler) LeaderPrepareMessageHandler(signedPrepareMessages []*p
 	// Aggregate signatures
 	signatureMap := make(map[bls.ID][]byte)
 	for _, signedPrepareMessage := range signedPrepareMessages {
-		signatureMap[crypto.NodeIDToBLSMaskID(signedPrepareMessage.Message.NodeID)] = signedPrepareMessage.Signature
+		signatureMap[utils.NodeIDToBLSMaskID(signedPrepareMessage.Message.NodeID)] = signedPrepareMessage.Signature
 	}
 	signature := crypto.RecoverSignature(signatureMap)
 
@@ -73,7 +78,10 @@ func (h *ProtocolHandler) LeaderPrepareMessageHandler(signedPrepareMessages []*p
 	}
 
 	// Add prepare message to log record
-	record.AddPrepareMessages(signedPrepareMessage)
+	request := h.state.TransactionMap.Get(signedPrepareMessage.Message.Digest).Request
+	log.Infof("Logging prepare message: %s", utils.LoggingString(prepareMessage, request))
+	status := record.AddPrepareMessages(signedPrepareMessage)
+	log.Infof("v: %d s: %d status: %s req: %s", prepareMessage.ViewNumber, prepareMessage.SequenceNum, status, utils.LoggingString(request))
 
 	// Byzantine node behavior: crash attack
 	// if n.Byzantine && n.CrashAttack {
@@ -86,6 +94,7 @@ func (h *ProtocolHandler) LeaderPrepareMessageHandler(signedPrepareMessages []*p
 	return nil
 }
 
+// LeaderCommitMessageHandler handles the commit message for the leader
 func (h *ProtocolHandler) LeaderCommitMessageHandler(signedCommitMessages []*pb.SignedCommitMessage) error {
 	sequenceNum := signedCommitMessages[0].Message.SequenceNum
 	record, _ := h.state.StateLog.Get(sequenceNum)
@@ -93,7 +102,7 @@ func (h *ProtocolHandler) LeaderCommitMessageHandler(signedCommitMessages []*pb.
 	// Aggregate signatures
 	signatureMap := make(map[bls.ID][]byte)
 	for _, signedCommitMessage := range signedCommitMessages {
-		signatureMap[crypto.NodeIDToBLSMaskID(signedCommitMessage.Message.NodeID)] = signedCommitMessage.Signature
+		signatureMap[utils.NodeIDToBLSMaskID(signedCommitMessage.Message.NodeID)] = signedCommitMessage.Signature
 	}
 	signature := crypto.RecoverSignature(signatureMap)
 
@@ -110,7 +119,10 @@ func (h *ProtocolHandler) LeaderCommitMessageHandler(signedCommitMessages []*pb.
 	}
 
 	// Add commit message to log record
-	record.AddCommitMessages(signedCommitMessage)
+	request := h.state.TransactionMap.Get(signedCommitMessage.Message.Digest).Request
+	log.Infof("Logging commit message: %s", utils.LoggingString(commitMessage, request))
+	status := record.AddCommitMessages(signedCommitMessage)
+	log.Infof("v: %d s: %d status: %s req: %s", commitMessage.ViewNumber, commitMessage.SequenceNum, status, utils.LoggingString(request))
 
 	h.commitCh <- signedCommitMessage
 

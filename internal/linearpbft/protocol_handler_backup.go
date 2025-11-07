@@ -2,9 +2,7 @@ package linearpbft
 
 import (
 	"github.com/google/go-cmp/cmp"
-	"github.com/herumi/bls-eth-go-binary/bls"
 	"github.com/mavleo96/bft-mavleo96/internal/crypto"
-	"github.com/mavleo96/bft-mavleo96/internal/models"
 	"github.com/mavleo96/bft-mavleo96/internal/utils"
 	"github.com/mavleo96/bft-mavleo96/pb"
 	log "github.com/sirupsen/logrus"
@@ -13,43 +11,8 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-// ProtocolHandler is a struct that contains the state of the protocol
-type ProtocolHandler struct {
-	id          string
-	state       *ServerState
-	privateKey1 *bls.SecretKey
-	// privateKey2    *bls.SecretKey
-	masterPublicKey1 *bls.PublicKey
-	peers            map[string]*models.Node
-	F                int64
-	N                int64
-
-	// Channels
-	executeCh    chan int64
-	requestCh    chan *pb.SignedTransactionRequest
-	preprepareCh chan *pb.SignedPrePrepareMessage
-	prepareCh    chan *pb.SignedPrepareMessage
-	commitCh     chan *pb.SignedCommitMessage
-}
-
-func (h *ProtocolHandler) GetRequestChannel() <-chan *pb.SignedTransactionRequest {
-	return h.requestCh
-}
-
-func (h *ProtocolHandler) GetPreprepareChannel() <-chan *pb.SignedPrePrepareMessage {
-	return h.preprepareCh
-}
-
-func (h *ProtocolHandler) GetPrepareChannel() <-chan *pb.SignedPrepareMessage {
-	return h.prepareCh
-}
-
-func (h *ProtocolHandler) GetCommitChannel() <-chan *pb.SignedCommitMessage {
-	return h.commitCh
-}
-
-// HandlePrePrepareRequestBackup handles the preprepare request backup
-func (h *ProtocolHandler) HandlePrePrepareRequestBackup(signedPrePrepareMessage *pb.SignedPrePrepareMessage) (*pb.SignedPrepareMessage, error) {
+// BackupPrePrepareRequestHandler handles the preprepare request backup
+func (h *ProtocolHandler) BackupPrePrepareRequestHandler(signedPrePrepareMessage *pb.SignedPrePrepareMessage) (*pb.SignedPrepareMessage, error) {
 	prePrepareMessage := signedPrePrepareMessage.Message
 	signedRequest := signedPrePrepareMessage.Request
 	sequenceNum := prePrepareMessage.SequenceNum
@@ -93,7 +56,9 @@ func (h *ProtocolHandler) HandlePrePrepareRequestBackup(signedPrePrepareMessage 
 	}
 
 	// Log the preprepare message in record
-	record.AddPrePrepareMessage(signedPrePrepareMessage)
+	log.Infof("Logging preprepare message: %s", utils.LoggingString(prePrepareMessage))
+	status := record.AddPrePrepareMessage(signedPrePrepareMessage)
+	log.Infof("v: %d s: %d status: %s req: %s", prePrepareMessage.ViewNumber, prePrepareMessage.SequenceNum, status, utils.LoggingString(request))
 	// if n.Byzantine && n.CrashAttack {
 	// 	record.MaliciousUpdateLogState()
 	// }
@@ -131,7 +96,8 @@ func (h *ProtocolHandler) HandlePrePrepareRequestBackup(signedPrePrepareMessage 
 
 }
 
-func (h *ProtocolHandler) HandlePrepareRequestBackup(signedPrepareMessage *pb.SignedPrepareMessage) (*pb.SignedCommitMessage, error) {
+// BackupPrepareRequestHandler handles the prepare request backup
+func (h *ProtocolHandler) BackupPrepareRequestHandler(signedPrepareMessage *pb.SignedPrepareMessage) (*pb.SignedCommitMessage, error) {
 	prepareMessage := signedPrepareMessage.Message
 	viewNumber := prepareMessage.ViewNumber
 	sequenceNum := prepareMessage.SequenceNum
@@ -147,7 +113,10 @@ func (h *ProtocolHandler) HandlePrepareRequestBackup(signedPrepareMessage *pb.Si
 	}
 
 	// Log the prepare messages in record
-	record.AddPrepareMessages(signedPrepareMessage)
+	request := h.state.TransactionMap.Get(signedPrepareMessage.Message.Digest).Request
+	log.Infof("Logging prepare message: %s", utils.LoggingString(prepareMessage, request))
+	status := record.AddPrepareMessages(signedPrepareMessage)
+	log.Infof("v: %d s: %d status: %s req: %s", viewNumber, sequenceNum, status, utils.LoggingString(request))
 	// if n.Byzantine && n.CrashAttack {
 	// 	record.MaliciousUpdateLogState()
 	// }
@@ -183,7 +152,8 @@ func (h *ProtocolHandler) HandlePrepareRequestBackup(signedPrepareMessage *pb.Si
 
 }
 
-func (h *ProtocolHandler) HandleCommitRequestBackup(signedCommitMessage *pb.SignedCommitMessage) (*emptypb.Empty, error) {
+// BackupCommitRequestHandler handles the commit request backup
+func (h *ProtocolHandler) BackupCommitRequestHandler(signedCommitMessage *pb.SignedCommitMessage) (*emptypb.Empty, error) {
 	commitMessage := signedCommitMessage.Message
 	viewNumber := commitMessage.ViewNumber
 	sequenceNum := commitMessage.SequenceNum
@@ -199,7 +169,10 @@ func (h *ProtocolHandler) HandleCommitRequestBackup(signedCommitMessage *pb.Sign
 	}
 
 	// Log the commit messages in record
-	record.AddCommitMessages(signedCommitMessage)
+	request := h.state.TransactionMap.Get(signedCommitMessage.Message.Digest).Request
+	log.Infof("Logging commit message: %s", utils.LoggingString(commitMessage, request))
+	status := record.AddCommitMessages(signedCommitMessage)
+	log.Infof("v: %d s: %d status: %s req: %s", viewNumber, sequenceNum, status, utils.LoggingString(request))
 	// if n.Byzantine && n.CrashAttack {
 	// 	record.MaliciousUpdateLogState()
 	// }

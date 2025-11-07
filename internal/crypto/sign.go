@@ -4,12 +4,13 @@ import (
 	"encoding/json"
 
 	"github.com/herumi/bls-eth-go-binary/bls"
+	"github.com/mavleo96/bft-mavleo96/internal/utils"
 )
 
 // Sign signs a message with a private key and returns the serialized signature
 func Sign[T any](message T, privateKey *bls.SecretKey) []byte {
 	originalMsgBytes, _ := json.Marshal(message)
-	cleaned := regexRemoveKey(string(originalMsgBytes), "nodeID")
+	cleaned := utils.RegexRemoveKey(string(originalMsgBytes), "nodeID")
 	msgBytes := []byte(cleaned)
 	return privateKey.SignByte(msgBytes).Serialize()
 }
@@ -17,7 +18,7 @@ func Sign[T any](message T, privateKey *bls.SecretKey) []byte {
 // Verify verifies a message with a public key and a signature and returns true if the signature is valid
 func Verify[T any](message T, publicKey *bls.PublicKey, signature []byte) bool {
 	originalMsgBytes, _ := json.Marshal(message)
-	cleaned := regexRemoveKey(string(originalMsgBytes), "nodeID")
+	cleaned := utils.RegexRemoveKey(string(originalMsgBytes), "nodeID")
 	msgBytes := []byte(cleaned)
 	var sig bls.Sign
 	sig.Deserialize(signature)

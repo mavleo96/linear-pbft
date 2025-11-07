@@ -47,7 +47,7 @@ func (n *LinearPBFTNode) TransferRequest(ctx context.Context, signedRequest *pb.
 	// TODO: this does not belong here, it should be part of the request handler
 	// Add request to transaction map
 	if n.State.TransactionMap.Get(crypto.Digest(signedRequest)) == nil {
-		log.Infof("Adding request to transaction map: %s", utils.LoggingString(request))
+		// log.Infof("Adding request to transaction map: %s", utils.LoggingString(request))
 		n.State.TransactionMap.Set(crypto.Digest(signedRequest), signedRequest)
 	}
 
@@ -63,10 +63,7 @@ func (n *LinearPBFTNode) TransferRequest(ctx context.Context, signedRequest *pb.
 		// 	n.Flag = true
 		// return &emptypb.Empty{}, nil
 	}
-	log.Infof("Received request from client %s: %s", request.Sender, utils.LoggingString(request))
-	// n.Handler.GetRequestChannel() <- signedRequest
-	n.Handler.LeaderTransactionRequestHandler(signedRequest)
-	log.Infof("Sent request to request channel: %s", utils.LoggingString(request))
+	go n.Handler.LeaderTransactionRequestHandler(signedRequest)
 	return &emptypb.Empty{}, nil
 }
 

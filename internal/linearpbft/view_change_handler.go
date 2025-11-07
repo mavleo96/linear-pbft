@@ -1,87 +1,13 @@
 package linearpbft
 
 import (
-	"context"
-
-	"github.com/google/go-cmp/cmp"
 	"github.com/mavleo96/bft-mavleo96/internal/crypto"
 	"github.com/mavleo96/bft-mavleo96/internal/utils"
 	"github.com/mavleo96/bft-mavleo96/pb"
 	log "github.com/sirupsen/logrus"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-func (n *LinearPBFTNode) ViewChangeRequest(ctx context.Context, signedViewChangeMessage *pb.SignedViewChangeMessage) (*emptypb.Empty, error) {
-	viewChangeMessage := signedViewChangeMessage.Message
-	viewNumber := viewChangeMessage.ViewNumber
-	// Ignore if not alive
-	if !n.Alive {
-		log.Infof("Node %s is not alive", n.ID)
-		return nil, status.Errorf(codes.Unavailable, "node not alive")
-	}
-
-	// Verify view number
-	if viewNumber <= n.State.GetViewNumber() {
-		log.Warnf("Rejected: %s; lower view number (expected: %d)", utils.LoggingString(viewChangeMessage), n.State.GetViewNumber())
-		return nil, status.Errorf(codes.FailedPrecondition, "invalid view number")
-	}
-
-	// Verify signature
-	ok := crypto.Verify(viewChangeMessage, n.GetPublicKey1(viewChangeMessage.NodeID), signedViewChangeMessage.Signature)
-	if !ok {
-		log.Warnf("Rejected: %s; invalid signature", utils.LoggingString(viewChangeMessage))
-		return nil, status.Errorf(codes.Unauthenticated, "invalid signature")
-	}
-
-	// Verify check point messages signatures
-	// TODO: need to verify digest
-	for _, signedCheckPointMessage := range viewChangeMessage.CheckPointMessages {
-		checkPointMessage := signedCheckPointMessage.Message
-		ok := crypto.Verify(checkPointMessage, n.GetPublicKey1(checkPointMessage.NodeID), signedCheckPointMessage.Signature)
-		if !ok {
-			log.Warnf("Rejected: %s; invalid signature on check point message", utils.LoggingString(viewChangeMessage))
-			return nil, status.Errorf(codes.FailedPrecondition, "invalid signature on check point message")
-		}
-	}
-
-	// Verify prepare set
-	for _, prepareProof := range viewChangeMessage.PreparedSet {
-		signedPrePrepareMessage := prepareProof.SignedPrePrepareMessage
-		prePrepareMessage := signedPrePrepareMessage.Message
-		signedPrepareMessage := prepareProof.SignedPrepareMessage
-		prepareMessage := signedPrepareMessage.Message
-
-		// Verify preprepare message signature
-		proposerID := utils.ViewNumberToPrimaryID(prePrepareMessage.ViewNumber, n.Handler.N)
-		ok := crypto.Verify(prePrepareMessage, n.GetPublicKey1(proposerID), signedPrePrepareMessage.Signature)
-		if !ok {
-			log.Warnf("Rejected: %s; invalid signature on preprepare message", utils.LoggingString(viewChangeMessage))
-			return nil, status.Errorf(codes.FailedPrecondition, "invalid signature on preprepare message")
-		}
-
-		// Verify prepare message signature
-		ok = crypto.Verify(prepareMessage, n.Handler.masterPublicKey1, signedPrepareMessage.Signature)
-		if !ok {
-			log.Warnf("Rejected: %s; invalid signature on prepare message", utils.LoggingString(viewChangeMessage))
-			return nil, status.Errorf(codes.FailedPrecondition, "invalid signature on prepare message")
-		}
-
-		// Verify prepare message digest, view number and sequence number against corresponding preprepare message
-		if prepareMessage.ViewNumber != prePrepareMessage.ViewNumber ||
-			prepareMessage.SequenceNum != prePrepareMessage.SequenceNum ||
-			!cmp.Equal(prepareMessage.Digest, prePrepareMessage.Digest) {
-			log.Warnf("Rejected: %s; invalid digest on prepare message", utils.LoggingString(viewChangeMessage))
-			return nil, status.Errorf(codes.FailedPrecondition, "invalid digest on prepare message")
-		}
-	}
-
-	go n.ViewChangeManager.ViewChangeRequestHandler(signedViewChangeMessage)
-
-	return &emptypb.Empty{}, nil
-}
-
+// ViewChangeRequestHandler handles the view change request
 func (v *ViewChangeManager) ViewChangeRequestHandler(signedViewChangeMessage *pb.SignedViewChangeMessage) {
 	viewChangeMessage := signedViewChangeMessage.Message
 	viewNumber := viewChangeMessage.ViewNumber

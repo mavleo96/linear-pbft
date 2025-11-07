@@ -188,22 +188,22 @@ func (l *LogRecord) SetExecuted() {
 }
 
 // AddPrePrepareMessage adds a preprepare message to the log record
-func (l *LogRecord) AddPrePrepareMessage(signedPrePrepareMessage *pb.SignedPrePrepareMessage) {
+func (l *LogRecord) AddPrePrepareMessage(signedPrePrepareMessage *pb.SignedPrePrepareMessage) string {
 	l.prePrepareMessage = signedPrePrepareMessage
 	// l.Request = signedPrePrepareMessage.Request
-	l.updateLogState()
+	return l.updateLogState()
 }
 
 // AddPrepareMessages adds prepare messages to the log record
-func (l *LogRecord) AddPrepareMessages(prepareMessage *pb.SignedPrepareMessage) {
+func (l *LogRecord) AddPrepareMessages(prepareMessage *pb.SignedPrepareMessage) string {
 	l.prepareMessage = prepareMessage
-	l.updateLogState()
+	return l.updateLogState()
 }
 
 // AddCommitMessages adds commit messages to the log record
-func (l *LogRecord) AddCommitMessages(commitMessage *pb.SignedCommitMessage) {
+func (l *LogRecord) AddCommitMessages(commitMessage *pb.SignedCommitMessage) string {
 	l.commitMessage = commitMessage
-	l.updateLogState()
+	return l.updateLogState()
 }
 
 // GetPrepareProof returns the prepare proof for the log record
@@ -249,28 +249,29 @@ func CreateLogRecord(viewNumber int64, sequenceNumber int64, digest []byte) *Log
 
 // updateLogState updates the log state
 // TODO: should maybe ensure everthing is in same view number
-func (l *LogRecord) updateLogState() {
+func (l *LogRecord) updateLogState() string {
 	if l.prePrepareMessage == nil {
-		return
+		return "X"
 	}
-	if !l.prePrepared {
-		log.Infof("Preprepared (v: %d, s: %d)", l.ViewNumber, l.SequenceNum)
-	}
+	// if !l.prePrepared {
+	// log.Infof("Preprepared (v: %d, s: %d)", l.ViewNumber, l.SequenceNum)
+	// }
 	l.prePrepared = true
 	if l.prepareMessage == nil {
-		return
+		return "PP"
 	}
-	if !l.prepared {
-		log.Infof("Prepared (v: %d, s: %d)", l.ViewNumber, l.SequenceNum)
-	}
+	// if !l.prepared {
+	// log.Infof("Prepared (v: %d, s: %d)", l.ViewNumber, l.SequenceNum)
+	// }
 	l.prepared = true
 	if l.commitMessage == nil {
-		return
+		return "P"
 	}
-	if !l.committed {
-		log.Infof("Committed (v: %d, s: %d)", l.ViewNumber, l.SequenceNum)
-	}
+	// if !l.committed {
+	// log.Infof("Committed (v: %d, s: %d)", l.ViewNumber, l.SequenceNum)
+	// }
 	l.committed = true
+	return "C"
 }
 
 // ---------------------------------------------------------- //

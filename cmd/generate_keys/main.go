@@ -8,7 +8,6 @@ import (
 
 	"github.com/herumi/bls-eth-go-binary/bls"
 	"github.com/mavleo96/bft-mavleo96/internal/config"
-	"github.com/mavleo96/bft-mavleo96/internal/crypto"
 	"github.com/mavleo96/bft-mavleo96/internal/utils"
 )
 
@@ -21,7 +20,7 @@ func generateShares(masterSec bls.SecretKey, ids []string, t int) (map[string]*b
 	secretShares := make(map[string]*bls.SecretKey)
 	publicShares := make(map[string]*bls.PublicKey)
 	for _, id := range ids {
-		blsID := crypto.NodeIDToBLSMaskID(id)
+		blsID := utils.NodeIDToBLSMaskID(id)
 
 		var secShare bls.SecretKey
 		secShare.Set(msk, &blsID)

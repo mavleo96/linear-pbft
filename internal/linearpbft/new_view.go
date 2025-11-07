@@ -126,7 +126,9 @@ func (n *LinearPBFTNode) NewViewRoutine(ctx context.Context, viewNumber int64) {
 				log.Fatal(err)
 			}
 		}
-		record.AddPrePrepareMessage(signedPrePrepareMessage)
+		log.Infof("Logging preprepare message: %s", utils.LoggingString(prePrepareMessage))
+		status := record.AddPrePrepareMessage(signedPrePrepareMessage)
+		log.Infof("v: %d s: %d status: %s req: %s", prePrepareMessage.ViewNumber, prePrepareMessage.SequenceNum, status, utils.LoggingString(signedRequest.Request))
 	}
 	// Purge log records with older view number
 	for sequenceNum := range n.State.StateLog.log {
@@ -231,7 +233,7 @@ func (n *LinearPBFTNode) NewViewRequest(signedNewViewMessage *pb.SignedNewViewMe
 
 	// Stream prepare messages to primary
 	for _, signedPrePrepareMessage := range signedPrePrepareMessages {
-		signedPrepareMessage, err := n.Handler.HandlePrePrepareRequestBackup(signedPrePrepareMessage)
+		signedPrepareMessage, err := n.Handler.BackupPrePrepareRequestHandler(signedPrePrepareMessage)
 		if err != nil {
 			log.Warnf("Prepare request %s could not be sent to primary: %s", utils.LoggingString(signedPrePrepareMessage), err)
 			continue

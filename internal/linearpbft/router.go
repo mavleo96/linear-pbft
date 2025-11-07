@@ -18,7 +18,7 @@ func (n *LinearPBFTNode) RouterRoutine(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			return
-			// Handle preprepare message
+		// Route preprepare message from protocol handler to all backup nodes
 		case signedPreprepareMessage := <-n.Handler.GetPreprepareChannel():
 			// Multicast preprepare message to all nodes
 			responseCh := make(chan *pb.SignedPrepareMessage, len(n.Handler.peers))
@@ -67,6 +67,7 @@ func (n *LinearPBFTNode) RouterRoutine(ctx context.Context) {
 				}
 				// Rest are just ignored after collection
 			}
+		// Route prepare message from protocol handler to all backup nodes
 		case signedPrepareMessage := <-n.Handler.GetPrepareChannel():
 			// Multicast prepare message to all nodes
 			responseCh := make(chan *pb.SignedCommitMessage, len(n.Handler.peers))
@@ -109,6 +110,7 @@ func (n *LinearPBFTNode) RouterRoutine(ctx context.Context) {
 				// Rest are just ignored after collection
 			}
 
+		// Route commit message from protocol handler to all backup nodes
 		case signedCommitMessage := <-n.Handler.GetCommitChannel():
 			// Multicast commit message to all nodes
 			for _, peer := range n.Handler.peers {
@@ -116,11 +118,12 @@ func (n *LinearPBFTNode) RouterRoutine(ctx context.Context) {
 					_ = n.SendCommitToNode(signedCommitMessage, peer.ID)
 				}(peer)
 			}
+		// Route view change message from view change manager to all nodes
 		case viewNumber := <-n.ViewChangeManager.GetViewChangeChannel():
 			// NOte: this should be part of the view change manager
 			// but view change manager does not have access to the check point log
 			signedViewChangeMessage := n.CreateViewChangeMessage(viewNumber)
-			log.Infof("Router routine has logged view change message: %s", utils.LoggingString(signedViewChangeMessage))
+			log.Infof("Router routine has logged view change message: %s", utils.LoggingString(signedViewChangeMessage.Message))
 			n.ViewChangeManager.AddViewChangeMessage(signedViewChangeMessage)
 
 			// Multicast view change message to all nodes
