@@ -161,7 +161,8 @@ func (n *LinearPBFTNode) NewViewRoutine(ctx context.Context, viewNumber int64) {
 
 	// Send prepare messages to prepare channel
 	for sequenceNum := range collectedSignedPrepareMessages {
-		n.Handler.GetPrepareChannel() <- collectedSignedPrepareMessages[sequenceNum]
+		// n.Handler.GetPrepareChannel() <- collectedSignedPrepareMessages[sequenceNum]
+		n.Handler.LeaderPrepareMessageHandler(collectedSignedPrepareMessages[sequenceNum])
 	}
 }
 
@@ -172,8 +173,6 @@ func (n *LinearPBFTNode) NewViewRequest(signedNewViewMessage *pb.SignedNewViewMe
 		return status.Errorf(codes.Unavailable, "node not alive")
 	}
 
-	n.Mutex.Lock()
-	defer n.Mutex.Unlock()
 	newViewMessage := signedNewViewMessage.Message
 	signedViewChangeMessages := newViewMessage.SignedViewChangeMessages
 	signedPrePrepareMessages := newViewMessage.SignedPrePrepareMessages
@@ -213,6 +212,8 @@ func (n *LinearPBFTNode) NewViewRequest(signedNewViewMessage *pb.SignedNewViewMe
 		}
 	}
 
+	// TODO: transfer control to new view handler
+
 	// Cleanup timer and update view number
 	// n.SafeTimer.Cleanup() // TODO: check if this is alright...but it correct as per the paper
 	n.State.SetViewNumber(viewNumber)
@@ -226,11 +227,11 @@ func (n *LinearPBFTNode) NewViewRequest(signedNewViewMessage *pb.SignedNewViewMe
 		return status.Errorf(codes.Unavailable, "node not alive")
 	}
 
+	// TODO: Install latest stable checkpoint
+
 	// Stream prepare messages to primary
 	for _, signedPrePrepareMessage := range signedPrePrepareMessages {
-		n.Mutex.Unlock()
-		signedPrepareMessage, err := n.PrePrepareRequest(context.Background(), signedPrePrepareMessage)
-		n.Mutex.Lock()
+		signedPrepareMessage, err := n.Handler.HandlePrePrepareRequestBackup(signedPrePrepareMessage)
 		if err != nil {
 			log.Warnf("Prepare request %s could not be sent to primary: %s", utils.LoggingString(signedPrePrepareMessage), err)
 			continue

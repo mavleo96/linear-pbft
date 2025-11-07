@@ -64,9 +64,6 @@ type LinearPBFTNode struct {
 
 	// Channels
 	CheckPointRoutineCh chan bool
-	// RequestCh           chan *pb.SignedTransactionRequest
-	// PrepareCh           chan []*pb.SignedPrepareMessage
-	// CommitCh            chan []*pb.SignedCommitMessage
 
 	// Message logs
 	ViewChangeMessageLog map[int64]map[string]*pb.SignedViewChangeMessage // v -> (id -> msg)
@@ -122,8 +119,9 @@ func CreateLinearPBFTNode(selfNode *models.Node, peerNodes map[string]*models.No
 		N:                int64(len(peerNodes) + 1),
 		executeCh:        executeChannel,
 		requestCh:        make(chan *pb.SignedTransactionRequest, 20),
-		prepareCh:        make(chan []*pb.SignedPrepareMessage, 20),
-		commitCh:         make(chan []*pb.SignedCommitMessage, 20),
+		preprepareCh:     make(chan *pb.SignedPrePrepareMessage, 20),
+		prepareCh:        make(chan *pb.SignedPrepareMessage, 20),
+		commitCh:         make(chan *pb.SignedCommitMessage, 20),
 	}
 
 	server := &LinearPBFTNode{
@@ -154,16 +152,6 @@ func CreateLinearPBFTNode(selfNode *models.Node, peerNodes map[string]*models.No
 
 	executor.sendReply = func(signedRequest *pb.SignedTransactionRequest, result int64) {
 		server.SendReply(signedRequest, result)
-	}
-
-	handler.SendPrePrepare = func(signedPreprepareMessage *pb.SignedPrePrepareMessage, sequenceNum int64) error {
-		return server.SendPrePrepare(signedPreprepareMessage, sequenceNum)
-	}
-	handler.SendPrepare = func(signedPrepareMessage *pb.SignedPrepareMessage) error {
-		return server.SendPrepare(signedPrepareMessage)
-	}
-	handler.SendCommit = func(signedCommitMessage *pb.SignedCommitMessage) error {
-		return server.SendCommit(signedCommitMessage)
 	}
 
 	return server

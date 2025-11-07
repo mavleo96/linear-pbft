@@ -64,7 +64,8 @@ func (n *LinearPBFTNode) TransferRequest(ctx context.Context, signedRequest *pb.
 		// return &emptypb.Empty{}, nil
 	}
 	log.Infof("Received request from client %s: %s", request.Sender, utils.LoggingString(request))
-	n.Handler.GetRequestChannel() <- signedRequest
+	// n.Handler.GetRequestChannel() <- signedRequest
+	n.Handler.LeaderTransactionRequestHandler(signedRequest)
 	log.Infof("Sent request to request channel: %s", utils.LoggingString(request))
 	return &emptypb.Empty{}, nil
 }
