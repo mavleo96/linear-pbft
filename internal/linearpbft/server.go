@@ -128,17 +128,19 @@ func CreateLinearPBFTNode(selfNode *models.Node, peerNodes map[string]*models.No
 	}
 
 	ViewChangeManager := &ViewChangeManager{
-		id:        selfNode.ID,
-		mutex:     sync.RWMutex{},
-		log:       make(map[int64]map[string]*pb.SignedViewChangeMessage),
-		SafeTimer: timer,
-		state:     serverState,
-		f:         int64(len(peerNodes) / 3),
-		n:         int64(len(peerNodes) + 1),
+		id:            selfNode.ID,
+		mutex:         sync.RWMutex{},
+		viewChangeLog: make(map[int64]map[string]*pb.SignedViewChangeMessage),
+		newViewLog:    make(map[int64]*pb.SignedNewViewMessage),
+		SafeTimer:     timer,
+		state:         serverState,
+		f:             int64(len(peerNodes) / 3),
+		n:             int64(len(peerNodes) + 1),
 
 		viewChangeRequestCh: make(chan bool, 5),
-		signalRouterCh:      make(chan int64, 5),
 		newViewRequestCh:    make(chan bool, 5),
+		viewChangeRouterCh:  make(chan int64, 5),
+		newViewRouterCh:     make(chan int64, 5),
 	}
 
 	server := &LinearPBFTNode{
@@ -170,6 +172,10 @@ func CreateLinearPBFTNode(selfNode *models.Node, peerNodes map[string]*models.No
 
 	executor.sendReply = func(signedRequest *pb.SignedTransactionRequest, result int64) {
 		server.SendReply(signedRequest, result)
+	}
+
+	handler.SendGetRequest = func(digest []byte) (*pb.SignedTransactionRequest, error) {
+		return server.SendGetRequest(digest)
 	}
 
 	return server

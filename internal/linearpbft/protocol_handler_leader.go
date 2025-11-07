@@ -13,7 +13,7 @@ func (h *ProtocolHandler) LeaderTransactionRequestHandler(signedRequest *pb.Sign
 	// request := signedRequest.Request
 
 	// Get or assign sequence number
-	sequenceNum, _ := h.state.StateLog.AssignSequenceNumberAndCreateRecord(crypto.Digest(signedRequest))
+	sequenceNum, _ := h.state.StateLog.AssignSequenceNumberAndCreateRecord(h.state.GetViewNumber(), crypto.Digest(signedRequest))
 
 	// // Add request to transaction map
 	// if n.State.TransactionMap.Get(crypto.Digest(signedRequest)) == nil {

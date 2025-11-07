@@ -22,14 +22,14 @@ func (h *ProtocolHandler) BackupPrePrepareRequestHandler(signedPrePrepareMessage
 	if signedRequest == nil {
 		signedRequest = h.state.TransactionMap.Get(prePrepareMessage.Digest)
 	}
-	// // if not in transaction map then send a get request to all nodes; if still nil then return error
-	// if signedRequest == nil {
-	// 	response, err := n.SendGetRequest(prePrepareMessage.Digest)
-	// 	if err != nil || response == nil {
-	// 		return nil, status.Errorf(codes.FailedPrecondition, "request could not be retrieved from any node")
-	// 	}
-	// 	signedRequest = response
-	// }
+	// if not in transaction map then send a get request to all nodes; if still nil then return error
+	if signedRequest == nil {
+		response, err := h.SendGetRequest(prePrepareMessage.Digest)
+		if err != nil || response == nil {
+			return nil, status.Errorf(codes.FailedPrecondition, "request could not be retrieved from any node")
+		}
+		signedRequest = response
+	}
 	h.state.TransactionMap.Set(prePrepareMessage.Digest, signedRequest)
 
 	request := signedRequest.Request

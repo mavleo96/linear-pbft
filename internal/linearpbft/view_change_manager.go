@@ -9,205 +9,112 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// ViewChangeManager is responsible for managing view changes and new views
 type ViewChangeManager struct {
-	id        string
-	mutex     sync.RWMutex
-	log       map[int64]map[string]*pb.SignedViewChangeMessage
-	SafeTimer *SafeTimer
-	state     *ServerState
-	f         int64
-	n         int64
+	id            string
+	mutex         sync.RWMutex
+	viewChangeLog map[int64]map[string]*pb.SignedViewChangeMessage
+	newViewLog    map[int64]*pb.SignedNewViewMessage
+	SafeTimer     *SafeTimer
+	state         *ServerState
+	f             int64
+	n             int64
 
 	// Channels
 	viewChangeRequestCh chan bool
-	signalRouterCh      chan int64
 	newViewRequestCh    chan bool
+	viewChangeRouterCh  chan int64
+	newViewRouterCh     chan int64
 }
 
-func (v *ViewChangeManager) GetViewChangeRequestChannel() chan<- bool {
-	return v.viewChangeRequestCh
-}
-
+// GetViewChangeChannel returns the channel to receive view change messages in router routine
 func (v *ViewChangeManager) GetViewChangeChannel() <-chan int64 {
-	return v.signalRouterCh
+	return v.viewChangeRouterCh
 }
 
+// GetNewViewChannel returns the channel to receive new view messages in router routine
+func (v *ViewChangeManager) GetNewViewChannel() <-chan int64 {
+	return v.newViewRouterCh
+}
+
+// AddViewChangeMessage adds a signed view change message to the view change log
 func (v *ViewChangeManager) AddViewChangeMessage(signedViewChangeMessage *pb.SignedViewChangeMessage) {
 	v.mutex.Lock()
 	defer v.mutex.Unlock()
 	viewChangeMessage := signedViewChangeMessage.Message
 	viewNumber := viewChangeMessage.ViewNumber
-	if _, ok := v.log[viewNumber]; !ok {
-		v.log[viewNumber] = make(map[string]*pb.SignedViewChangeMessage)
+	if _, ok := v.viewChangeLog[viewNumber]; !ok {
+		v.viewChangeLog[viewNumber] = make(map[string]*pb.SignedViewChangeMessage)
 	}
-	v.log[viewNumber][viewChangeMessage.NodeID] = signedViewChangeMessage
+	v.viewChangeLog[viewNumber][viewChangeMessage.NodeID] = signedViewChangeMessage
 }
 
+// GetViewChangeMessages returns the signed view change messages for a given view number
+func (v *ViewChangeManager) GetViewChangeMessages(viewNumber int64) []*pb.SignedViewChangeMessage {
+	v.mutex.RLock()
+	defer v.mutex.RUnlock()
+	return utils.Values(v.viewChangeLog[viewNumber])
+}
+
+// AddNewViewMessage adds a signed new view message to the new view log
+func (v *ViewChangeManager) AddNewViewMessage(signedNewViewMessage *pb.SignedNewViewMessage) {
+	v.mutex.Lock()
+	defer v.mutex.Unlock()
+	newViewMessage := signedNewViewMessage.Message
+	viewNumber := newViewMessage.ViewNumber
+	v.newViewLog[viewNumber] = signedNewViewMessage
+}
+
+// ViewChangeRoutine is the routine that handles view changes and new views
 func (v *ViewChangeManager) ViewChangeRoutine(ctx context.Context) {
 	log.Infof("Starting view change routine for %s", v.id)
 	for {
 		select {
 		case <-ctx.Done():
 			return
+
 		case <-v.viewChangeRequestCh:
+			// TODO: What if timer expires at this point? -> double view change
 			log.Infof("View change request channel signaled")
 			// TODO: handle view change request
 			// TODO: send view change message to all nodes if f + 1 view change messages are collected
 
 			// Get smallest view number of the logged view change messages which is higher than latest sent view change message view number
 			viewNumber := v.state.GetViewChangeViewNumber() + 1
-			maxViewNumber := utils.Max(utils.Keys(v.log))
+			maxViewNumber := utils.Max(utils.Keys(v.viewChangeLog))
 			for i := viewNumber; i <= maxViewNumber; i++ {
-				if _, ok := v.log[i]; ok {
+				if _, ok := v.viewChangeLog[i]; ok {
 					viewNumber = i
 					break
 				}
 			}
-			log.Infof("VCN: %d, NEW VCN: %d, Key of VC log: %d", v.state.GetViewChangeViewNumber(), viewNumber, utils.Keys(v.log))
+			log.Infof("VCN: %d, NEW VCN: %d, Key of VC log: %d", v.state.GetViewChangeViewNumber(), viewNumber, utils.Keys(v.viewChangeLog))
 			log.Infof("Node %s is entering view change phase and updated vc to %d", v.id, viewNumber)
 			v.state.SetViewChangeViewNumber(viewNumber)
 			v.state.SetViewChangePhase(true)
-			// go v.SendViewChange(viewNumber)
-			v.signalRouterCh <- viewNumber
+			v.viewChangeRouterCh <- viewNumber
 
 		case <-v.SafeTimer.TimeoutCh:
 			log.Infof("View change routine: Timer expired at v %d vc %d", v.state.GetViewNumber(), v.state.GetViewChangeViewNumber())
 
 			// Get smallest view number of the logged view change messages which is higher than latest sent view change message view number
 			viewNumber := v.state.GetViewChangeViewNumber() + 1
-			maxViewNumber := utils.Max(utils.Keys(v.log))
+			maxViewNumber := utils.Max(utils.Keys(v.viewChangeLog))
 			for i := viewNumber; i <= maxViewNumber; i++ {
-				if _, ok := v.log[i]; ok {
+				if _, ok := v.viewChangeLog[i]; ok {
 					viewNumber = i
 					break
 				}
 			}
-			log.Infof("VCN: %d, NEW VCN: %d, Key of VC log: %d", v.state.GetViewChangeViewNumber(), viewNumber, utils.Keys(v.log))
+			log.Infof("VCN: %d, NEW VCN: %d, Key of VC log: %d", v.state.GetViewChangeViewNumber(), viewNumber, utils.Keys(v.viewChangeLog))
 			log.Infof("Node %s is entering view change phase and updated vc to %d", v.id, viewNumber)
 			v.state.SetViewChangeViewNumber(viewNumber)
 			v.state.SetViewChangePhase(true)
-			// go v.SendViewChange(viewNumber)
-			v.signalRouterCh <- viewNumber
+			v.viewChangeRouterCh <- viewNumber
+
 		case <-v.newViewRequestCh:
 			log.Infof("New view request channel signaled")
+			v.newViewRouterCh <- v.state.GetViewChangeViewNumber()
 		}
 	}
 }
-
-// // ViewChange handles incoming view change messages from nodes
-// func (n *LinearPBFTNode) ViewChangeRequest(ctx context.Context, signedViewChangeMessage *pb.SignedViewChangeMessage) (*emptypb.Empty, error) {
-// 	// Ignore if not alive
-// 	if !n.Alive {
-// 		log.Infof("Node %s is not alive", n.ID)
-// 		return nil, status.Errorf(codes.Unavailable, "node not alive")
-// 	}
-
-// 	n.Mutex.Lock()
-// 	defer n.Mutex.Unlock()
-// 	viewChangeMessage := signedViewChangeMessage.Message
-// 	viewNumber := viewChangeMessage.ViewNumber
-
-// 	// Verify signature
-// 	ok := crypto.Verify(viewChangeMessage, n.GetPublicKey1(viewChangeMessage.NodeID), signedViewChangeMessage.Signature)
-// 	if !ok {
-// 		log.Warnf("Rejected: %s; invalid signature", utils.LoggingString(viewChangeMessage))
-// 		return nil, status.Errorf(codes.Unauthenticated, "invalid signature")
-// 	}
-
-// 	// Verify view number
-// 	if viewNumber <= n.State.GetViewNumber() {
-// 		log.Warnf("Rejected: %s; lower view number (expected: %d)", utils.LoggingString(viewChangeMessage), n.State.GetViewNumber())
-// 		return nil, status.Errorf(codes.FailedPrecondition, "invalid view number")
-// 	}
-
-// 	// Verify check point messages
-// 	// TODO: need to verify digest
-// 	for _, signedCheckPointMessage := range viewChangeMessage.CheckPointMessages {
-// 		checkPointMessage := signedCheckPointMessage.Message
-// 		ok := crypto.Verify(checkPointMessage, n.GetPublicKey1(checkPointMessage.NodeID), signedCheckPointMessage.Signature)
-// 		if !ok {
-// 			log.Warnf("Rejected: %s; invalid signature on check point message", utils.LoggingString(viewChangeMessage))
-// 			return nil, status.Errorf(codes.FailedPrecondition, "invalid signature on check point message")
-// 		}
-// 	}
-// 	// TODO: update checkpoint log to catchup when new view is started
-
-// 	// Verify prepare set
-// 	for _, prepareProof := range viewChangeMessage.PreparedSet {
-// 		// Get signed preprepare message and prepare messages
-// 		signedPrePrepareMessage := prepareProof.SignedPrePrepareMessage
-// 		prePrepareMessage := signedPrePrepareMessage.Message
-// 		signedPrepareMessage := prepareProof.SignedPrepareMessage
-// 		prepareMessage := signedPrepareMessage.Message
-
-// 		// Get view number, sequence number and digest
-// 		viewNumber := prePrepareMessage.ViewNumber
-// 		sequenceNum := prePrepareMessage.SequenceNum
-// 		digest := prePrepareMessage.Digest
-
-// 		// Verify preprepare message signature
-// 		proposerID := utils.ViewNumberToPrimaryID(viewNumber, n.Handler.N)
-// 		ok := crypto.Verify(prePrepareMessage, n.GetPublicKey1(proposerID), signedPrePrepareMessage.Signature)
-// 		if !ok {
-// 			log.Warnf("Rejected: %s; invalid signature on prepare message", utils.LoggingString(viewChangeMessage))
-// 			return nil, status.Errorf(codes.FailedPrecondition, "invalid signature on preprepare message")
-// 		}
-
-// 		// Verify preprepare message digest
-// 		// TODO: think what else needs to be verified
-// 		// view number and sequence number have to accepted
-// 		// digest may not be possible to verify if request not availables
-
-// 		// Verify prepare message signature
-// 		ok = crypto.Verify(prepareMessage, n.Handler.masterPublicKey1, signedPrepareMessage.Signature)
-// 		if !ok {
-// 			log.Warnf("Rejected: %s; invalid signature on prepare message", utils.LoggingString(viewChangeMessage))
-// 			return nil, status.Errorf(codes.FailedPrecondition, "invalid signature on prepare message")
-// 		}
-
-// 		// Verify prepare message digest, view number and sequence number
-// 		if prepareMessage.ViewNumber != viewNumber ||
-// 			prepareMessage.SequenceNum != sequenceNum ||
-// 			!cmp.Equal(prepareMessage.Digest, digest) {
-// 			return nil, status.Errorf(codes.FailedPrecondition, "invalid digest on prepare message")
-// 		}
-// 	}
-
-// 	// Log the view change message
-// 	log.Infof("Logged: %s", utils.LoggingString(viewChangeMessage))
-// 	if _, ok := n.ViewChangeMessageLog[viewNumber]; !ok {
-// 		n.ViewChangeMessageLog[viewNumber] = make(map[string]*pb.SignedViewChangeMessage)
-// 	}
-// 	viewChangeMessageLog := n.ViewChangeMessageLog[viewNumber]
-// 	if _, ok := viewChangeMessageLog[viewChangeMessage.NodeID]; !ok {
-// 		viewChangeMessageLog[viewChangeMessage.NodeID] = signedViewChangeMessage
-// 	}
-
-// 	// Send view change message to all nodes if f + 1 view change messages are collected
-// 	if n.State.GetViewChangeViewNumber() < viewNumber && len(viewChangeMessageLog) == int(n.Handler.F+1) {
-// 		alreadyExpired := n.SafeTimer.Cleanup()
-// 		if !alreadyExpired || utils.ViewNumberToPrimaryID(viewNumber, n.Handler.N) != n.ID {
-// 			log.Infof("Sending view change message to all nodes since f + 1 view change messages are collected: %s", utils.LoggingString(viewChangeMessage))
-// 			go n.SendViewChange(viewNumber)
-// 		} else {
-// 			log.Infof("View change timer already expired at v %d vc %d", n.State.GetViewNumber(), n.State.GetViewChangeViewNumber())
-// 		}
-// 	}
-
-// 	// If 2f + 1 view change messages are collected and next primary then send new view message
-// 	if len(viewChangeMessageLog) == int(2*n.Handler.F+1) {
-// 		if utils.ViewNumberToPrimaryID(viewNumber, n.Handler.N) == n.ID {
-// 			// Byzantine node behavior: crash attack
-// 			if n.Byzantine && n.CrashAttack {
-// 				// log.Infof("Node %s is Byzantine and is performing crash attack", n.ID)
-// 				return &emptypb.Empty{}, nil
-// 			}
-// 			log.Infof("Sending new view message to primary since 2f + 1 view change messages are collected: %s", utils.LoggingString(viewChangeMessage))
-// 			go n.NewViewRoutine(context.Background(), viewNumber)
-// 		} else {
-// 			n.SafeTimer.StartViewTimerIfNotRunning()
-// 		}
-// 	}
-
-// 	return &emptypb.Empty{}, nil
-// }

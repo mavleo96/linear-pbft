@@ -23,6 +23,9 @@ type ProtocolHandler struct {
 	preprepareCh chan *pb.SignedPrePrepareMessage
 	prepareCh    chan *pb.SignedPrepareMessage
 	commitCh     chan *pb.SignedCommitMessage
+
+	// Function pointers
+	SendGetRequest func(digest []byte) (*pb.SignedTransactionRequest, error)
 }
 
 func (h *ProtocolHandler) GetRequestChannel() <-chan *pb.SignedTransactionRequest {

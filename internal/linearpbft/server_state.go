@@ -7,7 +7,7 @@ type ServerState struct {
 	mutex                   sync.RWMutex
 	viewNumber              int64
 	viewChangePhase         bool
-	viewChangeViewNumber    int64
+	viewChangeViewNumber    int64 // TODO: rename this to latestViewChangeViewNumber
 	lastExecutedSequenceNum int64
 
 	// Self managed components

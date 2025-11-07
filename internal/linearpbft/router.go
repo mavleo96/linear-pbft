@@ -11,13 +11,14 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func (n *LinearPBFTNode) RouterRoutine(ctx context.Context) {
+func (n *LinearPBFTNode) RouteAndCollectRoutine(ctx context.Context) {
 	log.Infof("Router routine started")
 	for {
 		// TODO: need to stop this service routine if not primary and drain the channels
 		select {
 		case <-ctx.Done():
 			return
+
 		// Route preprepare message from protocol handler to all backup nodes
 		case signedPreprepareMessage := <-n.Handler.GetPreprepareChannel():
 			// Multicast preprepare message to all nodes
@@ -67,6 +68,7 @@ func (n *LinearPBFTNode) RouterRoutine(ctx context.Context) {
 				}
 				// Rest are just ignored after collection
 			}
+
 		// Route prepare message from protocol handler to all backup nodes
 		case signedPrepareMessage := <-n.Handler.GetPrepareChannel():
 			// Multicast prepare message to all nodes
@@ -114,27 +116,78 @@ func (n *LinearPBFTNode) RouterRoutine(ctx context.Context) {
 		case signedCommitMessage := <-n.Handler.GetCommitChannel():
 			// Multicast commit message to all nodes
 			for _, peer := range n.Handler.peers {
-				go func(peer *models.Node) {
-					_ = n.SendCommitToNode(signedCommitMessage, peer.ID)
-				}(peer)
+				go n.SendCommitToNode(signedCommitMessage, peer.ID)
 			}
+
 		// Route view change message from view change manager to all nodes
 		case viewNumber := <-n.ViewChangeManager.GetViewChangeChannel():
-			// NOte: this should be part of the view change manager
+			// NOTE: this should be part of the view change manager
 			// but view change manager does not have access to the check point log
 			signedViewChangeMessage := n.CreateViewChangeMessage(viewNumber)
 			log.Infof("Router routine has logged view change message: %s", utils.LoggingString(signedViewChangeMessage.Message))
 			n.ViewChangeManager.AddViewChangeMessage(signedViewChangeMessage)
 
 			// Multicast view change message to all nodes
-			log.Infof("Router routine is multicasting view change message to all nodes: %s", utils.LoggingString(signedViewChangeMessage))
+			log.Infof("Router routine is multicasting view change message to all nodes: %s", utils.LoggingString(signedViewChangeMessage.Message))
 			for _, peer := range n.Handler.peers {
+				go n.SendViewChangeMessageToNode(signedViewChangeMessage, peer.ID)
+			}
+
+		// Route new view message from view change manager to all nodes
+		case viewNumber := <-n.ViewChangeManager.GetNewViewChannel():
+			// Create new view message and route it to the leader handler
+			signedNewViewMessage := n.CreateNewViewMessage(viewNumber)
+			n.ViewChangeManager.LeaderNewViewRequestHandler(signedNewViewMessage)
+
+			// Multicast new view message to all nodes and collect prepare messages from all nodes
+			responseCh := make(chan *pb.SignedPrepareMessage, 100)
+			wg := sync.WaitGroup{}
+			for _, peer := range n.Handler.peers {
+				wg.Add(1)
 				go func(peer *models.Node) {
-					_ = n.SendViewChangeMessageToNode(signedViewChangeMessage, peer.ID)
+					defer wg.Done()
+					n.SendNewViewMessageToNode(signedNewViewMessage, peer.ID, responseCh)
 				}(peer)
 			}
+			go func() {
+				wg.Wait()
+				close(responseCh)
+			}()
+
+			// Collect prepare messages from all nodes and send to handler
+			go n.CollectPrepareMessages(responseCh)
+
 		}
+
+		// NOTE: The executor is signalled everytime may be redundant; but it is safe to do so
+		// TODO: need to check if calling only in commit message handler or in router routine is sufficient
 		n.Executor.GetExecuteChannel() <- 0
 
+	}
+}
+
+func (n *LinearPBFTNode) CollectPrepareMessages(responseCh chan *pb.SignedPrepareMessage) {
+	signedPrepareMessageMap := make(map[int64]map[string]*pb.SignedPrepareMessage) // sequence number -> node ID -> signed prepare message
+
+	// Keep looping and send to handler once we have 2f + 1 prepare messages for a sequence number
+	for {
+		// Keep collecting until the channel is closed
+		signedPrepareMessage, ok := <-responseCh
+		if !ok {
+			break
+		}
+		prepareMessage := signedPrepareMessage.Message
+		sequenceNum := prepareMessage.SequenceNum
+		if _, ok := signedPrepareMessageMap[sequenceNum]; !ok {
+			signedPrepareMessageMap[sequenceNum] = make(map[string]*pb.SignedPrepareMessage)
+		}
+
+		// Log the prepare message in collection map
+		signedPrepareMessageMap[sequenceNum][prepareMessage.NodeID] = signedPrepareMessage
+
+		// If we have 2f + 1 prepare messages for a sequence number, send to handler
+		if len(signedPrepareMessageMap[sequenceNum]) == int(n.Handler.N-n.Handler.F) {
+			n.Handler.LeaderPrepareMessageHandler(utils.Values(signedPrepareMessageMap[sequenceNum]))
+		}
 	}
 }

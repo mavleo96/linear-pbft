@@ -3,10 +3,12 @@ package linearpbft
 import (
 	"context"
 	"errors"
+	"io"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/mavleo96/bft-mavleo96/internal/crypto"
 	"github.com/mavleo96/bft-mavleo96/pb"
+	log "github.com/sirupsen/logrus"
 )
 
 // SendPrePrepareToNode sends a preprepare message to a node and returns the signed prepare message from the node
@@ -125,6 +127,56 @@ func (n *LinearPBFTNode) SendViewChangeMessageToNode(signedViewChangeMessage *pb
 	_, err := (*n.Handler.peers[nodeID].Client).ViewChangeRequest(context.Background(), signedViewChangeMessage)
 	if err != nil {
 		return err
+	}
+	return nil
+}
+
+// SendNewViewMessageToNode sends a new view message to a node and returns the signed prepare messages from the node on the response channel
+func (n *LinearPBFTNode) SendNewViewMessageToNode(signedNewViewMessage *pb.SignedNewViewMessage, nodeID string, responseCh chan *pb.SignedPrepareMessage) error {
+	newViewMessage := signedNewViewMessage.Message
+	signedPrePrepareMessages := newViewMessage.SignedPrePrepareMessages
+	lowerWatermark := signedPrePrepareMessages[0].Message.SequenceNum
+
+	stream, err := (*n.Handler.peers[nodeID].Client).NewViewRequest(context.Background(), signedNewViewMessage)
+	if err != nil {
+		return err
+	}
+
+	// Stream prepare messages from peer and send to response channel
+	for {
+		signedPrepareMessage, err := stream.Recv()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			log.Warn(err)
+			return nil
+		}
+		if signedPrepareMessage == nil || signedPrepareMessage.Message == nil {
+			continue
+		}
+
+		prepareMessage := signedPrepareMessage.Message
+		sequenceNum := prepareMessage.SequenceNum
+		prePrepareMessage := signedPrePrepareMessages[sequenceNum-lowerWatermark].Message
+
+		// Verify signature
+		ok := crypto.Verify(signedPrepareMessage.Message, n.Handler.peers[nodeID].PublicKey1, signedPrepareMessage.Signature)
+		if !ok {
+			// log.Warn("Invalid signature on prepare message")
+			continue
+		}
+
+		// Check if preprepare message digest, view number and sequence number match
+		if prepareMessage.ViewNumber != prePrepareMessage.ViewNumber ||
+			prepareMessage.SequenceNum != prePrepareMessage.SequenceNum ||
+			!cmp.Equal(prepareMessage.Digest, prePrepareMessage.Digest) {
+			// log.Warnf("Rejected: %s; preprepare message does not match", utils.LoggingString(prepareMessage))
+			continue
+		}
+
+		// Send on response channel to be collected
+		responseCh <- signedPrepareMessage
 	}
 	return nil
 }

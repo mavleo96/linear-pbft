@@ -192,6 +192,77 @@ func (n *LinearPBFTNode) ViewChangeRequest(ctx context.Context, signedViewChange
 	return &emptypb.Empty{}, nil
 }
 
+// NewViewRequest validates incoming new view messages and routes it to the view change manager
+// If new view handler returns an error, the error is returned to the primary else prepare messages are streamed to the primary
+func (n *LinearPBFTNode) NewViewRequest(signedNewViewMessage *pb.SignedNewViewMessage, stream pb.LinearPBFTNode_NewViewRequestServer) error {
+	newViewMessage := signedNewViewMessage.Message
+	signedViewChangeMessages := newViewMessage.SignedViewChangeMessages
+	signedPrePrepareMessages := newViewMessage.SignedPrePrepareMessages
+	viewNumber := newViewMessage.ViewNumber
+
+	// Ignore if not alive
+	if !n.Alive {
+		log.Infof("Node %s is not alive", n.ID)
+		return status.Errorf(codes.Unavailable, "node not alive")
+	}
+
+	// Verify view number: must be greater than latest sent view change message view number
+	if viewNumber < n.State.GetViewChangeViewNumber() {
+		log.Warnf("Rejected: %s; view number is less than latest sent view change message view number", utils.LoggingString(newViewMessage))
+		return status.Errorf(codes.FailedPrecondition, "view number is less than latest sent view change message view number")
+	}
+
+	// Verify signature
+	primaryID := utils.ViewNumberToPrimaryID(viewNumber, n.Handler.N)
+	ok := crypto.Verify(newViewMessage, n.GetPublicKey1(primaryID), signedNewViewMessage.Signature)
+	if !ok {
+		log.Warnf("Rejected: %s; invalid signature", utils.LoggingString(newViewMessage))
+		return status.Errorf(codes.Unauthenticated, "invalid signature")
+	}
+
+	// Verify view change messages signatures
+	for _, signedViewChangeMessage := range signedViewChangeMessages {
+		viewChangeMessage := signedViewChangeMessage.Message
+		ok := crypto.Verify(viewChangeMessage, n.GetPublicKey1(viewChangeMessage.NodeID), signedViewChangeMessage.Signature)
+		if !ok {
+			log.Warnf("Rejected: %s; invalid signature on view change message", utils.LoggingString(newViewMessage))
+			return status.Errorf(codes.FailedPrecondition, "invalid signature on view change message")
+		}
+	}
+
+	// Verify preprepare messages signatures
+	for _, signedPrePrepareMessage := range signedPrePrepareMessages {
+		prePrepareMessage := signedPrePrepareMessage.Message
+		ok := crypto.Verify(prePrepareMessage, n.GetPublicKey1(primaryID), signedPrePrepareMessage.Signature)
+		if !ok {
+			log.Warnf("Rejected: %s; invalid signature on preprepare message", utils.LoggingString(newViewMessage))
+			return status.Errorf(codes.FailedPrecondition, "invalid signature on preprepare message")
+		}
+	}
+
+	// Transfer control to new view handler
+	err := n.ViewChangeManager.BackupNewViewRequestHandler(signedNewViewMessage)
+	if err != nil {
+		log.Warnf("New view request %s could not be handled: %s", utils.LoggingString(newViewMessage), err)
+		return status.Errorf(codes.Internal, "new view request could not be handled")
+	}
+
+	// Route preprepare message to handler and stream prepare messages to primary
+	for _, signedPrePrepareMessage := range signedPrePrepareMessages {
+		signedPrepareMessage, err := n.Handler.BackupPrePrepareRequestHandler(signedPrePrepareMessage)
+		if err != nil {
+			log.Warnf("Prepare request %s could not be sent to primary: %s", utils.LoggingString(signedPrePrepareMessage), err)
+			continue
+		}
+		if err := stream.Send(signedPrepareMessage); err != nil {
+			log.Warnf("Prepare message %s could not be sent to primary in stream: %s", utils.LoggingString(signedPrepareMessage), err)
+		}
+	}
+	log.Infof("Streamed prepares messages for view number %d", viewNumber)
+
+	return nil
+}
+
 // GetRequest returns a signed transaction request for a given digest
 func (n *LinearPBFTNode) GetRequest(ctx context.Context, getRequestMessage *pb.GetRequestMessage) (*pb.SignedTransactionRequest, error) {
 	n.Mutex.RLock()

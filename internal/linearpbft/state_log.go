@@ -28,7 +28,7 @@ type LogRecord struct {
 	commitMessage     *pb.SignedCommitMessage
 }
 
-func (s *StateLog) AssignSequenceNumberAndCreateRecord(digest []byte) (int64, bool) {
+func (s *StateLog) AssignSequenceNumberAndCreateRecord(viewNumber int64, digest []byte) (int64, bool) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -46,7 +46,7 @@ func (s *StateLog) AssignSequenceNumberAndCreateRecord(digest []byte) (int64, bo
 	// If request is not in log record, assign new sequence number
 	sequenceNum := utils.Max(utils.Keys(s.log)) + 1
 	// TODO: -1 is a placeholder for view number, need to change this later
-	s.log[sequenceNum] = CreateLogRecord(-1, sequenceNum, digest)
+	s.log[sequenceNum] = CreateLogRecord(viewNumber, sequenceNum, digest)
 	return sequenceNum, true
 }
 
