@@ -85,10 +85,9 @@ func (h *ProtocolHandler) LeaderPrepareMessageHandler(signedPrepareMessages []*p
 	log.Infof("v: %d s: %d status: %s", prepareMessage.ViewNumber, prepareMessage.SequenceNum, status)
 
 	// Byzantine node behavior: crash attack
-	// if n.Byzantine && n.CrashAttack {
-	// 	// log.Infof("Node %s is Byzantine and is performing crash attack", n.ID)
-	// 	record.MaliciousUpdateLogState()
-	// }
+	if h.byzantineConfig.Byzantine && h.byzantineConfig.CrashAttack {
+		return nil
+	}
 
 	h.prepareToRouteCh <- signedPrepareMessage
 

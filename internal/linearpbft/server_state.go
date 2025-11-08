@@ -119,7 +119,7 @@ func (s *ServerState) Reset() {
 }
 
 // CreateServerState creates a new server state
-func CreateServerState(config *ServerConfig) *ServerState {
+func CreateServerState(config *ServerConfig, byzantineConfig *ByzantineConfig) *ServerState {
 	return &ServerState{
 		mutex:                   sync.RWMutex{},
 		config:                  config,
@@ -128,7 +128,7 @@ func CreateServerState(config *ServerConfig) *ServerState {
 		viewChangeViewNumber:    0,
 		lastExecutedSequenceNum: 0,
 		forwardedRequestsLog:    make([][]byte, 0),
-		StateLog:                CreateStateLog(config),
+		StateLog:                CreateStateLog(config, byzantineConfig),
 		TransactionMap:          CreateTransactionMap(),
 		LastReply:               CreateLastReply(),
 	}

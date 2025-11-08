@@ -98,7 +98,6 @@ func (n *LinearPBFTNode) ReadOnlyRequest(ctx context.Context, signedRequest *pb.
 
 	// Byzantine node behavior: crash attack
 	if n.byzantineConfig.Byzantine && n.byzantineConfig.CrashAttack {
-		// log.Infof("Node %s is Byzantine and is performing crash attack", n.ID)
 		return nil, status.Errorf(codes.Unavailable, "node not alive")
 	}
 

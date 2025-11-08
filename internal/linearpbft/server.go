@@ -14,7 +14,7 @@ import (
 const (
 	ExecutionTimeout  = 400 * time.Millisecond
 	ViewChangeTimeout = 700 * time.Millisecond
-	TimeAttackDelay   = 50 * time.Millisecond
+	TimeAttackDelay   = 100 * time.Millisecond
 )
 
 // LinearPBFTNode represents a LinearPBFT node
@@ -64,7 +64,7 @@ func CreateLinearPBFTNode(selfNode *models.Node, peerNodes map[string]*models.No
 	timer := CreateSafeTimer(ExecutionTimeout, ViewChangeTimeout)
 	serverConfig := CreateServerConfig(int64(len(peerNodes)+1), 10, 100)
 	byzantineConfig := CreateByzantineConfig()
-	serverState := CreateServerState(serverConfig)
+	serverState := CreateServerState(serverConfig, byzantineConfig)
 
 	executionTriggerChannel := make(chan int64, 100)
 

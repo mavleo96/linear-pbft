@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"slices"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/mavleo96/bft-mavleo96/internal/crypto"
@@ -23,16 +24,11 @@ func (n *LinearPBFTNode) SendPrePrepareToNode(signedPreprepareMessage *pb.Signed
 		return nil, errors.New("byzantine node is performing dark attack")
 	}
 
-	// // Byzantine node behavior: time attack
-	// if n.Byzantine && n.TimeAttack {
-	// 	// log.Infof("Node %s is Byzantine and is performing time attack", peer.ID)
-	// 	time.Sleep(TimeAttackDelay)
-	// }
-	// // // Byzantine node behavior: equivocation attack
-	// if n.Byzantine && n.EquivocationAttack && !slices.Contains(n.EquivocationAttackNodes, peer.ID) {
-	// 	log.Infof("Node %s is Byzantine and is performing malicious attack on node %s", n.ID, peer.ID)
-	// 	signedMessage = n.CreateMessageWithInvalidSequenceNumber(signedMessage)
-	// }
+	// Byzantine node behavior: time attack
+	if n.byzantineConfig.Byzantine && n.byzantineConfig.TimeAttack {
+		time.Sleep(TimeAttackDelay)
+	}
+
 	signedPrepareMsg, err := (*n.handler.peers[nodeID].Client).PrePrepareRequest(context.Background(), signedPreprepareMessage)
 	if err != nil {
 		return nil, err
@@ -69,11 +65,10 @@ func (n *LinearPBFTNode) SendPrepareToNode(signedPrepareMessage *pb.SignedPrepar
 		return nil, errors.New("byzantine node is performing dark attack")
 	}
 
-	// // Byzantine node behavior: time attack
-	// if n.Byzantine && n.TimeAttack {
-	// 	// log.Infof("Node %s is Byzantine and is performing time attack", peer.ID)
-	// 	time.Sleep(TimeAttackDelay)
-	// }
+	// Byzantine node behavior: time attack
+	if n.byzantineConfig.Byzantine && n.byzantineConfig.TimeAttack {
+		time.Sleep(TimeAttackDelay)
+	}
 
 	signedCommitMsg, err := (*n.handler.peers[nodeID].Client).PrepareRequest(context.Background(), signedPrepareMessage)
 	if err != nil {
@@ -109,11 +104,10 @@ func (n *LinearPBFTNode) SendCommitToNode(signedCommitMessage *pb.SignedCommitMe
 		return errors.New("byzantine node is performing dark attack")
 	}
 
-	// // Byzantine node behavior: time attack
-	// if n.Byzantine && n.TimeAttack {
-	// 	// log.Infof("Node %s is Byzantine and is performing time attack", peer.ID)
-	// 	time.Sleep(TimeAttackDelay)
-	// }
+	// Byzantine node behavior: time attack
+	if n.byzantineConfig.Byzantine && n.byzantineConfig.TimeAttack {
+		time.Sleep(TimeAttackDelay)
+	}
 
 	_, err := (*n.handler.peers[nodeID].Client).CommitRequest(context.Background(), signedCommitMessage)
 	if err != nil {
@@ -130,6 +124,11 @@ func (n *LinearPBFTNode) SendViewChangeMessageToNode(signedViewChangeMessage *pb
 	// Byzantine node behavior: dark attack
 	if n.byzantineConfig.Byzantine && n.byzantineConfig.DarkAttack && slices.Contains(n.byzantineConfig.DarkAttackNodes, nodeID) {
 		return errors.New("byzantine node is performing dark attack")
+	}
+
+	// Byzantine node behavior: time attack
+	if n.byzantineConfig.Byzantine && n.byzantineConfig.TimeAttack {
+		time.Sleep(TimeAttackDelay)
 	}
 
 	_, err := (*n.handler.peers[nodeID].Client).ViewChangeRequest(context.Background(), signedViewChangeMessage)
@@ -151,6 +150,16 @@ func (n *LinearPBFTNode) SendNewViewMessageToNode(signedNewViewMessage *pb.Signe
 	// Byzantine node behavior: dark attack
 	if n.byzantineConfig.Byzantine && n.byzantineConfig.DarkAttack && slices.Contains(n.byzantineConfig.DarkAttackNodes, nodeID) {
 		return errors.New("byzantine node is performing dark attack")
+	}
+
+	// Byzantine node behavior: crash attack
+	if n.byzantineConfig.Byzantine && n.byzantineConfig.CrashAttack {
+		return errors.New("byzantine node is performing crash attack")
+	}
+
+	// Byzantine node behavior: time attack
+	if n.byzantineConfig.Byzantine && n.byzantineConfig.TimeAttack {
+		time.Sleep(TimeAttackDelay)
 	}
 
 	stream, err := (*n.handler.peers[nodeID].Client).NewViewRequest(context.Background(), signedNewViewMessage)
@@ -203,6 +212,11 @@ func (n *LinearPBFTNode) SendCheckpointMessageToNode(signedCheckpointMessage *pb
 	// Byzantine node behavior: dark attack
 	if n.byzantineConfig.Byzantine && n.byzantineConfig.DarkAttack && slices.Contains(n.byzantineConfig.DarkAttackNodes, nodeID) {
 		return errors.New("byzantine node is performing dark attack")
+	}
+
+	// Byzantine node behavior: time attack
+	if n.byzantineConfig.Byzantine && n.byzantineConfig.TimeAttack {
+		time.Sleep(TimeAttackDelay)
 	}
 
 	_, err := (*n.handler.peers[nodeID].Client).CheckpointRequest(context.Background(), signedCheckpointMessage)

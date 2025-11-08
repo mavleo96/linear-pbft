@@ -13,9 +13,10 @@ import (
 
 // StateLog represents the state log of the server
 type StateLog struct {
-	mutex  sync.RWMutex
-	log    map[int64]*LogRecord
-	config *ServerConfig
+	mutex           sync.RWMutex
+	log             map[int64]*LogRecord
+	config          *ServerConfig
+	byzantineConfig *ByzantineConfig
 }
 
 // LogRecord represents a log record for a transaction
@@ -198,7 +199,19 @@ func (s *StateLog) AddPrePrepareMessage(sequenceNum int64, signedPrePrepareMessa
 		return ""
 	}
 	record.prePrepareMessage = signedPrePrepareMessage
-	return updateLogState(record)
+	status := updateLogState(record)
+
+	// Byzantine node behavior: crash attack
+	if s.byzantineConfig.Byzantine && s.byzantineConfig.CrashAttack {
+		record.prepared = false
+		record.committed = false
+		if !record.prePrepared {
+			status = "X"
+		} else {
+			status = "PP"
+		}
+	}
+	return status
 }
 
 // AddPrepareMessages adds prepare messages to the log record
@@ -210,7 +223,19 @@ func (s *StateLog) AddPrepareMessages(sequenceNum int64, prepareMessage *pb.Sign
 		return ""
 	}
 	record.prepareMessage = prepareMessage
-	return updateLogState(record)
+	status := updateLogState(record)
+
+	// Byzantine node behavior: crash attack
+	if s.byzantineConfig.Byzantine && s.byzantineConfig.CrashAttack {
+		record.prepared = false
+		record.committed = false
+		if !record.prepared {
+			status = "X"
+		} else {
+			status = "PP"
+		}
+	}
+	return status
 }
 
 // AddCommitMessages adds commit messages to the log record
@@ -222,7 +247,19 @@ func (s *StateLog) AddCommitMessages(sequenceNum int64, commitMessage *pb.Signed
 		return ""
 	}
 	record.commitMessage = commitMessage
-	return updateLogState(record)
+	status := updateLogState(record)
+
+	// Byzantine node behavior: crash attack
+	if s.byzantineConfig.Byzantine && s.byzantineConfig.CrashAttack {
+		record.prepared = false
+		record.committed = false
+		if !record.committed {
+			status = "X"
+		} else {
+			status = "PP"
+		}
+	}
+	return status
 }
 
 // GetPrepareProof returns the prepare proofs for all prepared log records
@@ -264,11 +301,12 @@ func (s *StateLog) Reset() {
 }
 
 // CreateStateLog creates a new state log
-func CreateStateLog(config *ServerConfig) *StateLog {
+func CreateStateLog(config *ServerConfig, byzantineConfig *ByzantineConfig) *StateLog {
 	return &StateLog{
-		mutex:  sync.RWMutex{},
-		log:    make(map[int64]*LogRecord),
-		config: config,
+		mutex:           sync.RWMutex{},
+		log:             make(map[int64]*LogRecord),
+		config:          config,
+		byzantineConfig: byzantineConfig,
 	}
 }
 

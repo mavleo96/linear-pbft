@@ -115,6 +115,12 @@ func (n *LinearPBFTNode) PrepareRequest(ctx context.Context, signedPrepareMessag
 	if n.byzantineConfig.Byzantine && n.byzantineConfig.DarkAttack && slices.Contains(n.byzantineConfig.DarkAttackNodes, primaryID) {
 		return nil, status.Errorf(codes.Unavailable, "node not alive")
 	}
+
+	// Byzantine node behavior: crash attack
+	if n.byzantineConfig.Byzantine && n.byzantineConfig.CrashAttack {
+		return nil, status.Errorf(codes.Unavailable, "node not alive")
+	}
+
 	return signedCommitMessage, err
 
 }
