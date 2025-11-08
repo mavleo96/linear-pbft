@@ -282,6 +282,9 @@ func (n *LinearPBFTNode) NewViewRequest(signedNewViewMessage *pb.SignedNewViewMe
 		}
 	}
 
+	// Stop view timer
+	n.handler.timer.StopViewTimer()
+
 	// Transfer control to new view handler
 	err := n.viewchanger.BackupNewViewRequestHandler(signedNewViewMessage)
 	if err != nil {

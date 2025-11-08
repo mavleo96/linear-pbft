@@ -77,7 +77,7 @@ func (n *LinearPBFTNode) RouterRoutine(ctx context.Context) {
 			}
 
 			// Signal the executor to execute the next sequence number
-			n.executor.GetExecutionTriggerChannel() <- 0
+			n.executor.GetExecutionTriggerChannel() <- signedCommitMessage.Message.SequenceNum
 
 		// Route view change message from view change manager to all nodes
 		case viewNumber := <-n.viewchanger.GetViewChangeToRouteChannel():

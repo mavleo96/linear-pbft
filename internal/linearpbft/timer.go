@@ -89,6 +89,17 @@ func (t *SafeTimer) StartViewTimerIfNotRunning() {
 	log.Infof("SafeTimer: View timer already running: %d, running: %t", t.viewChangeTryCount, t.running)
 }
 
+// StopViewTimer stops the view change timer if running
+func (t *SafeTimer) StopViewTimer() {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.running {
+		t.timer.Stop()
+		t.running = false
+	}
+	t.waitCount = 0
+}
+
 // getViewChangeTimeout returns the view change timeout for the current view change try count
 func (t *SafeTimer) getViewChangeTimeout() time.Duration {
 	return t.viewChangeTimeout * time.Duration(math.Pow(2, float64(t.viewChangeTryCount)-1))

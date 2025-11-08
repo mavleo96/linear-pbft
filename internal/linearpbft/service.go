@@ -59,8 +59,8 @@ func (n *LinearPBFTNode) TransferRequest(ctx context.Context, signedRequest *pb.
 			log.Infof("Ignored: %s; already forwarded", utils.LoggingString(request))
 			return &emptypb.Empty{}, nil
 		}
-		n.timer.IncrementWaitCountOrStart()
-		ctx := n.timer.GetContext()
+		n.handler.timer.IncrementWaitCountOrStart()
+		ctx := n.handler.timer.GetContext()
 		go n.ForwardRequest(ctx, signedRequest)
 		n.state.AddForwardedRequest(digest)
 		return &emptypb.Empty{}, nil

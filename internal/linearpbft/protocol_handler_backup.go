@@ -42,14 +42,12 @@ func (h *ProtocolHandler) BackupPrePrepareRequestHandler(signedPrePrepareMessage
 	}
 
 	// Get or create log record
-	h.state.StateLog.CreateRecordIfNotExists(prePrepareMessage.ViewNumber, sequenceNum, digest)
-	// record, exists := h.state.StateLog.Get(sequenceNum)
-	// if !exists {
-	// 	record = CreateLogRecord(prePrepareMessage.ViewNumber, sequenceNum, digest)
-	// 	h.state.StateLog.Set(sequenceNum, record)
-	// } else if record.ViewNumber < prePrepareMessage.ViewNumber {
-	// 	record.Reset(prePrepareMessage.ViewNumber, digest)
-	// }
+	created := h.state.StateLog.CreateRecordIfNotExists(prePrepareMessage.ViewNumber, sequenceNum, digest)
+
+	// Start timer if new request but not forwarded
+	if created && !h.state.InForwardedRequestsLog(digest) && !h.state.StateLog.IsExecuted(sequenceNum) {
+		h.timer.IncrementWaitCountOrStart()
+	}
 
 	// Verify if previously accepted preprepare message with different digest for same view and sequence number
 	if h.state.StateLog.IsPrePrepared(sequenceNum) && !cmp.Equal(h.state.StateLog.GetDigest(sequenceNum), digest) {
@@ -61,14 +59,11 @@ func (h *ProtocolHandler) BackupPrePrepareRequestHandler(signedPrePrepareMessage
 	log.Infof("Logging preprepare message: %s", utils.LoggingString(prePrepareMessage))
 	status := h.state.StateLog.AddPrePrepareMessage(sequenceNum, signedPrePrepareMessage)
 	log.Infof("v: %d s: %d status: %s req: %s", prePrepareMessage.ViewNumber, prePrepareMessage.SequenceNum, status, utils.LoggingString(request))
-	// if n.Byzantine && n.CrashAttack {
-	// 	record.MaliciousUpdateLogState()
-	// }
-	// if n.Byzantine && n.CrashAttack {
-	// 	// log.Infof("Node %s is Byzantine and is performing crash attack", n.ID)
-	// 	return nil, status.Errorf(codes.Unavailable, "node not alive")
-	// }
-	h.executionTriggerCh <- prePrepareMessage.SequenceNum
+
+	// Trigger execution if new request is committed
+	if h.state.StateLog.IsCommitted(sequenceNum) {
+		h.executionTriggerCh <- sequenceNum
+	}
 
 	// Create prepare message and sign it
 	prepareMessage := &pb.PrepareMessage{
@@ -98,27 +93,22 @@ func (h *ProtocolHandler) BackupPrepareRequestHandler(signedPrepareMessage *pb.S
 	digest := prepareMessage.Digest
 
 	// Get or create log record
-	h.state.StateLog.CreateRecordIfNotExists(viewNumber, sequenceNum, digest)
-	// record, exists := h.state.StateLog.Get(sequenceNum)
-	// if !exists {
-	// 	record = CreateLogRecord(viewNumber, sequenceNum, digest)
-	// 	h.state.StateLog.Set(sequenceNum, record)
-	// } else if record.ViewNumber < viewNumber {
-	// 	record.Reset(viewNumber, digest)
-	// }
+	created := h.state.StateLog.CreateRecordIfNotExists(viewNumber, sequenceNum, digest)
+
+	// Start timer if new request but not forwarded
+	if created && !h.state.InForwardedRequestsLog(digest) && !h.state.StateLog.IsExecuted(sequenceNum) {
+		h.timer.IncrementWaitCountOrStart()
+	}
 
 	// Log the prepare messages in record
 	log.Infof("Logging prepare message: %s", utils.LoggingString(prepareMessage))
 	status := h.state.StateLog.AddPrepareMessages(sequenceNum, signedPrepareMessage)
 	log.Infof("v: %d s: %d status: %s", viewNumber, sequenceNum, status)
-	// if n.Byzantine && n.CrashAttack {
-	// 	record.MaliciousUpdateLogState()
-	// }
-	// if n.Byzantine && n.CrashAttack {
-	// 	// log.Infof("Node %s is Byzantine and is performing crash attack", n.ID)
-	// 	return nil, status.Errorf(codes.Unavailable, "node not alive")
-	// }
-	h.executionTriggerCh <- sequenceNum
+
+	// Trigger execution if request is committed
+	if h.state.StateLog.IsCommitted(sequenceNum) {
+		h.executionTriggerCh <- sequenceNum
+	}
 
 	// Create commit message and sign it
 	commitMessage := &pb.CommitMessage{
@@ -148,26 +138,22 @@ func (h *ProtocolHandler) BackupCommitRequestHandler(signedCommitMessage *pb.Sig
 	digest := commitMessage.Digest
 
 	// Get or create log record
-	h.state.StateLog.CreateRecordIfNotExists(viewNumber, sequenceNum, digest)
-	// record, exists := h.state.StateLog.Get(sequenceNum)
-	// if !exists {
-	// 	record = CreateLogRecord(viewNumber, sequenceNum, digest)
-	// 	h.state.StateLog.Set(sequenceNum, record)
-	// } else if record.ViewNumber < viewNumber {
-	// 	record.Reset(viewNumber, digest)
-	// }
+	created := h.state.StateLog.CreateRecordIfNotExists(viewNumber, sequenceNum, digest)
+
+	// Start timer if new request but not forwarded
+	if created && !h.state.InForwardedRequestsLog(digest) && !h.state.StateLog.IsExecuted(sequenceNum) {
+		h.timer.IncrementWaitCountOrStart()
+	}
 
 	// Log the commit messages in record
 	log.Infof("Logging commit message: %s", utils.LoggingString(commitMessage))
 	status := h.state.StateLog.AddCommitMessages(sequenceNum, signedCommitMessage)
 	log.Infof("v: %d s: %d status: %s", viewNumber, sequenceNum, status)
-	// if n.Byzantine && n.CrashAttack {
-	// 	record.MaliciousUpdateLogState()
-	// }
-	// if n.Byzantine && n.CrashAttack {
-	// 	// log.Infof("Node %s is Byzantine and is performing crash attack", n.ID)
-	// 	return nil, status.Errorf(codes.Unavailable, "node not alive")
-	// }
-	h.executionTriggerCh <- sequenceNum
+
+	// Trigger execution if request is committed
+	if h.state.StateLog.IsCommitted(sequenceNum) {
+		h.executionTriggerCh <- sequenceNum
+	}
+
 	return &emptypb.Empty{}, nil
 }

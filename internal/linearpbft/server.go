@@ -26,9 +26,6 @@ type LinearPBFTNode struct {
 	clients         map[string]*models.Client
 	state           *ServerState
 
-	// Timer instance
-	timer *SafeTimer
-
 	// Component managers
 	executor    *Executor
 	handler     *ProtocolHandler
@@ -71,7 +68,7 @@ func CreateLinearPBFTNode(selfNode *models.Node, peerNodes map[string]*models.No
 	viewchanger := CreateViewChangeManager(selfNode.ID, timer, serverState, serverConfig)
 	checkpointer := CreateCheckpointManager(selfNode.ID, serverState, serverConfig)
 	executor := CreateExecutor(serverState, serverConfig, bankDB, checkpointer, timer, executionTriggerChannel)
-	handler := CreateProtocolHandler(selfNode.ID, serverState, serverConfig, byzantineConfig, privateKey1, masterPublicKey1, peerNodes, executionTriggerChannel)
+	handler := CreateProtocolHandler(selfNode.ID, serverState, serverConfig, byzantineConfig, privateKey1, masterPublicKey1, peerNodes, timer, executionTriggerChannel)
 
 	server := &LinearPBFTNode{
 		Node:            selfNode,
@@ -79,7 +76,6 @@ func CreateLinearPBFTNode(selfNode *models.Node, peerNodes map[string]*models.No
 		byzantineConfig: byzantineConfig,
 		clients:         clientMap,
 		state:           serverState,
-		timer:           timer,
 		executor:        executor,
 		handler:         handler,
 		viewchanger:     viewchanger,
