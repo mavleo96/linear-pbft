@@ -8,37 +8,57 @@ import (
 
 // ProtocolHandler is a struct that contains the state of the protocol
 type ProtocolHandler struct {
-	id          string
-	state       *ServerState
-	privateKey1 *bls.SecretKey
-	// privateKey2    *bls.SecretKey
+	id               string
+	state            *ServerState
+	config           *ServerConfig
+	privateKey1      *bls.SecretKey
 	masterPublicKey1 *bls.PublicKey
 	peers            map[string]*models.Node
-	config           *ServerConfig
 
 	// Channels
-	executeCh    chan int64
-	requestCh    chan *pb.SignedTransactionRequest
-	preprepareCh chan *pb.SignedPrePrepareMessage
-	prepareCh    chan *pb.SignedPrepareMessage
-	commitCh     chan *pb.SignedCommitMessage
+	executionTriggerCh  chan int64
+	clientRequestCh     chan *pb.SignedTransactionRequest
+	preprepareToRouteCh chan *pb.SignedPrePrepareMessage
+	prepareToRouteCh    chan *pb.SignedPrepareMessage
+	commitToRouteCh     chan *pb.SignedCommitMessage
 
 	// Function pointers
 	SendGetRequest func(digest []byte) (*pb.SignedTransactionRequest, error)
 }
 
-func (h *ProtocolHandler) GetRequestChannel() <-chan *pb.SignedTransactionRequest {
-	return h.requestCh
+// GetClientRequestChannel returns the channel for receiving client transaction requests
+func (h *ProtocolHandler) GetClientRequestChannel() <-chan *pb.SignedTransactionRequest {
+	return h.clientRequestCh
 }
 
-func (h *ProtocolHandler) GetPreprepareChannel() <-chan *pb.SignedPrePrepareMessage {
-	return h.preprepareCh
+// GetPreprepareToRouteChannel returns the channel for sending preprepare messages to route
+func (h *ProtocolHandler) GetPreprepareToRouteChannel() <-chan *pb.SignedPrePrepareMessage {
+	return h.preprepareToRouteCh
 }
 
-func (h *ProtocolHandler) GetPrepareChannel() <-chan *pb.SignedPrepareMessage {
-	return h.prepareCh
+// GetPrepareToRouteChannel returns the channel for sending prepare messages to route
+func (h *ProtocolHandler) GetPrepareToRouteChannel() <-chan *pb.SignedPrepareMessage {
+	return h.prepareToRouteCh
 }
 
-func (h *ProtocolHandler) GetCommitChannel() <-chan *pb.SignedCommitMessage {
-	return h.commitCh
+// GetCommitToRouteChannel returns the channel for sending commit messages to route
+func (h *ProtocolHandler) GetCommitToRouteChannel() <-chan *pb.SignedCommitMessage {
+	return h.commitToRouteCh
+}
+
+// CreateProtocolHandler creates a new protocol handler
+func CreateProtocolHandler(id string, state *ServerState, config *ServerConfig, privateKey1 *bls.SecretKey, masterPublicKey1 *bls.PublicKey, peers map[string]*models.Node, executionTriggerCh chan int64) *ProtocolHandler {
+	return &ProtocolHandler{
+		id:                  id,
+		state:               state,
+		config:              config,
+		privateKey1:         privateKey1,
+		masterPublicKey1:    masterPublicKey1,
+		peers:               peers,
+		executionTriggerCh:  executionTriggerCh,
+		clientRequestCh:     make(chan *pb.SignedTransactionRequest, 100),
+		preprepareToRouteCh: make(chan *pb.SignedPrePrepareMessage, 100),
+		prepareToRouteCh:    make(chan *pb.SignedPrepareMessage, 100),
+		commitToRouteCh:     make(chan *pb.SignedCommitMessage, 100),
+	}
 }

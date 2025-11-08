@@ -32,7 +32,7 @@ func (n *LinearPBFTNode) SendPrePrepareToNode(signedPreprepareMessage *pb.Signed
 	// 	log.Infof("Node %s is Byzantine and is performing malicious attack on node %s", n.ID, peer.ID)
 	// 	signedMessage = n.CreateMessageWithInvalidSequenceNumber(signedMessage)
 	// }
-	signedPrepareMsg, err := (*n.Handler.peers[nodeID].Client).PrePrepareRequest(context.Background(), signedPreprepareMessage)
+	signedPrepareMsg, err := (*n.handler.peers[nodeID].Client).PrePrepareRequest(context.Background(), signedPreprepareMessage)
 	if err != nil {
 		return nil, err
 	}
@@ -41,7 +41,7 @@ func (n *LinearPBFTNode) SendPrePrepareToNode(signedPreprepareMessage *pb.Signed
 	}
 
 	// Verify signature
-	ok := crypto.Verify(signedPrepareMsg.Message, n.Handler.peers[nodeID].PublicKey1, signedPrepareMsg.Signature)
+	ok := crypto.Verify(signedPrepareMsg.Message, n.handler.peers[nodeID].PublicKey1, signedPrepareMsg.Signature)
 	if !ok {
 		return nil, errors.New("invalid signature")
 	}
@@ -73,7 +73,7 @@ func (n *LinearPBFTNode) SendPrepareToNode(signedPrepareMessage *pb.SignedPrepar
 	// 	time.Sleep(TimeAttackDelay)
 	// }
 
-	signedCommitMsg, err := (*n.Handler.peers[nodeID].Client).PrepareRequest(context.Background(), signedPrepareMessage)
+	signedCommitMsg, err := (*n.handler.peers[nodeID].Client).PrepareRequest(context.Background(), signedPrepareMessage)
 	if err != nil {
 		return nil, err
 	}
@@ -82,7 +82,7 @@ func (n *LinearPBFTNode) SendPrepareToNode(signedPrepareMessage *pb.SignedPrepar
 	}
 
 	// Verify signature
-	ok := crypto.Verify(signedCommitMsg.Message, n.Handler.peers[nodeID].PublicKey1, signedCommitMsg.Signature)
+	ok := crypto.Verify(signedCommitMsg.Message, n.handler.peers[nodeID].PublicKey1, signedCommitMsg.Signature)
 	if !ok {
 		return nil, errors.New("invalid signature")
 	}
@@ -112,7 +112,7 @@ func (n *LinearPBFTNode) SendCommitToNode(signedCommitMessage *pb.SignedCommitMe
 	// 	time.Sleep(TimeAttackDelay)
 	// }
 
-	_, err := (*n.Handler.peers[nodeID].Client).CommitRequest(context.Background(), signedCommitMessage)
+	_, err := (*n.handler.peers[nodeID].Client).CommitRequest(context.Background(), signedCommitMessage)
 	if err != nil {
 		return err
 	}
@@ -124,7 +124,7 @@ func (n *LinearPBFTNode) SendCommitToNode(signedCommitMessage *pb.SignedCommitMe
 // SendViewChangeMessageToNode sends a view change message to a node
 func (n *LinearPBFTNode) SendViewChangeMessageToNode(signedViewChangeMessage *pb.SignedViewChangeMessage, nodeID string) error {
 
-	_, err := (*n.Handler.peers[nodeID].Client).ViewChangeRequest(context.Background(), signedViewChangeMessage)
+	_, err := (*n.handler.peers[nodeID].Client).ViewChangeRequest(context.Background(), signedViewChangeMessage)
 	if err != nil {
 		return err
 	}
@@ -135,12 +135,12 @@ func (n *LinearPBFTNode) SendViewChangeMessageToNode(signedViewChangeMessage *pb
 func (n *LinearPBFTNode) SendNewViewMessageToNode(signedNewViewMessage *pb.SignedNewViewMessage, nodeID string, responseCh chan *pb.SignedPrepareMessage) error {
 	newViewMessage := signedNewViewMessage.Message
 	signedPrePrepareMessages := newViewMessage.SignedPrePrepareMessages
-	lowerWatermark := n.config.LowWaterMark
+	lowerWatermark := n.config.GetLowWaterMark()
 	if len(signedPrePrepareMessages) > 0 {
 		lowerWatermark = signedPrePrepareMessages[0].Message.SequenceNum
 	}
 
-	stream, err := (*n.Handler.peers[nodeID].Client).NewViewRequest(context.Background(), signedNewViewMessage)
+	stream, err := (*n.handler.peers[nodeID].Client).NewViewRequest(context.Background(), signedNewViewMessage)
 	if err != nil {
 		return err
 	}
@@ -164,7 +164,7 @@ func (n *LinearPBFTNode) SendNewViewMessageToNode(signedNewViewMessage *pb.Signe
 		prePrepareMessage := signedPrePrepareMessages[sequenceNum-lowerWatermark].Message
 
 		// Verify signature
-		ok := crypto.Verify(signedPrepareMessage.Message, n.Handler.peers[nodeID].PublicKey1, signedPrepareMessage.Signature)
+		ok := crypto.Verify(signedPrepareMessage.Message, n.handler.peers[nodeID].PublicKey1, signedPrepareMessage.Signature)
 		if !ok {
 			// log.Warn("Invalid signature on prepare message")
 			continue
@@ -184,9 +184,9 @@ func (n *LinearPBFTNode) SendNewViewMessageToNode(signedNewViewMessage *pb.Signe
 	return nil
 }
 
-// SendCheckPointMessageToNode sends a check point message to a node
-func (n *LinearPBFTNode) SendCheckPointMessageToNode(signedCheckPointMessage *pb.SignedCheckPointMessage, nodeID string) error {
-	_, err := (*n.Handler.peers[nodeID].Client).CheckPointRequest(context.Background(), signedCheckPointMessage)
+// SendCheckpointMessageToNode sends a check point message to a node
+func (n *LinearPBFTNode) SendCheckpointMessageToNode(signedCheckpointMessage *pb.SignedCheckpointMessage, nodeID string) error {
+	_, err := (*n.handler.peers[nodeID].Client).CheckpointRequest(context.Background(), signedCheckpointMessage)
 	if err != nil {
 		return err
 	}

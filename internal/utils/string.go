@@ -16,8 +16,8 @@ func LoggingString(t any, request ...*pb.TransactionRequest) string {
 	switch v := t.(type) {
 	case *pb.TransactionResponse:
 		return transactionResponseString(v)
-	case *pb.CheckPointMessage:
-		return checkPointMessageString(v)
+	case *pb.CheckpointMessage:
+		return checkpointMessageString(v)
 	case *pb.NewViewMessage:
 		return newViewMessageString(v)
 	case *pb.ViewChangeMessage:
@@ -43,7 +43,7 @@ func transactionResponseString(r *pb.TransactionResponse) string {
 	return fmt.Sprintf("<REPLY, %d, %d, %s, %s, %d>", r.ViewNumber, r.Timestamp, r.Sender, r.NodeID, r.Result)
 }
 
-func checkPointMessageString(c *pb.CheckPointMessage) string {
+func checkpointMessageString(c *pb.CheckpointMessage) string {
 	return fmt.Sprintf("<CHECKPOINT, %d, %s, %s>", c.SequenceNum, hex.EncodeToString(c.Digest), c.NodeID)
 }
 

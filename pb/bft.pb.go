@@ -691,7 +691,7 @@ func (x *SignedCommitMessage) GetSignature() []byte {
 	return nil
 }
 
-type CheckPointMessage struct {
+type CheckpointMessage struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	SequenceNum   int64                  `protobuf:"varint,1,opt,name=sequenceNum,proto3" json:"sequenceNum,omitempty"`
 	Digest        []byte                 `protobuf:"bytes,2,opt,name=digest,proto3" json:"digest,omitempty"`
@@ -700,20 +700,20 @@ type CheckPointMessage struct {
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *CheckPointMessage) Reset() {
-	*x = CheckPointMessage{}
+func (x *CheckpointMessage) Reset() {
+	*x = CheckpointMessage{}
 	mi := &file_bft_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *CheckPointMessage) String() string {
+func (x *CheckpointMessage) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*CheckPointMessage) ProtoMessage() {}
+func (*CheckpointMessage) ProtoMessage() {}
 
-func (x *CheckPointMessage) ProtoReflect() protoreflect.Message {
+func (x *CheckpointMessage) ProtoReflect() protoreflect.Message {
 	mi := &file_bft_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -725,54 +725,54 @@ func (x *CheckPointMessage) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use CheckPointMessage.ProtoReflect.Descriptor instead.
-func (*CheckPointMessage) Descriptor() ([]byte, []int) {
+// Deprecated: Use CheckpointMessage.ProtoReflect.Descriptor instead.
+func (*CheckpointMessage) Descriptor() ([]byte, []int) {
 	return file_bft_proto_rawDescGZIP(), []int{11}
 }
 
-func (x *CheckPointMessage) GetSequenceNum() int64 {
+func (x *CheckpointMessage) GetSequenceNum() int64 {
 	if x != nil {
 		return x.SequenceNum
 	}
 	return 0
 }
 
-func (x *CheckPointMessage) GetDigest() []byte {
+func (x *CheckpointMessage) GetDigest() []byte {
 	if x != nil {
 		return x.Digest
 	}
 	return nil
 }
 
-func (x *CheckPointMessage) GetNodeID() string {
+func (x *CheckpointMessage) GetNodeID() string {
 	if x != nil {
 		return x.NodeID
 	}
 	return ""
 }
 
-type SignedCheckPointMessage struct {
+type SignedCheckpointMessage struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Message       *CheckPointMessage     `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
+	Message       *CheckpointMessage     `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
 	Signature     []byte                 `protobuf:"bytes,2,opt,name=signature,proto3" json:"signature,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *SignedCheckPointMessage) Reset() {
-	*x = SignedCheckPointMessage{}
+func (x *SignedCheckpointMessage) Reset() {
+	*x = SignedCheckpointMessage{}
 	mi := &file_bft_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *SignedCheckPointMessage) String() string {
+func (x *SignedCheckpointMessage) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*SignedCheckPointMessage) ProtoMessage() {}
+func (*SignedCheckpointMessage) ProtoMessage() {}
 
-func (x *SignedCheckPointMessage) ProtoReflect() protoreflect.Message {
+func (x *SignedCheckpointMessage) ProtoReflect() protoreflect.Message {
 	mi := &file_bft_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -784,26 +784,26 @@ func (x *SignedCheckPointMessage) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use SignedCheckPointMessage.ProtoReflect.Descriptor instead.
-func (*SignedCheckPointMessage) Descriptor() ([]byte, []int) {
+// Deprecated: Use SignedCheckpointMessage.ProtoReflect.Descriptor instead.
+func (*SignedCheckpointMessage) Descriptor() ([]byte, []int) {
 	return file_bft_proto_rawDescGZIP(), []int{12}
 }
 
-func (x *SignedCheckPointMessage) GetMessage() *CheckPointMessage {
+func (x *SignedCheckpointMessage) GetMessage() *CheckpointMessage {
 	if x != nil {
 		return x.Message
 	}
 	return nil
 }
 
-func (x *SignedCheckPointMessage) GetSignature() []byte {
+func (x *SignedCheckpointMessage) GetSignature() []byte {
 	if x != nil {
 		return x.Signature
 	}
 	return nil
 }
 
-type GetCheckPointMessage struct {
+type GetCheckpointMessage struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	SequenceNum   int64                  `protobuf:"varint,1,opt,name=sequenceNum,proto3" json:"sequenceNum,omitempty"`
 	NodeID        string                 `protobuf:"bytes,2,opt,name=nodeID,proto3" json:"nodeID,omitempty"`
@@ -811,20 +811,20 @@ type GetCheckPointMessage struct {
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *GetCheckPointMessage) Reset() {
-	*x = GetCheckPointMessage{}
+func (x *GetCheckpointMessage) Reset() {
+	*x = GetCheckpointMessage{}
 	mi := &file_bft_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *GetCheckPointMessage) String() string {
+func (x *GetCheckpointMessage) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*GetCheckPointMessage) ProtoMessage() {}
+func (*GetCheckpointMessage) ProtoMessage() {}
 
-func (x *GetCheckPointMessage) ProtoReflect() protoreflect.Message {
+func (x *GetCheckpointMessage) ProtoReflect() protoreflect.Message {
 	mi := &file_bft_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -836,26 +836,26 @@ func (x *GetCheckPointMessage) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use GetCheckPointMessage.ProtoReflect.Descriptor instead.
-func (*GetCheckPointMessage) Descriptor() ([]byte, []int) {
+// Deprecated: Use GetCheckpointMessage.ProtoReflect.Descriptor instead.
+func (*GetCheckpointMessage) Descriptor() ([]byte, []int) {
 	return file_bft_proto_rawDescGZIP(), []int{13}
 }
 
-func (x *GetCheckPointMessage) GetSequenceNum() int64 {
+func (x *GetCheckpointMessage) GetSequenceNum() int64 {
 	if x != nil {
 		return x.SequenceNum
 	}
 	return 0
 }
 
-func (x *GetCheckPointMessage) GetNodeID() string {
+func (x *GetCheckpointMessage) GetNodeID() string {
 	if x != nil {
 		return x.NodeID
 	}
 	return ""
 }
 
-type CheckPoint struct {
+type Checkpoint struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Digest        []byte                 `protobuf:"bytes,1,opt,name=digest,proto3" json:"digest,omitempty"`
 	Snapshot      map[string]int64       `protobuf:"bytes,2,rep,name=snapshot,proto3" json:"snapshot,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`
@@ -863,20 +863,20 @@ type CheckPoint struct {
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *CheckPoint) Reset() {
-	*x = CheckPoint{}
+func (x *Checkpoint) Reset() {
+	*x = Checkpoint{}
 	mi := &file_bft_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *CheckPoint) String() string {
+func (x *Checkpoint) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*CheckPoint) ProtoMessage() {}
+func (*Checkpoint) ProtoMessage() {}
 
-func (x *CheckPoint) ProtoReflect() protoreflect.Message {
+func (x *Checkpoint) ProtoReflect() protoreflect.Message {
 	mi := &file_bft_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -888,19 +888,19 @@ func (x *CheckPoint) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use CheckPoint.ProtoReflect.Descriptor instead.
-func (*CheckPoint) Descriptor() ([]byte, []int) {
+// Deprecated: Use Checkpoint.ProtoReflect.Descriptor instead.
+func (*Checkpoint) Descriptor() ([]byte, []int) {
 	return file_bft_proto_rawDescGZIP(), []int{14}
 }
 
-func (x *CheckPoint) GetDigest() []byte {
+func (x *Checkpoint) GetDigest() []byte {
 	if x != nil {
 		return x.Digest
 	}
 	return nil
 }
 
-func (x *CheckPoint) GetSnapshot() map[string]int64 {
+func (x *Checkpoint) GetSnapshot() map[string]int64 {
 	if x != nil {
 		return x.Snapshot
 	}
@@ -963,7 +963,7 @@ type ViewChangeMessage struct {
 	state              protoimpl.MessageState     `protogen:"open.v1"`
 	ViewNumber         int64                      `protobuf:"varint,1,opt,name=viewNumber,proto3" json:"viewNumber,omitempty"`
 	SequenceNum        int64                      `protobuf:"varint,2,opt,name=sequenceNum,proto3" json:"sequenceNum,omitempty"`
-	CheckPointMessages []*SignedCheckPointMessage `protobuf:"bytes,3,rep,name=checkPointMessages,proto3" json:"checkPointMessages,omitempty"`
+	CheckpointMessages []*SignedCheckpointMessage `protobuf:"bytes,3,rep,name=checkpointMessages,proto3" json:"checkpointMessages,omitempty"`
 	PreparedSet        []*PrepareProof            `protobuf:"bytes,4,rep,name=preparedSet,proto3" json:"preparedSet,omitempty"`
 	NodeID             string                     `protobuf:"bytes,5,opt,name=nodeID,proto3" json:"nodeID,omitempty"`
 	unknownFields      protoimpl.UnknownFields
@@ -1014,9 +1014,9 @@ func (x *ViewChangeMessage) GetSequenceNum() int64 {
 	return 0
 }
 
-func (x *ViewChangeMessage) GetCheckPointMessages() []*SignedCheckPointMessage {
+func (x *ViewChangeMessage) GetCheckpointMessages() []*SignedCheckpointMessage {
 	if x != nil {
-		return x.CheckPointMessages
+		return x.CheckpointMessages
 	}
 	return nil
 }
@@ -1417,20 +1417,20 @@ const file_bft_proto_rawDesc = "" +
 	"\x13SignedCommitMessage\x12+\n" +
 	"\amessage\x18\x01 \x01(\v2\x11.pb.CommitMessageR\amessage\x12\x1c\n" +
 	"\tsignature\x18\x02 \x01(\fR\tsignature\"e\n" +
-	"\x11CheckPointMessage\x12 \n" +
+	"\x11CheckpointMessage\x12 \n" +
 	"\vsequenceNum\x18\x01 \x01(\x03R\vsequenceNum\x12\x16\n" +
 	"\x06digest\x18\x02 \x01(\fR\x06digest\x12\x16\n" +
 	"\x06nodeID\x18\x03 \x01(\tR\x06nodeID\"h\n" +
-	"\x17SignedCheckPointMessage\x12/\n" +
-	"\amessage\x18\x01 \x01(\v2\x15.pb.CheckPointMessageR\amessage\x12\x1c\n" +
+	"\x17SignedCheckpointMessage\x12/\n" +
+	"\amessage\x18\x01 \x01(\v2\x15.pb.CheckpointMessageR\amessage\x12\x1c\n" +
 	"\tsignature\x18\x02 \x01(\fR\tsignature\"P\n" +
-	"\x14GetCheckPointMessage\x12 \n" +
+	"\x14GetCheckpointMessage\x12 \n" +
 	"\vsequenceNum\x18\x01 \x01(\x03R\vsequenceNum\x12\x16\n" +
 	"\x06nodeID\x18\x02 \x01(\tR\x06nodeID\"\x9b\x01\n" +
 	"\n" +
-	"CheckPoint\x12\x16\n" +
+	"Checkpoint\x12\x16\n" +
 	"\x06digest\x18\x01 \x01(\fR\x06digest\x128\n" +
-	"\bsnapshot\x18\x02 \x03(\v2\x1c.pb.CheckPoint.SnapshotEntryR\bsnapshot\x1a;\n" +
+	"\bsnapshot\x18\x02 \x03(\v2\x1c.pb.Checkpoint.SnapshotEntryR\bsnapshot\x1a;\n" +
 	"\rSnapshotEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\x03R\x05value:\x028\x01\"\xb3\x01\n" +
@@ -1442,7 +1442,7 @@ const file_bft_proto_rawDesc = "" +
 	"viewNumber\x18\x01 \x01(\x03R\n" +
 	"viewNumber\x12 \n" +
 	"\vsequenceNum\x18\x02 \x01(\x03R\vsequenceNum\x12K\n" +
-	"\x12checkPointMessages\x18\x03 \x03(\v2\x1b.pb.SignedCheckPointMessageR\x12checkPointMessages\x122\n" +
+	"\x12checkpointMessages\x18\x03 \x03(\v2\x1b.pb.SignedCheckpointMessageR\x12checkpointMessages\x122\n" +
 	"\vpreparedSet\x18\x04 \x03(\v2\x10.pb.PrepareProofR\vpreparedSet\x12\x16\n" +
 	"\x06nodeID\x18\x05 \x01(\tR\x06nodeID\"h\n" +
 	"\x17SignedViewChangeMessage\x12/\n" +
@@ -1482,12 +1482,12 @@ const file_bft_proto_rawDesc = "" +
 	"\x11PrePrepareRequest\x12\x1b.pb.SignedPrePrepareMessage\x1a\x18.pb.SignedPrepareMessage\x12C\n" +
 	"\x0ePrepareRequest\x12\x18.pb.SignedPrepareMessage\x1a\x17.pb.SignedCommitMessage\x12@\n" +
 	"\rCommitRequest\x12\x17.pb.SignedCommitMessage\x1a\x16.google.protobuf.Empty\x12H\n" +
-	"\x11CheckPointRequest\x12\x1b.pb.SignedCheckPointMessage\x1a\x16.google.protobuf.Empty\x12H\n" +
+	"\x11CheckpointRequest\x12\x1b.pb.SignedCheckpointMessage\x1a\x16.google.protobuf.Empty\x12H\n" +
 	"\x11ViewChangeRequest\x12\x1b.pb.SignedViewChangeMessage\x1a\x16.google.protobuf.Empty\x12F\n" +
 	"\x0eNewViewRequest\x12\x18.pb.SignedNewViewMessage\x1a\x18.pb.SignedPrepareMessage0\x01\x12A\n" +
 	"\n" +
 	"GetRequest\x12\x15.pb.GetRequestMessage\x1a\x1c.pb.SignedTransactionRequest\x129\n" +
-	"\rGetCheckPoint\x12\x18.pb.GetCheckPointMessage\x1a\x0e.pb.CheckPoint\x12:\n" +
+	"\rGetCheckpoint\x12\x18.pb.GetCheckpointMessage\x1a\x0e.pb.Checkpoint\x12:\n" +
 	"\bPrintLog\x12\x16.google.protobuf.Empty\x1a\x16.google.protobuf.Empty\x129\n" +
 	"\aPrintDB\x12\x16.google.protobuf.Empty\x1a\x16.google.protobuf.Empty\x12B\n" +
 	"\vPrintStatus\x12\x1b.google.protobuf.Int64Value\x1a\x16.google.protobuf.Empty\x12B\n" +
@@ -1521,10 +1521,10 @@ var file_bft_proto_goTypes = []any{
 	(*SignedPrepareMessage)(nil),      // 8: pb.SignedPrepareMessage
 	(*CommitMessage)(nil),             // 9: pb.CommitMessage
 	(*SignedCommitMessage)(nil),       // 10: pb.SignedCommitMessage
-	(*CheckPointMessage)(nil),         // 11: pb.CheckPointMessage
-	(*SignedCheckPointMessage)(nil),   // 12: pb.SignedCheckPointMessage
-	(*GetCheckPointMessage)(nil),      // 13: pb.GetCheckPointMessage
-	(*CheckPoint)(nil),                // 14: pb.CheckPoint
+	(*CheckpointMessage)(nil),         // 11: pb.CheckpointMessage
+	(*SignedCheckpointMessage)(nil),   // 12: pb.SignedCheckpointMessage
+	(*GetCheckpointMessage)(nil),      // 13: pb.GetCheckpointMessage
+	(*Checkpoint)(nil),                // 14: pb.Checkpoint
 	(*PrepareProof)(nil),              // 15: pb.PrepareProof
 	(*ViewChangeMessage)(nil),         // 16: pb.ViewChangeMessage
 	(*SignedViewChangeMessage)(nil),   // 17: pb.SignedViewChangeMessage
@@ -1532,7 +1532,7 @@ var file_bft_proto_goTypes = []any{
 	(*SignedNewViewMessage)(nil),      // 19: pb.SignedNewViewMessage
 	(*GetRequestMessage)(nil),         // 20: pb.GetRequestMessage
 	(*ChangeStatusMessage)(nil),       // 21: pb.ChangeStatusMessage
-	nil,                               // 22: pb.CheckPoint.SnapshotEntry
+	nil,                               // 22: pb.Checkpoint.SnapshotEntry
 	(*emptypb.Empty)(nil),             // 23: google.protobuf.Empty
 	(*wrapperspb.Int64Value)(nil),     // 24: google.protobuf.Int64Value
 }
@@ -1544,11 +1544,11 @@ var file_bft_proto_depIdxs = []int32{
 	3,  // 4: pb.SignedPrePrepareMessage.request:type_name -> pb.SignedTransactionRequest
 	7,  // 5: pb.SignedPrepareMessage.message:type_name -> pb.PrepareMessage
 	9,  // 6: pb.SignedCommitMessage.message:type_name -> pb.CommitMessage
-	11, // 7: pb.SignedCheckPointMessage.message:type_name -> pb.CheckPointMessage
-	22, // 8: pb.CheckPoint.snapshot:type_name -> pb.CheckPoint.SnapshotEntry
+	11, // 7: pb.SignedCheckpointMessage.message:type_name -> pb.CheckpointMessage
+	22, // 8: pb.Checkpoint.snapshot:type_name -> pb.Checkpoint.SnapshotEntry
 	6,  // 9: pb.PrepareProof.signedPrePrepareMessage:type_name -> pb.SignedPrePrepareMessage
 	8,  // 10: pb.PrepareProof.signedPrepareMessage:type_name -> pb.SignedPrepareMessage
-	12, // 11: pb.ViewChangeMessage.checkPointMessages:type_name -> pb.SignedCheckPointMessage
+	12, // 11: pb.ViewChangeMessage.checkpointMessages:type_name -> pb.SignedCheckpointMessage
 	15, // 12: pb.ViewChangeMessage.preparedSet:type_name -> pb.PrepareProof
 	16, // 13: pb.SignedViewChangeMessage.message:type_name -> pb.ViewChangeMessage
 	17, // 14: pb.NewViewMessage.signedViewChangeMessages:type_name -> pb.SignedViewChangeMessage
@@ -1559,11 +1559,11 @@ var file_bft_proto_depIdxs = []int32{
 	6,  // 19: pb.LinearPBFTNode.PrePrepareRequest:input_type -> pb.SignedPrePrepareMessage
 	8,  // 20: pb.LinearPBFTNode.PrepareRequest:input_type -> pb.SignedPrepareMessage
 	10, // 21: pb.LinearPBFTNode.CommitRequest:input_type -> pb.SignedCommitMessage
-	12, // 22: pb.LinearPBFTNode.CheckPointRequest:input_type -> pb.SignedCheckPointMessage
+	12, // 22: pb.LinearPBFTNode.CheckpointRequest:input_type -> pb.SignedCheckpointMessage
 	17, // 23: pb.LinearPBFTNode.ViewChangeRequest:input_type -> pb.SignedViewChangeMessage
 	19, // 24: pb.LinearPBFTNode.NewViewRequest:input_type -> pb.SignedNewViewMessage
 	20, // 25: pb.LinearPBFTNode.GetRequest:input_type -> pb.GetRequestMessage
-	13, // 26: pb.LinearPBFTNode.GetCheckPoint:input_type -> pb.GetCheckPointMessage
+	13, // 26: pb.LinearPBFTNode.GetCheckpoint:input_type -> pb.GetCheckpointMessage
 	23, // 27: pb.LinearPBFTNode.PrintLog:input_type -> google.protobuf.Empty
 	23, // 28: pb.LinearPBFTNode.PrintDB:input_type -> google.protobuf.Empty
 	24, // 29: pb.LinearPBFTNode.PrintStatus:input_type -> google.protobuf.Int64Value
@@ -1575,11 +1575,11 @@ var file_bft_proto_depIdxs = []int32{
 	8,  // 35: pb.LinearPBFTNode.PrePrepareRequest:output_type -> pb.SignedPrepareMessage
 	10, // 36: pb.LinearPBFTNode.PrepareRequest:output_type -> pb.SignedCommitMessage
 	23, // 37: pb.LinearPBFTNode.CommitRequest:output_type -> google.protobuf.Empty
-	23, // 38: pb.LinearPBFTNode.CheckPointRequest:output_type -> google.protobuf.Empty
+	23, // 38: pb.LinearPBFTNode.CheckpointRequest:output_type -> google.protobuf.Empty
 	23, // 39: pb.LinearPBFTNode.ViewChangeRequest:output_type -> google.protobuf.Empty
 	8,  // 40: pb.LinearPBFTNode.NewViewRequest:output_type -> pb.SignedPrepareMessage
 	3,  // 41: pb.LinearPBFTNode.GetRequest:output_type -> pb.SignedTransactionRequest
-	14, // 42: pb.LinearPBFTNode.GetCheckPoint:output_type -> pb.CheckPoint
+	14, // 42: pb.LinearPBFTNode.GetCheckpoint:output_type -> pb.Checkpoint
 	23, // 43: pb.LinearPBFTNode.PrintLog:output_type -> google.protobuf.Empty
 	23, // 44: pb.LinearPBFTNode.PrintDB:output_type -> google.protobuf.Empty
 	23, // 45: pb.LinearPBFTNode.PrintStatus:output_type -> google.protobuf.Empty

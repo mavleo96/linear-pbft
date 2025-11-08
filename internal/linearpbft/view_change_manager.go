@@ -1,12 +1,10 @@
 package linearpbft
 
 import (
-	"context"
 	"sync"
 
 	"github.com/mavleo96/bft-mavleo96/internal/utils"
 	"github.com/mavleo96/bft-mavleo96/pb"
-	log "github.com/sirupsen/logrus"
 )
 
 // ViewChangeManager is responsible for managing view changes and new views
@@ -20,29 +18,29 @@ type ViewChangeManager struct {
 	config        *ServerConfig
 
 	// Channels
-	viewChangeRequestCh chan int64
-	newViewRequestCh    chan bool
-	viewChangeRouterCh  chan int64
-	newViewRouterCh     chan int64
-	installCheckPointCh chan int64
+	viewChangeTriggerCh        chan int64
+	newViewTriggerCh           chan int64
+	viewChangeToRouteCh        chan int64
+	newViewToRouteCh           chan int64
+	checkpointInstallRequestCh chan int64
 
 	// Functions
-	SendGetCheckPoint func(sequenceNum int64) (*pb.CheckPoint, error)
+	SendGetCheckpoint func(sequenceNum int64) (*pb.Checkpoint, error)
 }
 
-// GetViewChangeChannel returns the channel to receive view change messages in router routine
-func (v *ViewChangeManager) GetViewChangeChannel() <-chan int64 {
-	return v.viewChangeRouterCh
+// GetViewChangeToRouteChannel returns the channel to send view change messages to route
+func (v *ViewChangeManager) GetViewChangeToRouteChannel() <-chan int64 {
+	return v.viewChangeToRouteCh
 }
 
-// GetNewViewChannel returns the channel to receive new view messages in router routine
-func (v *ViewChangeManager) GetNewViewChannel() <-chan int64 {
-	return v.newViewRouterCh
+// GetNewViewToRouteChannel returns the channel to send new view messages to route
+func (v *ViewChangeManager) GetNewViewToRouteChannel() <-chan int64 {
+	return v.newViewToRouteCh
 }
 
-// GetInstallCheckPointChannel returns the channel to receive install check point messages in router routine
-func (v *ViewChangeManager) GetInstallCheckPointChannel() <-chan int64 {
-	return v.installCheckPointCh
+// GetCheckpointInstallRequestChannel returns the channel to send check point install request messages to executor
+func (v *ViewChangeManager) GetCheckpointInstallRequestChannel() <-chan int64 {
+	return v.checkpointInstallRequestCh
 }
 
 // AddViewChangeMessage adds a signed view change message to the view change log
@@ -73,51 +71,21 @@ func (v *ViewChangeManager) AddNewViewMessage(signedNewViewMessage *pb.SignedNew
 	v.newViewLog[viewNumber] = signedNewViewMessage
 }
 
-// ViewChangeRoutine is the routine that handles view changes and new views
-func (v *ViewChangeManager) ViewChangeRoutine(ctx context.Context) {
-	log.Infof("Starting view change routine for %s", v.id)
-	for {
-		select {
-		case <-ctx.Done():
-			return
+func CreateViewChangeManager(id string, safeTimer *SafeTimer, state *ServerState, config *ServerConfig) *ViewChangeManager {
+	return &ViewChangeManager{
+		id:            id,
+		mutex:         sync.RWMutex{},
+		viewChangeLog: make(map[int64]map[string]*pb.SignedViewChangeMessage),
+		newViewLog:    make(map[int64]*pb.SignedNewViewMessage),
+		SafeTimer:     safeTimer,
+		state:         state,
+		config:        config,
 
-		case viewNumber := <-v.viewChangeRequestCh:
-			// TODO: What if timer expires at this point? -> double view change
-			log.Infof("View change request channel signaled")
-			// TODO: handle view change request
-			// TODO: send view change message to all nodes if f + 1 view change messages are collected
-			if viewNumber <= v.state.GetViewChangeViewNumber() {
-				log.Infof("View change request channel signaled for view number %d but already in view change phase for view number %d", viewNumber, v.state.GetViewChangeViewNumber())
-				continue
-			}
-
-			log.Infof("VCN: %d, NEW VCN: %d, Key of VC log: %d", v.state.GetViewChangeViewNumber(), viewNumber, utils.Keys(v.viewChangeLog))
-			log.Infof("Node %s is entering view change phase and updated vc to %d", v.id, viewNumber)
-			v.state.SetViewChangeViewNumber(viewNumber)
-			v.state.SetViewChangePhase(true)
-			v.viewChangeRouterCh <- viewNumber
-
-		case <-v.SafeTimer.TimeoutCh:
-			log.Infof("View change routine: Timer expired at v %d vc %d", v.state.GetViewNumber(), v.state.GetViewChangeViewNumber())
-
-			// Get smallest view number of the logged view change messages which is higher than latest sent view change message view number
-			viewNumber := v.state.GetViewChangeViewNumber() + 1
-			maxViewNumber := utils.Max(utils.Keys(v.viewChangeLog))
-			for i := viewNumber; i <= maxViewNumber; i++ {
-				if _, ok := v.viewChangeLog[i]; ok {
-					viewNumber = i
-					break
-				}
-			}
-			log.Infof("VCN: %d, NEW VCN: %d, Key of VC log: %d", v.state.GetViewChangeViewNumber(), viewNumber, utils.Keys(v.viewChangeLog))
-			log.Infof("Node %s is entering view change phase and updated vc to %d", v.id, viewNumber)
-			v.state.SetViewChangeViewNumber(viewNumber)
-			v.state.SetViewChangePhase(true)
-			v.viewChangeRouterCh <- viewNumber
-
-		case <-v.newViewRequestCh:
-			log.Infof("New view request channel signaled")
-			v.newViewRouterCh <- v.state.GetViewChangeViewNumber()
-		}
+		// Should trigger channels be non-buffered instead of buffered?
+		viewChangeTriggerCh:        make(chan int64, 5),
+		newViewTriggerCh:           make(chan int64, 5),
+		viewChangeToRouteCh:        make(chan int64, 5),
+		newViewToRouteCh:           make(chan int64, 5),
+		checkpointInstallRequestCh: make(chan int64, 5),
 	}
 }

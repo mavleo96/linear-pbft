@@ -30,6 +30,7 @@ func (h *ProtocolHandler) BackupPrePrepareRequestHandler(signedPrePrepareMessage
 		}
 		signedRequest = response
 	}
+	log.Infof("Adding request to transaction map: %s", utils.LoggingString(signedRequest.Request))
 	h.state.TransactionMap.Set(prePrepareMessage.Digest, signedRequest)
 
 	request := signedRequest.Request
@@ -67,7 +68,7 @@ func (h *ProtocolHandler) BackupPrePrepareRequestHandler(signedPrePrepareMessage
 	// 	// log.Infof("Node %s is Byzantine and is performing crash attack", n.ID)
 	// 	return nil, status.Errorf(codes.Unavailable, "node not alive")
 	// }
-	h.executeCh <- prePrepareMessage.SequenceNum
+	h.executionTriggerCh <- prePrepareMessage.SequenceNum
 
 	// Create prepare message and sign it
 	prepareMessage := &pb.PrepareMessage{
@@ -115,10 +116,9 @@ func (h *ProtocolHandler) BackupPrepareRequestHandler(signedPrepareMessage *pb.S
 	// }
 
 	// Log the prepare messages in record
-	request := h.state.TransactionMap.Get(signedPrepareMessage.Message.Digest).Request
-	log.Infof("Logging prepare message: %s", utils.LoggingString(prepareMessage, request))
+	log.Infof("Logging prepare message: %s", utils.LoggingString(prepareMessage))
 	status := h.state.StateLog.AddPrepareMessages(sequenceNum, signedPrepareMessage)
-	log.Infof("v: %d s: %d status: %s req: %s", viewNumber, sequenceNum, status, utils.LoggingString(request))
+	log.Infof("v: %d s: %d status: %s", viewNumber, sequenceNum, status)
 	// if n.Byzantine && n.CrashAttack {
 	// 	record.MaliciousUpdateLogState()
 	// }
@@ -126,7 +126,7 @@ func (h *ProtocolHandler) BackupPrepareRequestHandler(signedPrepareMessage *pb.S
 	// 	// log.Infof("Node %s is Byzantine and is performing crash attack", n.ID)
 	// 	return nil, status.Errorf(codes.Unavailable, "node not alive")
 	// }
-	h.executeCh <- sequenceNum
+	h.executionTriggerCh <- sequenceNum
 
 	// Create commit message and sign it
 	commitMessage := &pb.CommitMessage{
@@ -172,10 +172,9 @@ func (h *ProtocolHandler) BackupCommitRequestHandler(signedCommitMessage *pb.Sig
 	// }
 
 	// Log the commit messages in record
-	request := h.state.TransactionMap.Get(signedCommitMessage.Message.Digest).Request
-	log.Infof("Logging commit message: %s", utils.LoggingString(commitMessage, request))
+	log.Infof("Logging commit message: %s", utils.LoggingString(commitMessage))
 	status := h.state.StateLog.AddCommitMessages(sequenceNum, signedCommitMessage)
-	log.Infof("v: %d s: %d status: %s req: %s", viewNumber, sequenceNum, status, utils.LoggingString(request))
+	log.Infof("v: %d s: %d status: %s", viewNumber, sequenceNum, status)
 	// if n.Byzantine && n.CrashAttack {
 	// 	record.MaliciousUpdateLogState()
 	// }
@@ -183,6 +182,6 @@ func (h *ProtocolHandler) BackupCommitRequestHandler(signedCommitMessage *pb.Sig
 	// 	// log.Infof("Node %s is Byzantine and is performing crash attack", n.ID)
 	// 	return nil, status.Errorf(codes.Unavailable, "node not alive")
 	// }
-	h.executeCh <- sequenceNum
+	h.executionTriggerCh <- sequenceNum
 	return &emptypb.Empty{}, nil
 }

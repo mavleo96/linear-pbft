@@ -1,51 +1,35 @@
 package linearpbft
 
 import (
-	"github.com/mavleo96/bft-mavleo96/internal/crypto"
 	"github.com/mavleo96/bft-mavleo96/internal/utils"
 	"github.com/mavleo96/bft-mavleo96/pb"
 	log "github.com/sirupsen/logrus"
 )
 
-// CheckPointMessageHandler handles incoming check point messages and routes it to the check point manager
-func (c *CheckPointManager) CheckPointMessageHandler(signedCheckPointMessage *pb.SignedCheckPointMessage) {
-	checkPointMessage := signedCheckPointMessage.Message
-	sequenceNum := checkPointMessage.SequenceNum
-	nodeID := checkPointMessage.NodeID
+// CheckpointMessageHandler handles incoming check point messages and routes it to the check point manager
+func (c *CheckpointManager) CheckpointMessageHandler(signedCheckpointMessage *pb.SignedCheckpointMessage) {
+	checkpointMessage := signedCheckpointMessage.Message
+	sequenceNum := checkpointMessage.SequenceNum
+	nodeID := checkpointMessage.NodeID
 
 	// Add check point message to check point log if higher than low water mark
-	if sequenceNum < c.config.LowWaterMark {
-		log.Warnf("Check point message for sequence number %d is lower than low water mark", sequenceNum)
+	if !c.config.SequenceNumberInRange(sequenceNum) {
+		log.Warnf("Check point message for sequence number %d is not in range (%d, %d)", sequenceNum, c.config.GetLowWaterMark(), c.config.GetHighWaterMark())
 		return
 	}
-	log.Infof("Logged: %s", utils.LoggingString(checkPointMessage))
-	c.AddMessage(sequenceNum, nodeID, signedCheckPointMessage)
+	log.Infof("Logged: %s", utils.LoggingString(checkpointMessage))
+	c.AddMessage(sequenceNum, nodeID, signedCheckpointMessage)
 
 	// Signal the checkpoint routine if 2f + 1 or more check point messages are collected and self's check point message is included
-	hasSelfCheckPointMessage := false
-	for _, checkPointMessage := range c.GetMessages(sequenceNum) {
-		if checkPointMessage.Message.NodeID == c.id {
-			hasSelfCheckPointMessage = true
+	hasSelfCheckpointMessage := false
+	for _, checkpointMessage := range c.GetMessages(sequenceNum) {
+		if checkpointMessage.Message.NodeID == c.id {
+			hasSelfCheckpointMessage = true
 			break
 		}
 	}
-	if len(c.GetMessages(sequenceNum)) >= int(2*c.config.F+1) && hasSelfCheckPointMessage && sequenceNum > c.config.LowWaterMark {
+	if len(c.GetMessages(sequenceNum)) >= int(2*c.config.F+1) && hasSelfCheckpointMessage && c.config.SequenceNumberInRange(sequenceNum) {
 		log.Infof("Received 2f + 1 check point messages for sequence number %d", sequenceNum)
-		c.checkPointRequestCh <- sequenceNum
+		c.checkpointRequestCh <- sequenceNum
 	}
-}
-
-// CreateCheckPointMessage creates a check point message for a given sequence number
-func (n *LinearPBFTNode) CreateCheckPointMessage(sequenceNum int64) *pb.SignedCheckPointMessage {
-	checkpoint := n.CheckPointManager.GetCheckpoint(sequenceNum)
-	checkPointMessage := &pb.CheckPointMessage{
-		SequenceNum: sequenceNum,
-		Digest:      checkpoint.Digest,
-		NodeID:      n.ID,
-	}
-	signedCheckPointMessage := &pb.SignedCheckPointMessage{
-		Message:   checkPointMessage,
-		Signature: crypto.Sign(checkPointMessage, n.Handler.privateKey1),
-	}
-	return signedCheckPointMessage
 }

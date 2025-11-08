@@ -26,11 +26,11 @@ const (
 	LinearPBFTNode_PrePrepareRequest_FullMethodName = "/pb.LinearPBFTNode/PrePrepareRequest"
 	LinearPBFTNode_PrepareRequest_FullMethodName    = "/pb.LinearPBFTNode/PrepareRequest"
 	LinearPBFTNode_CommitRequest_FullMethodName     = "/pb.LinearPBFTNode/CommitRequest"
-	LinearPBFTNode_CheckPointRequest_FullMethodName = "/pb.LinearPBFTNode/CheckPointRequest"
+	LinearPBFTNode_CheckpointRequest_FullMethodName = "/pb.LinearPBFTNode/CheckpointRequest"
 	LinearPBFTNode_ViewChangeRequest_FullMethodName = "/pb.LinearPBFTNode/ViewChangeRequest"
 	LinearPBFTNode_NewViewRequest_FullMethodName    = "/pb.LinearPBFTNode/NewViewRequest"
 	LinearPBFTNode_GetRequest_FullMethodName        = "/pb.LinearPBFTNode/GetRequest"
-	LinearPBFTNode_GetCheckPoint_FullMethodName     = "/pb.LinearPBFTNode/GetCheckPoint"
+	LinearPBFTNode_GetCheckpoint_FullMethodName     = "/pb.LinearPBFTNode/GetCheckpoint"
 	LinearPBFTNode_PrintLog_FullMethodName          = "/pb.LinearPBFTNode/PrintLog"
 	LinearPBFTNode_PrintDB_FullMethodName           = "/pb.LinearPBFTNode/PrintDB"
 	LinearPBFTNode_PrintStatus_FullMethodName       = "/pb.LinearPBFTNode/PrintStatus"
@@ -47,11 +47,11 @@ type LinearPBFTNodeClient interface {
 	PrePrepareRequest(ctx context.Context, in *SignedPrePrepareMessage, opts ...grpc.CallOption) (*SignedPrepareMessage, error)
 	PrepareRequest(ctx context.Context, in *SignedPrepareMessage, opts ...grpc.CallOption) (*SignedCommitMessage, error)
 	CommitRequest(ctx context.Context, in *SignedCommitMessage, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	CheckPointRequest(ctx context.Context, in *SignedCheckPointMessage, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	CheckpointRequest(ctx context.Context, in *SignedCheckpointMessage, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	ViewChangeRequest(ctx context.Context, in *SignedViewChangeMessage, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	NewViewRequest(ctx context.Context, in *SignedNewViewMessage, opts ...grpc.CallOption) (LinearPBFTNode_NewViewRequestClient, error)
 	GetRequest(ctx context.Context, in *GetRequestMessage, opts ...grpc.CallOption) (*SignedTransactionRequest, error)
-	GetCheckPoint(ctx context.Context, in *GetCheckPointMessage, opts ...grpc.CallOption) (*CheckPoint, error)
+	GetCheckpoint(ctx context.Context, in *GetCheckpointMessage, opts ...grpc.CallOption) (*Checkpoint, error)
 	PrintLog(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	PrintDB(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	PrintStatus(ctx context.Context, in *wrapperspb.Int64Value, opts ...grpc.CallOption) (*emptypb.Empty, error)
@@ -112,9 +112,9 @@ func (c *linearPBFTNodeClient) CommitRequest(ctx context.Context, in *SignedComm
 	return out, nil
 }
 
-func (c *linearPBFTNodeClient) CheckPointRequest(ctx context.Context, in *SignedCheckPointMessage, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *linearPBFTNodeClient) CheckpointRequest(ctx context.Context, in *SignedCheckpointMessage, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, LinearPBFTNode_CheckPointRequest_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, LinearPBFTNode_CheckpointRequest_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -171,9 +171,9 @@ func (c *linearPBFTNodeClient) GetRequest(ctx context.Context, in *GetRequestMes
 	return out, nil
 }
 
-func (c *linearPBFTNodeClient) GetCheckPoint(ctx context.Context, in *GetCheckPointMessage, opts ...grpc.CallOption) (*CheckPoint, error) {
-	out := new(CheckPoint)
-	err := c.cc.Invoke(ctx, LinearPBFTNode_GetCheckPoint_FullMethodName, in, out, opts...)
+func (c *linearPBFTNodeClient) GetCheckpoint(ctx context.Context, in *GetCheckpointMessage, opts ...grpc.CallOption) (*Checkpoint, error) {
+	out := new(Checkpoint)
+	err := c.cc.Invoke(ctx, LinearPBFTNode_GetCheckpoint_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -234,11 +234,11 @@ type LinearPBFTNodeServer interface {
 	PrePrepareRequest(context.Context, *SignedPrePrepareMessage) (*SignedPrepareMessage, error)
 	PrepareRequest(context.Context, *SignedPrepareMessage) (*SignedCommitMessage, error)
 	CommitRequest(context.Context, *SignedCommitMessage) (*emptypb.Empty, error)
-	CheckPointRequest(context.Context, *SignedCheckPointMessage) (*emptypb.Empty, error)
+	CheckpointRequest(context.Context, *SignedCheckpointMessage) (*emptypb.Empty, error)
 	ViewChangeRequest(context.Context, *SignedViewChangeMessage) (*emptypb.Empty, error)
 	NewViewRequest(*SignedNewViewMessage, LinearPBFTNode_NewViewRequestServer) error
 	GetRequest(context.Context, *GetRequestMessage) (*SignedTransactionRequest, error)
-	GetCheckPoint(context.Context, *GetCheckPointMessage) (*CheckPoint, error)
+	GetCheckpoint(context.Context, *GetCheckpointMessage) (*Checkpoint, error)
 	PrintLog(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
 	PrintDB(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
 	PrintStatus(context.Context, *wrapperspb.Int64Value) (*emptypb.Empty, error)
@@ -266,8 +266,8 @@ func (UnimplementedLinearPBFTNodeServer) PrepareRequest(context.Context, *Signed
 func (UnimplementedLinearPBFTNodeServer) CommitRequest(context.Context, *SignedCommitMessage) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CommitRequest not implemented")
 }
-func (UnimplementedLinearPBFTNodeServer) CheckPointRequest(context.Context, *SignedCheckPointMessage) (*emptypb.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method CheckPointRequest not implemented")
+func (UnimplementedLinearPBFTNodeServer) CheckpointRequest(context.Context, *SignedCheckpointMessage) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CheckpointRequest not implemented")
 }
 func (UnimplementedLinearPBFTNodeServer) ViewChangeRequest(context.Context, *SignedViewChangeMessage) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ViewChangeRequest not implemented")
@@ -278,8 +278,8 @@ func (UnimplementedLinearPBFTNodeServer) NewViewRequest(*SignedNewViewMessage, L
 func (UnimplementedLinearPBFTNodeServer) GetRequest(context.Context, *GetRequestMessage) (*SignedTransactionRequest, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetRequest not implemented")
 }
-func (UnimplementedLinearPBFTNodeServer) GetCheckPoint(context.Context, *GetCheckPointMessage) (*CheckPoint, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetCheckPoint not implemented")
+func (UnimplementedLinearPBFTNodeServer) GetCheckpoint(context.Context, *GetCheckpointMessage) (*Checkpoint, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetCheckpoint not implemented")
 }
 func (UnimplementedLinearPBFTNodeServer) PrintLog(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method PrintLog not implemented")
@@ -399,20 +399,20 @@ func _LinearPBFTNode_CommitRequest_Handler(srv interface{}, ctx context.Context,
 	return interceptor(ctx, in, info, handler)
 }
 
-func _LinearPBFTNode_CheckPointRequest_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(SignedCheckPointMessage)
+func _LinearPBFTNode_CheckpointRequest_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SignedCheckpointMessage)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(LinearPBFTNodeServer).CheckPointRequest(ctx, in)
+		return srv.(LinearPBFTNodeServer).CheckpointRequest(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: LinearPBFTNode_CheckPointRequest_FullMethodName,
+		FullMethod: LinearPBFTNode_CheckpointRequest_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(LinearPBFTNodeServer).CheckPointRequest(ctx, req.(*SignedCheckPointMessage))
+		return srv.(LinearPBFTNodeServer).CheckpointRequest(ctx, req.(*SignedCheckpointMessage))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -474,20 +474,20 @@ func _LinearPBFTNode_GetRequest_Handler(srv interface{}, ctx context.Context, de
 	return interceptor(ctx, in, info, handler)
 }
 
-func _LinearPBFTNode_GetCheckPoint_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GetCheckPointMessage)
+func _LinearPBFTNode_GetCheckpoint_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetCheckpointMessage)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(LinearPBFTNodeServer).GetCheckPoint(ctx, in)
+		return srv.(LinearPBFTNodeServer).GetCheckpoint(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: LinearPBFTNode_GetCheckPoint_FullMethodName,
+		FullMethod: LinearPBFTNode_GetCheckpoint_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(LinearPBFTNodeServer).GetCheckPoint(ctx, req.(*GetCheckPointMessage))
+		return srv.(LinearPBFTNodeServer).GetCheckpoint(ctx, req.(*GetCheckpointMessage))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -610,8 +610,8 @@ var LinearPBFTNode_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _LinearPBFTNode_CommitRequest_Handler,
 		},
 		{
-			MethodName: "CheckPointRequest",
-			Handler:    _LinearPBFTNode_CheckPointRequest_Handler,
+			MethodName: "CheckpointRequest",
+			Handler:    _LinearPBFTNode_CheckpointRequest_Handler,
 		},
 		{
 			MethodName: "ViewChangeRequest",
@@ -622,8 +622,8 @@ var LinearPBFTNode_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _LinearPBFTNode_GetRequest_Handler,
 		},
 		{
-			MethodName: "GetCheckPoint",
-			Handler:    _LinearPBFTNode_GetCheckPoint_Handler,
+			MethodName: "GetCheckpoint",
+			Handler:    _LinearPBFTNode_GetCheckpoint_Handler,
 		},
 		{
 			MethodName: "PrintLog",

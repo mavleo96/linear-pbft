@@ -15,13 +15,13 @@ import (
 func (n *LinearPBFTNode) PrintLog(ctx context.Context, req *emptypb.Empty) (*emptypb.Empty, error) {
 	log.Infof("Print log command received")
 	fmt.Println("Printing log records:")
-	maxSequenceNum := n.State.StateLog.MaxSequenceNum()
+	maxSequenceNum := n.state.StateLog.MaxSequenceNum()
 	for i := int64(1); i <= maxSequenceNum; i++ {
-		record := n.State.StateLog.GetLogRecord(i)
+		record := n.state.StateLog.GetLogRecord(i)
 		if record == nil {
 			continue
 		}
-		signedRequest := n.State.TransactionMap.Get(record.digest)
+		signedRequest := n.state.TransactionMap.Get(record.digest)
 		fmt.Printf(
 			"%s, v: %d, s: %d, %s\n",
 			utils.LoggingString(signedRequest.Request),
@@ -37,7 +37,7 @@ func (n *LinearPBFTNode) PrintLog(ctx context.Context, req *emptypb.Empty) (*emp
 func (n *LinearPBFTNode) PrintDB(ctx context.Context, req *emptypb.Empty) (*emptypb.Empty, error) {
 	log.Infof("Print database command received")
 	fmt.Println("Printing database:")
-	db_state, err := n.Executor.db.GetDBState()
+	db_state, err := n.executor.db.GetDBState()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -60,13 +60,13 @@ func (n *LinearPBFTNode) PrintStatus(ctx context.Context, req *wrapperspb.Int64V
 	fmt.Println("Printing status:")
 
 	sequenceNum := req.Value
-	record := n.State.StateLog.GetLogRecord(sequenceNum)
+	record := n.state.StateLog.GetLogRecord(sequenceNum)
 	if record == nil {
 		fmt.Printf("Sequence Number: %d, Status: X\n", sequenceNum)
 		return &emptypb.Empty{}, nil
 	}
 
-	signedRequest := n.State.TransactionMap.Get(record.digest)
+	signedRequest := n.state.TransactionMap.Get(record.digest)
 	if signedRequest == nil {
 		fmt.Printf("Request not found in transaction map for sequence number %d\n", sequenceNum)
 		return &emptypb.Empty{}, nil

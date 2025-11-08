@@ -32,6 +32,23 @@ type LogRecord struct {
 	commitMessage     *pb.SignedCommitMessage
 }
 
+// GetSequenceNumberByDigest returns the sequence number of a log record for a given digest and returns 0 if not found
+func (s *StateLog) GetSequenceNumberByDigest(digest []byte) int64 {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	for sequenceNum := range s.log {
+		record, exists := s.log[sequenceNum]
+		if !exists {
+			continue
+		}
+		if cmp.Equal(record.digest, digest) {
+			return record.sequenceNum
+		}
+	}
+	return 0
+}
+
+// AssignSequenceNumberAndCreateRecord assigns a sequence number to a log record for a given digest and creates a new log record if not found
 func (s *StateLog) AssignSequenceNumberAndCreateRecord(viewNumber int64, digest []byte) (int64, bool) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
@@ -43,25 +60,30 @@ func (s *StateLog) AssignSequenceNumberAndCreateRecord(viewNumber int64, digest 
 			continue
 		}
 		if record != nil && cmp.Equal(record.digest, digest) {
+			if record.viewNumber < viewNumber {
+				record.viewNumber = viewNumber
+				return record.sequenceNum, true
+			}
 			return record.sequenceNum, false
 		}
 	}
 
 	// If request is not in log record, assign new sequence number
-	sequenceNum := s.config.LowWaterMark + 1
+	sequenceNum := s.config.GetLowWaterMark() + 1
 	if utils.Max(utils.Keys(s.log)) != 0 {
 		sequenceNum = utils.Max(utils.Keys(s.log)) + 1
 	}
 	// TODO: -1 is a placeholder for view number, need to change this later
-	s.log[sequenceNum] = CreateLogRecord(viewNumber, sequenceNum, digest)
+	s.log[sequenceNum] = createLogRecord(viewNumber, sequenceNum, digest)
 	return sequenceNum, true
 }
 
+// CreateRecordIfNotExists creates a new log record if not found
 func (s *StateLog) CreateRecordIfNotExists(viewNumber int64, sequenceNum int64, digest []byte) bool {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	if _, exists := s.log[sequenceNum]; !exists {
-		s.log[sequenceNum] = CreateLogRecord(viewNumber, sequenceNum, digest)
+		s.log[sequenceNum] = createLogRecord(viewNumber, sequenceNum, digest)
 		return true
 	}
 	if s.log[sequenceNum].viewNumber < viewNumber {
@@ -85,9 +107,20 @@ func (s *StateLog) MaxSequenceNum() int64 {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 	if utils.Max(utils.Keys(s.log)) == 0 {
-		return s.config.LowWaterMark
+		return s.config.GetLowWaterMark()
 	}
 	return utils.Max(utils.Keys(s.log))
+}
+
+// GetViewNumber returns the view number of a log record for a given sequence number
+func (s *StateLog) GetViewNumber(sequenceNum int64) int64 {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	record, exists := s.log[sequenceNum]
+	if !exists {
+		return 0
+	}
+	return record.viewNumber
 }
 
 // GetDigest returns the digest of a log record for a given sequence number
@@ -212,6 +245,7 @@ func (s *StateLog) GetPrepareProof() []*pb.PrepareProof {
 	return prepareProofs
 }
 
+// GetLogRecord returns the log record for a given sequence number
 func (s *StateLog) GetLogRecord(sequenceNum int64) *LogRecord {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
@@ -223,7 +257,7 @@ func (s *StateLog) GetLogRecord(sequenceNum int64) *LogRecord {
 }
 
 // CreateLogRecord creates a new log record
-func CreateLogRecord(viewNumber int64, sequenceNumber int64, digest []byte) *LogRecord {
+func createLogRecord(viewNumber int64, sequenceNumber int64, digest []byte) *LogRecord {
 	return &LogRecord{
 		viewNumber:        viewNumber,
 		sequenceNum:       sequenceNumber,
@@ -256,6 +290,15 @@ func (l *LogRecord) updateLogState() string {
 		return "C"
 	}
 	return "E"
+}
+
+// CreateStateLog creates a new state log
+func CreateStateLog(config *ServerConfig) *StateLog {
+	return &StateLog{
+		mutex:  sync.RWMutex{},
+		log:    make(map[int64]*LogRecord),
+		config: config,
+	}
 }
 
 // ---------------------------------------------------------- //
@@ -321,4 +364,12 @@ func (l *LastReply) Update(sender string, reply *pb.TransactionResponse) {
 	l.Mutex.Lock()
 	defer l.Mutex.Unlock()
 	l.ReplyMap[sender] = reply
+}
+
+// CreateLastReply creates a new last reply
+func CreateLastReply() *LastReply {
+	return &LastReply{
+		Mutex:    sync.RWMutex{},
+		ReplyMap: make(map[string]*pb.TransactionResponse),
+	}
 }

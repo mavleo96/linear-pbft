@@ -13,7 +13,13 @@ func (h *ProtocolHandler) LeaderTransactionRequestHandler(signedRequest *pb.Sign
 	// request := signedRequest.Request
 
 	// Get or assign sequence number
-	sequenceNum, _ := h.state.StateLog.AssignSequenceNumberAndCreateRecord(h.state.GetViewNumber(), crypto.Digest(signedRequest))
+	sequenceNum, created := h.state.StateLog.AssignSequenceNumberAndCreateRecord(h.state.GetViewNumber(), crypto.Digest(signedRequest))
+
+	// Ignore if already preprepared in current view
+	if !created { //&& sequenceNum != 0 && h.state.StateLog.IsPrePrepared(sequenceNum) && h.state.StateLog.GetViewNumber(sequenceNum) == h.state.GetViewNumber() {
+		log.Infof("Ignored: %s; already preprepared in current view", utils.LoggingString(signedRequest))
+		return nil
+	}
 
 	// // Add request to transaction map
 	// if n.State.TransactionMap.Get(crypto.Digest(signedRequest)) == nil {
@@ -43,7 +49,7 @@ func (h *ProtocolHandler) LeaderTransactionRequestHandler(signedRequest *pb.Sign
 	status := h.state.StateLog.AddPrePrepareMessage(sequenceNum, signedPreprepare)
 	log.Infof("v: %d s: %d status: %s req: %s", preprepare.ViewNumber, preprepare.SequenceNum, status, utils.LoggingString(signedRequest.Request))
 
-	h.preprepareCh <- signedPreprepare
+	h.preprepareToRouteCh <- signedPreprepare
 
 	return nil
 }
@@ -74,10 +80,10 @@ func (h *ProtocolHandler) LeaderPrepareMessageHandler(signedPrepareMessages []*p
 	}
 
 	// Add prepare message to log record
-	request := h.state.TransactionMap.Get(signedPrepareMessage.Message.Digest).Request
-	log.Infof("Logging prepare message: %s", utils.LoggingString(prepareMessage, request))
+	// request := h.state.TransactionMap.Get(signedPrepareMessage.Message.Digest).Request/
+	log.Infof("Logging prepare message: %s", utils.LoggingString(prepareMessage))
 	status := h.state.StateLog.AddPrepareMessages(sequenceNum, signedPrepareMessage)
-	log.Infof("v: %d s: %d status: %s req: %s", prepareMessage.ViewNumber, prepareMessage.SequenceNum, status, utils.LoggingString(request))
+	log.Infof("v: %d s: %d status: %s", prepareMessage.ViewNumber, prepareMessage.SequenceNum, status)
 
 	// Byzantine node behavior: crash attack
 	// if n.Byzantine && n.CrashAttack {
@@ -85,7 +91,7 @@ func (h *ProtocolHandler) LeaderPrepareMessageHandler(signedPrepareMessages []*p
 	// 	record.MaliciousUpdateLogState()
 	// }
 
-	h.prepareCh <- signedPrepareMessage
+	h.prepareToRouteCh <- signedPrepareMessage
 
 	return nil
 }
@@ -116,12 +122,12 @@ func (h *ProtocolHandler) LeaderCommitMessageHandler(signedCommitMessages []*pb.
 	}
 
 	// Add commit message to log record
-	request := h.state.TransactionMap.Get(signedCommitMessage.Message.Digest).Request
-	log.Infof("Logging commit message: %s", utils.LoggingString(commitMessage, request))
+	// request := h.state.TransactionMap.Get(signedCommitMessage.Message.Digest).Request
+	log.Infof("Logging commit message: %s", utils.LoggingString(commitMessage))
 	status := h.state.StateLog.AddCommitMessages(sequenceNum, signedCommitMessage)
-	log.Infof("v: %d s: %d status: %s req: %s", commitMessage.ViewNumber, commitMessage.SequenceNum, status, utils.LoggingString(request))
+	log.Infof("v: %d s: %d status: %s", commitMessage.ViewNumber, commitMessage.SequenceNum, status)
 
-	h.commitCh <- signedCommitMessage
+	h.commitToRouteCh <- signedCommitMessage
 
 	return nil
 }

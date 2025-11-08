@@ -15,12 +15,12 @@ service LinearPBFTNode {
     rpc PrepareRequest (SignedPrepareMessage) returns (SignedCommitMessage);
     rpc CommitRequest (SignedCommitMessage) returns (google.protobuf.Empty);
 
-    rpc CheckPointRequest(SignedCheckPointMessage) returns (google.protobuf.Empty);
+    rpc CheckpointRequest(SignedCheckpointMessage) returns (google.protobuf.Empty);
 
     rpc ViewChangeRequest (SignedViewChangeMessage) returns (google.protobuf.Empty);
     rpc NewViewRequest (SignedNewViewMessage) returns (stream SignedPrepareMessage);
     rpc GetRequest (GetRequestMessage) returns (SignedTransactionRequest);
-    rpc GetCheckPoint (GetCheckPointMessage) returns (CheckPoint);
+    rpc GetCheckpoint (GetCheckpointMessage) returns (Checkpoint);
 
     rpc PrintLog (google.protobuf.Empty) returns (google.protobuf.Empty);
     rpc PrintDB (google.protobuf.Empty) returns (google.protobuf.Empty);
@@ -114,25 +114,25 @@ message SignedCommitMessage {
     bytes signature = 2;
 }
 
-// -------------- CheckPointRequest --------------
+// -------------- CheckpointRequest --------------
 
-message CheckPointMessage {
+message CheckpointMessage {
     int64 sequenceNum = 1;
     bytes digest = 2;
     string nodeID = 3;
 }
 
-message SignedCheckPointMessage {
-    CheckPointMessage message = 1;
+message SignedCheckpointMessage {
+    CheckpointMessage message = 1;
     bytes signature = 2;
 }
 
-message GetCheckPointMessage {
+message GetCheckpointMessage {
     int64 sequenceNum = 1;
     string nodeID = 2;
 }
 
-message CheckPoint {
+message Checkpoint {
     bytes digest = 1;
     map<string, int64> snapshot = 2;
 }
@@ -147,7 +147,7 @@ message PrepareProof {
 message ViewChangeMessage {
     int64 viewNumber = 1;
     int64 sequenceNum = 2;
-    repeated SignedCheckPointMessage checkPointMessages = 3;
+    repeated SignedCheckpointMessage checkpointMessages = 3;
     repeated PrepareProof preparedSet = 4;
     string nodeID = 5;
 }

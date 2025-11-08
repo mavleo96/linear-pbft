@@ -1,19 +1,24 @@
 package linearpbft
 
-import "sync"
+import (
+	"sync"
+
+	"github.com/google/go-cmp/cmp"
+)
 
 // ServerState represents the state of the server
 type ServerState struct {
 	mutex                   sync.RWMutex
+	config                  *ServerConfig
 	viewNumber              int64
 	viewChangePhase         bool
 	viewChangeViewNumber    int64 // TODO: rename this to latestViewChangeViewNumber
 	lastExecutedSequenceNum int64
+	forwardedRequestsLog    [][]byte
 
 	// Self managed components
 	StateLog       *StateLog
 	TransactionMap *TransactionMap
-	config         *ServerConfig
 	LastReply      *LastReply
 }
 
@@ -71,4 +76,46 @@ func (s *ServerState) SetLastExecutedSequenceNum(lastExecutedSequenceNum int64) 
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	s.lastExecutedSequenceNum = lastExecutedSequenceNum
+}
+
+// AddForwardedRequest adds a forwarded request to the forwarded requests log
+func (s *ServerState) AddForwardedRequest(digest []byte) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	s.forwardedRequestsLog = append(s.forwardedRequestsLog, digest)
+}
+
+// InForwardedRequestsLog checks if a request is in the forwarded requests log
+func (s *ServerState) InForwardedRequestsLog(digest []byte) bool {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	for _, forwardDigest := range s.forwardedRequestsLog {
+		if cmp.Equal(forwardDigest, digest) {
+			return true
+		}
+	}
+	return false
+}
+
+// ResetForwardedRequestsLog resets the forwarded requests log
+func (s *ServerState) ResetForwardedRequestsLog() {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	s.forwardedRequestsLog = make([][]byte, 0)
+}
+
+// CreateServerState creates a new server state
+func CreateServerState(config *ServerConfig) *ServerState {
+	return &ServerState{
+		mutex:                   sync.RWMutex{},
+		config:                  config,
+		viewNumber:              0,
+		viewChangePhase:         false,
+		viewChangeViewNumber:    0,
+		lastExecutedSequenceNum: 0,
+		forwardedRequestsLog:    make([][]byte, 0),
+		StateLog:                CreateStateLog(config),
+		TransactionMap:          CreateTransactionMap(),
+		LastReply:               CreateLastReply(),
+	}
 }

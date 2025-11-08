@@ -12,32 +12,32 @@ import (
 
 // ReconfigureNode reconfigures a node's status and attacks
 func (n *LinearPBFTNode) ReconfigureNode(ctx context.Context, changeStatusMessage *pb.ChangeStatusMessage) (*emptypb.Empty, error) {
-	n.Alive = changeStatusMessage.Alive
-	n.Byzantine = changeStatusMessage.Byzantine
-	logString := fmt.Sprintf("Reconfigured node %s to alive: %t, byzantine: %t", n.ID, n.Alive, n.Byzantine)
+	n.byzantineConfig.Alive = changeStatusMessage.Alive
+	n.byzantineConfig.Byzantine = changeStatusMessage.Byzantine
+	logString := fmt.Sprintf("Reconfigured node %s to alive: %t, byzantine: %t", n.ID, n.byzantineConfig.Alive, n.byzantineConfig.Byzantine)
 
-	if n.Byzantine {
-		n.SignAttack = changeStatusMessage.SignAttack
-		if n.SignAttack {
-			logString += fmt.Sprintf(", sign attack: %t", n.SignAttack)
+	if n.byzantineConfig.Byzantine {
+		n.byzantineConfig.SignAttack = changeStatusMessage.SignAttack
+		if n.byzantineConfig.SignAttack {
+			logString += fmt.Sprintf(", sign attack: %t", n.byzantineConfig.SignAttack)
 		}
-		n.CrashAttack = changeStatusMessage.CrashAttack
-		if n.CrashAttack {
-			logString += fmt.Sprintf(", crash attack: %t", n.CrashAttack)
+		n.byzantineConfig.CrashAttack = changeStatusMessage.CrashAttack
+		if n.byzantineConfig.CrashAttack {
+			logString += fmt.Sprintf(", crash attack: %t", n.byzantineConfig.CrashAttack)
 		}
-		n.DarkAttack = changeStatusMessage.DarkAttack
-		n.DarkAttackNodes = changeStatusMessage.DarkAttackNodes
-		if n.DarkAttack {
-			logString += fmt.Sprintf(", dark attack: %s [%s]", n.DarkAttackNodes, strings.Join(n.DarkAttackNodes, ", "))
+		n.byzantineConfig.DarkAttack = changeStatusMessage.DarkAttack
+		n.byzantineConfig.DarkAttackNodes = changeStatusMessage.DarkAttackNodes
+		if n.byzantineConfig.DarkAttack {
+			logString += fmt.Sprintf(", dark attack: %s [%s]", n.byzantineConfig.DarkAttackNodes, strings.Join(n.byzantineConfig.DarkAttackNodes, ", "))
 		}
-		n.TimeAttack = changeStatusMessage.TimeAttack
-		if n.TimeAttack {
-			logString += fmt.Sprintf(", time attack: %t", n.TimeAttack)
+		n.byzantineConfig.TimeAttack = changeStatusMessage.TimeAttack
+		if n.byzantineConfig.TimeAttack {
+			logString += fmt.Sprintf(", time attack: %t", n.byzantineConfig.TimeAttack)
 		}
-		n.EquivocationAttack = changeStatusMessage.EquivocationAttack
-		n.EquivocationAttackNodes = changeStatusMessage.EquivocationAttackNodes
-		if n.EquivocationAttack {
-			logString += fmt.Sprintf(", equivocation attack: %s [%s]", n.EquivocationAttackNodes, strings.Join(n.EquivocationAttackNodes, ", "))
+		n.byzantineConfig.EquivocationAttack = changeStatusMessage.EquivocationAttack
+		n.byzantineConfig.EquivocationAttackNodes = changeStatusMessage.EquivocationAttackNodes
+		if n.byzantineConfig.EquivocationAttack {
+			logString += fmt.Sprintf(", equivocation attack: %s [%s]", n.byzantineConfig.EquivocationAttackNodes, strings.Join(n.byzantineConfig.EquivocationAttackNodes, ", "))
 		}
 	}
 	log.Info(logString)
@@ -47,21 +47,21 @@ func (n *LinearPBFTNode) ReconfigureNode(ctx context.Context, changeStatusMessag
 // ResetNode resets the server state and database
 func (n *LinearPBFTNode) ResetNode(ctx context.Context, req *emptypb.Empty) (*emptypb.Empty, error) {
 	// Reset server state
-	n.State.StateLog.log = make(map[int64]*LogRecord)
-	n.State.SetLastExecutedSequenceNum(0)
-	n.State.LastReply.ReplyMap = make(map[string]*pb.TransactionResponse)
-	n.State.SetViewNumber(0)
-	n.State.SetViewChangePhase(false)
-	n.State.SetViewChangeViewNumber(0)
-	n.State.TransactionMap = CreateTransactionMap()
-	n.ForwardedRequestsLog = make([]*pb.SignedTransactionRequest, 0)
-	n.CheckPointManager.log = make(map[int64]map[string]*pb.SignedCheckPointMessage)
-	n.CheckPointManager.checkpoints = make(map[int64]*pb.CheckPoint)
-	n.config.LowWaterMark = 0
-	n.config.HighWaterMark = 100
+	n.state.StateLog.log = make(map[int64]*LogRecord)
+	n.state.SetLastExecutedSequenceNum(0)
+	n.state.LastReply.ReplyMap = make(map[string]*pb.TransactionResponse)
+	n.state.SetViewNumber(0)
+	n.state.SetViewChangePhase(false)
+	n.state.SetViewChangeViewNumber(0)
+	n.state.TransactionMap = CreateTransactionMap()
+	n.state.ResetForwardedRequestsLog()
+	n.executor.checkpointer.log = make(map[int64]map[string]*pb.SignedCheckpointMessage)
+	n.executor.checkpointer.checkpoints = make(map[int64]*pb.Checkpoint)
+	n.config.lowWaterMark = 0
+	n.config.highWaterMark = 100
 
 	// Reset DB
-	n.Executor.db.ResetDB(10)
+	n.executor.db.ResetDB(10)
 
 	return &emptypb.Empty{}, nil
 

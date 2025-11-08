@@ -5,6 +5,32 @@ import (
 	"github.com/mavleo96/bft-mavleo96/pb"
 )
 
+type ByzantineConfig struct {
+	Alive                   bool
+	Byzantine               bool
+	SignAttack              bool
+	CrashAttack             bool
+	DarkAttack              bool
+	DarkAttackNodes         []string
+	TimeAttack              bool
+	EquivocationAttack      bool
+	EquivocationAttackNodes []string
+}
+
+func CreateByzantineConfig() *ByzantineConfig {
+	return &ByzantineConfig{
+		Alive:                   true,
+		Byzantine:               false,
+		SignAttack:              false,
+		CrashAttack:             false,
+		DarkAttack:              false,
+		DarkAttackNodes:         []string{},
+		TimeAttack:              false,
+		EquivocationAttack:      false,
+		EquivocationAttackNodes: []string{},
+	}
+}
+
 // // CreateMaliciousSignedPrePrepareMessage creates a malicious signed preprepare message
 // func (n *LinearPBFTNode) CreateMaliciousSignedPrePrepareMessage(signedMessage *pb.SignedPrePrepareMessage) *pb.SignedPrePrepareMessage {
 // 	message := signedMessage.Message
@@ -22,7 +48,7 @@ func (n *LinearPBFTNode) CreateMessageWithInvalidSequenceNumber(signedMessage *p
 	message.SequenceNum += 1
 	return &pb.SignedPrePrepareMessage{
 		Message:   message,
-		Signature: crypto.Sign(message, n.Handler.privateKey1),
+		Signature: crypto.Sign(message, n.handler.privateKey1),
 		Request:   signedMessage.Request,
 	}
 }

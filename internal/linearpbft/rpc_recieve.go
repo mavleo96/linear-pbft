@@ -20,31 +20,31 @@ func (n *LinearPBFTNode) PrePrepareRequest(ctx context.Context, signedMessage *p
 	signedRequest := signedMessage.Request
 
 	// Ignore if not alive
-	if !n.Alive {
+	if !n.byzantineConfig.Alive {
 		log.Infof("Node %s is not alive", n.ID)
 		return nil, status.Errorf(codes.Unavailable, "node not alive")
 	}
 
 	// Ignore if already in view change
-	if n.State.InViewChangePhase() {
+	if n.state.InViewChangePhase() {
 		log.Infof("Ignored: %s; view change phase", utils.LoggingString(prePrepareMessage))
 		return nil, status.Errorf(codes.Unavailable, "view change phase")
 	}
 
 	// Verify View Number
-	if prePrepareMessage.ViewNumber != n.State.GetViewNumber() {
-		log.Warnf("Rejected: %s; invalid view number (expected: %d)", utils.LoggingString(prePrepareMessage), n.State.GetViewNumber())
+	if prePrepareMessage.ViewNumber != n.state.GetViewNumber() {
+		log.Warnf("Rejected: %s; invalid view number (expected: %d)", utils.LoggingString(prePrepareMessage), n.state.GetViewNumber())
 		return nil, status.Errorf(codes.InvalidArgument, "invalid view number")
 	}
 
 	// Verify if sequence number is within low and high water mark
-	if prePrepareMessage.SequenceNum <= n.config.LowWaterMark || prePrepareMessage.SequenceNum > n.config.HighWaterMark {
-		log.Warnf("Rejected: %s; sequence number out of range (expected: %d to %d)", utils.LoggingString(prePrepareMessage), n.config.LowWaterMark, n.config.HighWaterMark)
+	if !n.config.SequenceNumberInRange(prePrepareMessage.SequenceNum) {
+		log.Warnf("Rejected: %s; sequence number out of range (expected: %d to %d)", utils.LoggingString(prePrepareMessage), n.config.GetLowWaterMark(), n.config.GetHighWaterMark())
 		return nil, status.Errorf(codes.InvalidArgument, "sequence number out of range")
 	}
 
 	// Verify Node's signature
-	currentPrimaryID := utils.ViewNumberToPrimaryID(n.State.GetViewNumber(), n.config.N)
+	currentPrimaryID := utils.ViewNumberToPrimaryID(n.state.GetViewNumber(), n.config.N)
 	ok := crypto.Verify(prePrepareMessage, n.GetPublicKey1(currentPrimaryID), signedMessage.Signature)
 	if !ok {
 		log.Warnf("Rejected: %s; invalid signature", utils.LoggingString(prePrepareMessage))
@@ -54,12 +54,12 @@ func (n *LinearPBFTNode) PrePrepareRequest(ctx context.Context, signedMessage *p
 	// Verify Client's signature if request is not nil
 	if signedRequest != nil && signedRequest.Request != nil &&
 		!cmp.Equal(prePrepareMessage.Digest, DigestNoOp) &&
-		!crypto.Verify(signedRequest.Request, n.Clients[signedRequest.Request.Sender].PublicKey, signedRequest.Signature) {
+		!crypto.Verify(signedRequest.Request, n.clients[signedRequest.Request.Sender].PublicKey, signedRequest.Signature) {
 		log.Warnf("Rejected: %s; invalid signature on request", utils.LoggingString(signedRequest.Request))
 		return nil, status.Errorf(codes.Unauthenticated, "invalid signature on request")
 	}
 
-	return n.Handler.BackupPrePrepareRequestHandler(signedMessage)
+	return n.handler.BackupPrePrepareRequestHandler(signedMessage)
 }
 
 // PrepareRequest validates incoming prepare messages and routes it to the protocol handler
@@ -68,37 +68,37 @@ func (n *LinearPBFTNode) PrepareRequest(ctx context.Context, signedPrepareMessag
 	viewNumber := prepareMessage.ViewNumber
 
 	// Ignore if not alive
-	if !n.Alive {
+	if !n.byzantineConfig.Alive {
 		log.Infof("Node %s is not alive", n.ID)
 		return nil, status.Errorf(codes.Unavailable, "node not alive")
 	}
 
 	// Ignore if already in view change
-	if n.State.InViewChangePhase() {
+	if n.state.InViewChangePhase() {
 		log.Infof("Ignored: %s; view change phase", utils.LoggingString(signedPrepareMessage))
 		return nil, status.Errorf(codes.Unavailable, "view change phase")
 	}
 
 	// Verify View Number
-	if viewNumber != n.State.GetViewNumber() {
-		log.Warnf("Rejected: %s; invalid view number (expected: %d)", utils.LoggingString(signedPrepareMessage), n.State.GetViewNumber())
+	if viewNumber != n.state.GetViewNumber() {
+		log.Warnf("Rejected: %s; invalid view number (expected: %d)", utils.LoggingString(signedPrepareMessage), n.state.GetViewNumber())
 		return nil, status.Errorf(codes.InvalidArgument, "invalid view number")
 	}
 
 	// Verify if sequence number is within low and high water mark
-	if prepareMessage.SequenceNum <= n.config.LowWaterMark || prepareMessage.SequenceNum > n.config.HighWaterMark {
-		log.Warnf("Rejected: %s; sequence number out of range (expected: %d to %d)", utils.LoggingString(prepareMessage), n.config.LowWaterMark, n.config.HighWaterMark)
+	if !n.config.SequenceNumberInRange(prepareMessage.SequenceNum) {
+		log.Warnf("Rejected: %s; sequence number out of range (expected: %d to %d)", utils.LoggingString(prepareMessage), n.config.GetLowWaterMark(), n.config.GetHighWaterMark())
 		return nil, status.Errorf(codes.InvalidArgument, "sequence number out of range")
 	}
 
 	// Verify Signature
-	ok := crypto.Verify(prepareMessage, n.Handler.masterPublicKey1, signedPrepareMessage.Signature)
+	ok := crypto.Verify(prepareMessage, n.handler.masterPublicKey1, signedPrepareMessage.Signature)
 	if !ok {
 		log.Warnf("Rejected: %s; invalid signature", utils.LoggingString(signedPrepareMessage))
 		return nil, status.Errorf(codes.Unauthenticated, "invalid signature")
 	}
 
-	return n.Handler.BackupPrepareRequestHandler(signedPrepareMessage)
+	return n.handler.BackupPrepareRequestHandler(signedPrepareMessage)
 }
 
 // CommitRequest validates incoming commit messages and routes it to the protocol handler
@@ -107,37 +107,37 @@ func (n *LinearPBFTNode) CommitRequest(ctx context.Context, signedCommitMessage 
 	viewNumber := commitMessage.ViewNumber
 
 	// Ignore if not alive
-	if !n.Alive {
+	if !n.byzantineConfig.Alive {
 		log.Infof("Node %s is not alive", n.ID)
 		return nil, status.Errorf(codes.Unavailable, "node not alive")
 	}
 
 	// Ignore if already in view change
-	if n.State.InViewChangePhase() {
+	if n.state.InViewChangePhase() {
 		log.Infof("Ignored: %s; view change phase", utils.LoggingString(signedCommitMessage))
 		return nil, status.Errorf(codes.Unavailable, "view change phase")
 	}
 
 	// Verify View Number
-	if viewNumber != n.State.GetViewNumber() {
-		log.Warnf("Rejected: %s; invalid view number (expected: %d)", utils.LoggingString(signedCommitMessage), n.State.GetViewNumber())
+	if viewNumber != n.state.GetViewNumber() {
+		log.Warnf("Rejected: %s; invalid view number (expected: %d)", utils.LoggingString(signedCommitMessage), n.state.GetViewNumber())
 		return nil, status.Errorf(codes.InvalidArgument, "invalid view number")
 	}
 
 	// Verify if sequence number is within low and high water mark
-	if commitMessage.SequenceNum <= n.config.LowWaterMark || commitMessage.SequenceNum > n.config.HighWaterMark {
-		log.Warnf("Rejected: %s; sequence number out of range (expected: %d to %d)", utils.LoggingString(commitMessage), n.config.LowWaterMark, n.config.HighWaterMark)
+	if !n.config.SequenceNumberInRange(commitMessage.SequenceNum) {
+		log.Warnf("Rejected: %s; sequence number out of range (expected: %d to %d)", utils.LoggingString(commitMessage), n.config.GetLowWaterMark(), n.config.GetHighWaterMark())
 		return nil, status.Errorf(codes.InvalidArgument, "sequence number out of range")
 	}
 
 	// Verify Signature
-	ok := crypto.Verify(commitMessage, n.Handler.masterPublicKey1, signedCommitMessage.Signature)
+	ok := crypto.Verify(commitMessage, n.handler.masterPublicKey1, signedCommitMessage.Signature)
 	if !ok {
 		log.Warnf("Rejected: %s; invalid signature", utils.LoggingString(signedCommitMessage))
 		return nil, status.Errorf(codes.Unauthenticated, "invalid signature")
 	}
 
-	return n.Handler.BackupCommitRequestHandler(signedCommitMessage)
+	return n.handler.BackupCommitRequestHandler(signedCommitMessage)
 }
 
 // ViewChangeRequest validates incoming view change messages and routes it to the view change manager
@@ -145,14 +145,14 @@ func (n *LinearPBFTNode) ViewChangeRequest(ctx context.Context, signedViewChange
 	viewChangeMessage := signedViewChangeMessage.Message
 	viewNumber := viewChangeMessage.ViewNumber
 	// Ignore if not alive
-	if !n.Alive {
+	if !n.byzantineConfig.Alive {
 		log.Infof("Node %s is not alive", n.ID)
 		return nil, status.Errorf(codes.Unavailable, "node not alive")
 	}
 
 	// Verify view number
-	if viewNumber <= n.State.GetViewNumber() {
-		log.Warnf("Rejected: %s; lower view number (expected: %d)", utils.LoggingString(viewChangeMessage), n.State.GetViewNumber())
+	if viewNumber <= n.state.GetViewNumber() {
+		log.Warnf("Rejected: %s; lower view number (expected: %d)", utils.LoggingString(viewChangeMessage), n.state.GetViewNumber())
 		return nil, status.Errorf(codes.FailedPrecondition, "invalid view number")
 	}
 
@@ -165,12 +165,12 @@ func (n *LinearPBFTNode) ViewChangeRequest(ctx context.Context, signedViewChange
 
 	// Verify check point messages signatures
 	// TODO: need to verify digest
-	for _, signedCheckPointMessage := range viewChangeMessage.CheckPointMessages {
-		checkPointMessage := signedCheckPointMessage.Message
-		ok := crypto.Verify(checkPointMessage, n.GetPublicKey1(checkPointMessage.NodeID), signedCheckPointMessage.Signature)
+	for _, signedCheckpointMessage := range viewChangeMessage.CheckpointMessages {
+		checkpointMessage := signedCheckpointMessage.Message
+		ok := crypto.Verify(checkpointMessage, n.GetPublicKey1(checkpointMessage.NodeID), signedCheckpointMessage.Signature)
 		if !ok {
-			log.Warnf("Rejected: %s; invalid signature on check point message", utils.LoggingString(viewChangeMessage))
-			return nil, status.Errorf(codes.FailedPrecondition, "invalid signature on check point message")
+			log.Warnf("Rejected: %s; invalid signature on checkpoint message", utils.LoggingString(viewChangeMessage))
+			return nil, status.Errorf(codes.FailedPrecondition, "invalid signature on checkpoint message")
 		}
 	}
 
@@ -190,7 +190,7 @@ func (n *LinearPBFTNode) ViewChangeRequest(ctx context.Context, signedViewChange
 		}
 
 		// Verify prepare message signature
-		ok = crypto.Verify(prepareMessage, n.Handler.masterPublicKey1, signedPrepareMessage.Signature)
+		ok = crypto.Verify(prepareMessage, n.handler.masterPublicKey1, signedPrepareMessage.Signature)
 		if !ok {
 			log.Warnf("Rejected: %s; invalid signature on prepare message", utils.LoggingString(viewChangeMessage))
 			return nil, status.Errorf(codes.FailedPrecondition, "invalid signature on prepare message")
@@ -205,7 +205,7 @@ func (n *LinearPBFTNode) ViewChangeRequest(ctx context.Context, signedViewChange
 		}
 	}
 
-	go n.ViewChangeManager.ViewChangeRequestHandler(signedViewChangeMessage)
+	go n.viewchanger.ViewChangeRequestHandler(signedViewChangeMessage)
 
 	return &emptypb.Empty{}, nil
 }
@@ -219,13 +219,13 @@ func (n *LinearPBFTNode) NewViewRequest(signedNewViewMessage *pb.SignedNewViewMe
 	viewNumber := newViewMessage.ViewNumber
 
 	// Ignore if not alive
-	if !n.Alive {
+	if !n.byzantineConfig.Alive {
 		log.Infof("Node %s is not alive", n.ID)
 		return status.Errorf(codes.Unavailable, "node not alive")
 	}
 
 	// Verify view number: must be greater than latest sent view change message view number
-	if viewNumber < n.State.GetViewChangeViewNumber() {
+	if viewNumber < n.state.GetViewChangeViewNumber() {
 		log.Warnf("Rejected: %s; view number is less than latest sent view change message view number", utils.LoggingString(newViewMessage))
 		return status.Errorf(codes.FailedPrecondition, "view number is less than latest sent view change message view number")
 	}
@@ -259,15 +259,18 @@ func (n *LinearPBFTNode) NewViewRequest(signedNewViewMessage *pb.SignedNewViewMe
 	}
 
 	// Transfer control to new view handler
-	err := n.ViewChangeManager.BackupNewViewRequestHandler(signedNewViewMessage)
+	err := n.viewchanger.BackupNewViewRequestHandler(signedNewViewMessage)
 	if err != nil {
 		log.Warnf("New view request %s could not be handled: %s", utils.LoggingString(newViewMessage), err)
 		return status.Errorf(codes.Internal, "new view request could not be handled")
 	}
 
+	// TODO: get missing requests
+	// route it to router routine and set the missing requests in the transaction map
+
 	// Route preprepare message to handler and stream prepare messages to primary
 	for _, signedPrePrepareMessage := range signedPrePrepareMessages {
-		signedPrepareMessage, err := n.Handler.BackupPrePrepareRequestHandler(signedPrePrepareMessage)
+		signedPrepareMessage, err := n.handler.BackupPrePrepareRequestHandler(signedPrePrepareMessage)
 		if err != nil {
 			log.Warnf("Prepare request %s could not be sent to primary: %s", utils.LoggingString(signedPrePrepareMessage), err)
 			continue
@@ -281,46 +284,43 @@ func (n *LinearPBFTNode) NewViewRequest(signedNewViewMessage *pb.SignedNewViewMe
 	return nil
 }
 
-// CheckPointRequest validates incoming check point messages and routes it to the check point manager
-func (n *LinearPBFTNode) CheckPointRequest(ctx context.Context, signedCheckPointMessage *pb.SignedCheckPointMessage) (*emptypb.Empty, error) {
-	checkPointMessage := signedCheckPointMessage.Message
+// CheckpointRequest validates incoming check point messages and routes it to the check point manager
+func (n *LinearPBFTNode) CheckpointRequest(ctx context.Context, signedCheckpointMessage *pb.SignedCheckpointMessage) (*emptypb.Empty, error) {
+	checkpointMessage := signedCheckpointMessage.Message
 
 	// Ignore if not alive
-	if !n.Alive {
+	if !n.byzantineConfig.Alive {
 		log.Infof("Node %s is not alive", n.ID)
 		return nil, status.Errorf(codes.Unavailable, "node not alive")
 	}
 
 	// Verify signature
-	ok := crypto.Verify(checkPointMessage, n.GetPublicKey1(checkPointMessage.NodeID), signedCheckPointMessage.Signature)
+	ok := crypto.Verify(checkpointMessage, n.GetPublicKey1(checkpointMessage.NodeID), signedCheckpointMessage.Signature)
 	if !ok {
-		log.Warnf("Rejected: %s; invalid signature", utils.LoggingString(checkPointMessage))
+		log.Warnf("Rejected: %s; invalid signature", utils.LoggingString(checkpointMessage))
 		return nil, status.Errorf(codes.Unauthenticated, "invalid signature")
 	}
 
-	go n.CheckPointManager.CheckPointMessageHandler(signedCheckPointMessage)
+	go n.executor.checkpointer.CheckpointMessageHandler(signedCheckpointMessage)
 	return &emptypb.Empty{}, nil
 }
 
 // GetRequest returns a signed transaction request for a given digest
 func (n *LinearPBFTNode) GetRequest(ctx context.Context, getRequestMessage *pb.GetRequestMessage) (*pb.SignedTransactionRequest, error) {
-	n.Mutex.RLock()
-	defer n.Mutex.RUnlock()
-
 	// Ignore if not alive
-	if !n.Alive {
+	if !n.byzantineConfig.Alive {
 		log.Infof("Node %s is not alive", n.ID)
 		return nil, status.Errorf(codes.Unavailable, "node not alive")
 	}
 
 	// Byzantine node behavior: dark attack
-	if n.Byzantine && n.DarkAttack && slices.Contains(n.DarkAttackNodes, getRequestMessage.NodeID) {
+	if n.byzantineConfig.Byzantine && n.byzantineConfig.DarkAttack && slices.Contains(n.byzantineConfig.DarkAttackNodes, getRequestMessage.NodeID) {
 		// log.Infof("Node %s is Byzantine and is performing dark attack on node %s", n.ID, getRequestMessage.NodeID)
 		return nil, status.Errorf(codes.Unavailable, "node not alive")
 	}
 
 	digest := getRequestMessage.Digest
-	signedRequest := n.State.TransactionMap.Get(digest)
+	signedRequest := n.state.TransactionMap.Get(digest)
 	if signedRequest == nil || signedRequest.Request == nil {
 		log.Warnf("Rejected: %s; request not found in transaction map", utils.LoggingString(getRequestMessage))
 		return nil, status.Errorf(codes.NotFound, "request not found in transaction map")
@@ -330,12 +330,12 @@ func (n *LinearPBFTNode) GetRequest(ctx context.Context, getRequestMessage *pb.G
 	return signedRequest, nil
 }
 
-// GetCheckPoint returns a checkpoint for a given sequence number
-func (n *LinearPBFTNode) GetCheckPoint(ctx context.Context, getCheckPointMessage *pb.GetCheckPointMessage) (*pb.CheckPoint, error) {
-	sequenceNum := getCheckPointMessage.SequenceNum
-	checkpoint := n.CheckPointManager.GetCheckpoint(sequenceNum)
+// GetCheckpoint returns a checkpoint for a given sequence number
+func (n *LinearPBFTNode) GetCheckpoint(ctx context.Context, getCheckpointMessage *pb.GetCheckpointMessage) (*pb.Checkpoint, error) {
+	sequenceNum := getCheckpointMessage.SequenceNum
+	checkpoint := n.executor.checkpointer.GetCheckpoint(sequenceNum)
 	if checkpoint == nil {
-		log.Warnf("Rejected: %s; checkpoint not found for sequence number %d", utils.LoggingString(getCheckPointMessage), sequenceNum)
+		log.Warnf("Rejected: %s; checkpoint not found for sequence number %d", utils.LoggingString(getCheckpointMessage), sequenceNum)
 		return nil, status.Errorf(codes.NotFound, "checkpoint not found for sequence number %d", sequenceNum)
 	}
 	return checkpoint, nil
