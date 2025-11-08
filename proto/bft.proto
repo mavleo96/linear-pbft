@@ -98,6 +98,7 @@ message PrepareMessage {
 message SignedPrepareMessage {
     PrepareMessage message = 1;
     bytes signature = 2;
+    bytes signature2 = 3;
 }
 
 // -------------- Commit --------------

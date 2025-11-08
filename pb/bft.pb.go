@@ -523,6 +523,7 @@ type SignedPrepareMessage struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Message       *PrepareMessage        `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
 	Signature     []byte                 `protobuf:"bytes,2,opt,name=signature,proto3" json:"signature,omitempty"`
+	Signature2    []byte                 `protobuf:"bytes,3,opt,name=signature2,proto3" json:"signature2,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -567,6 +568,13 @@ func (x *SignedPrepareMessage) GetMessage() *PrepareMessage {
 func (x *SignedPrepareMessage) GetSignature() []byte {
 	if x != nil {
 		return x.Signature
+	}
+	return nil
+}
+
+func (x *SignedPrepareMessage) GetSignature2() []byte {
+	if x != nil {
+		return x.Signature2
 	}
 	return nil
 }
@@ -1403,10 +1411,13 @@ const file_bft_proto_rawDesc = "" +
 	"viewNumber\x12 \n" +
 	"\vsequenceNum\x18\x02 \x01(\x03R\vsequenceNum\x12\x16\n" +
 	"\x06digest\x18\x03 \x01(\fR\x06digest\x12\x16\n" +
-	"\x06nodeID\x18\x04 \x01(\tR\x06nodeID\"b\n" +
+	"\x06nodeID\x18\x04 \x01(\tR\x06nodeID\"\x82\x01\n" +
 	"\x14SignedPrepareMessage\x12,\n" +
 	"\amessage\x18\x01 \x01(\v2\x12.pb.PrepareMessageR\amessage\x12\x1c\n" +
-	"\tsignature\x18\x02 \x01(\fR\tsignature\"\x81\x01\n" +
+	"\tsignature\x18\x02 \x01(\fR\tsignature\x12\x1e\n" +
+	"\n" +
+	"signature2\x18\x03 \x01(\fR\n" +
+	"signature2\"\x81\x01\n" +
 	"\rCommitMessage\x12\x1e\n" +
 	"\n" +
 	"viewNumber\x18\x01 \x01(\x03R\n" +

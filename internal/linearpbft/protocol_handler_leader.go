@@ -87,6 +87,11 @@ func (h *ProtocolHandler) LeaderPrepareMessageHandler(signedPrepareMessages []*p
 		signatureMap[utils.NodeIDToBLSMaskID(signedPrepareMessage.Message.NodeID)] = signedPrepareMessage.Signature
 	}
 	signature := crypto.RecoverSignature(signatureMap)
+	signatureMap2 := make(map[bls.ID][]byte)
+	for _, signedPrepareMessage := range signedPrepareMessages {
+		signatureMap2[utils.NodeIDToBLSMaskID(signedPrepareMessage.Message.NodeID)] = signedPrepareMessage.Signature2
+	}
+	signature2 := crypto.RecoverSignature(signatureMap2)
 
 	// Create collected signed prepare message
 	prepareMessage := &pb.PrepareMessage{
@@ -96,14 +101,21 @@ func (h *ProtocolHandler) LeaderPrepareMessageHandler(signedPrepareMessages []*p
 		NodeID:      h.id,
 	}
 	signedPrepareMessage := &pb.SignedPrepareMessage{
-		Message:   prepareMessage,
-		Signature: signature,
+		Message:    prepareMessage,
+		Signature:  signature,
+		Signature2: signature2,
+	}
+
+	// Sfbt verified if all prepare messages are received
+	sbftVerified := false
+	if len(signedPrepareMessages) == int(h.config.N) {
+		sbftVerified = true
 	}
 
 	// Add prepare message to log record
 	// request := h.state.TransactionMap.Get(signedPrepareMessage.Message.Digest).Request/
-	log.Infof("Logging prepare message: %s", utils.LoggingString(prepareMessage))
-	status := h.state.StateLog.AddPrepareMessages(sequenceNum, signedPrepareMessage)
+	log.Infof("Logging prepare message: %s sbftVerified: %t", utils.LoggingString(prepareMessage), sbftVerified)
+	status := h.state.StateLog.AddPrepareMessages(sequenceNum, signedPrepareMessage, sbftVerified)
 	log.Infof("v: %d s: %d status: %s", prepareMessage.ViewNumber, prepareMessage.SequenceNum, status)
 
 	// Byzantine node behavior: crash attack
@@ -111,7 +123,12 @@ func (h *ProtocolHandler) LeaderPrepareMessageHandler(signedPrepareMessages []*p
 		return nil
 	}
 
-	h.prepareToRouteCh <- signedPrepareMessage
+	if sbftVerified {
+		log.Infof("Routing sbft prepare message to all nodes: %s", utils.LoggingString(signedPrepareMessage))
+		h.sbftPrepareToRouteCh <- signedPrepareMessage
+	} else {
+		h.prepareToRouteCh <- signedPrepareMessage
+	}
 
 	return nil
 }

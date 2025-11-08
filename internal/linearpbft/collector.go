@@ -1,6 +1,8 @@
 package linearpbft
 
 import (
+	"time"
+
 	"github.com/mavleo96/bft-mavleo96/internal/crypto"
 	"github.com/mavleo96/bft-mavleo96/internal/utils"
 	"github.com/mavleo96/bft-mavleo96/pb"
@@ -10,6 +12,7 @@ import (
 // CollectPrepareMessages collects prepare messages from all nodes and sends to handler
 func (n *LinearPBFTNode) CollectPrepareMessages(responseCh <-chan *pb.SignedPrepareMessage) {
 	signedPrepareMessageMap := make(map[int64]map[string]*pb.SignedPrepareMessage) // sequence number -> node ID -> signed prepare message
+	sbftSignalChMap := make(map[int64]chan bool)                                   // sequence number -> sbft signal channel
 
 	// Keep looping and send to handler once we have 2f + 1 prepare messages for a sequence number
 	for {
@@ -30,8 +33,7 @@ func (n *LinearPBFTNode) CollectPrepareMessages(responseCh <-chan *pb.SignedPrep
 		// If we have 2f prepare messages for a sequence number, send to handler
 		if len(signedPrepareMessageMap[sequenceNum]) == int(2*n.config.F) {
 			log.Infof("New view prepare collector: Collected 2f prepare messages for sequence number %d", sequenceNum)
-			// Convert map to slice of signed prepare messages and add self's prepare message to support TSS
-			signedPrepareMessages := utils.Values(signedPrepareMessageMap[sequenceNum])
+			// Add self's prepare message to support TSS
 			prepareMessage := &pb.PrepareMessage{
 				ViewNumber:  signedPrepareMessage.Message.ViewNumber,
 				SequenceNum: sequenceNum,
@@ -39,17 +41,33 @@ func (n *LinearPBFTNode) CollectPrepareMessages(responseCh <-chan *pb.SignedPrep
 				NodeID:      n.ID,
 			}
 			signedPrepareMessage := &pb.SignedPrepareMessage{
-				Message:   prepareMessage,
-				Signature: crypto.Sign(prepareMessage, n.handler.privateKey1),
+				Message:    prepareMessage,
+				Signature:  crypto.Sign(prepareMessage, n.handler.privateKey1),
+				Signature2: crypto.Sign(prepareMessage, n.handler.privateKey2),
 			}
 
 			// Byzantine node behavior: sign attack
 			if n.byzantineConfig.Byzantine && n.byzantineConfig.SignAttack {
 				signedPrepareMessage.Signature = []byte("invalid signature")
+				signedPrepareMessage.Signature2 = []byte("invalid signature")
 			}
+			signedPrepareMessageMap[sequenceNum][n.ID] = signedPrepareMessage
 
-			signedPrepareMessages = append(signedPrepareMessages, signedPrepareMessage)
-			go n.handler.LeaderPrepareMessageHandler(signedPrepareMessages)
+			sbftSignalChMap[sequenceNum] = make(chan bool)
+			defer close(sbftSignalChMap[sequenceNum])
+			go func(sequenceNum int64, sbftSignalCh chan bool) {
+				select {
+				case <-time.After(SBFTTimeout):
+					log.Infof("SBFT timeout for sequence number %d", sequenceNum)
+				case <-sbftSignalCh:
+					log.Infof("SBFT signal received for sequence number %d", sequenceNum)
+				}
+				n.handler.LeaderPrepareMessageHandler(utils.Values(signedPrepareMessageMap[sequenceNum]))
+			}(sequenceNum, sbftSignalChMap[sequenceNum])
+		}
+
+		if len(signedPrepareMessageMap[sequenceNum]) == int(n.config.N) {
+			sbftSignalChMap[sequenceNum] <- true
 		}
 	}
 }

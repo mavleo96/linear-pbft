@@ -110,6 +110,15 @@ func (n *LinearPBFTNode) RouterRoutine(ctx context.Context) {
 			// // Collect 2f + 1 matching commit messages including self
 			go n.CollectCommitMessages(responseCh)
 
+		// SBFT Prepare Route: Prepares are sent to all nodes without collecting commit messages
+		case signedPrepareMessage := <-n.handler.GetSBFTPrepareToRouteChannel():
+			// Multicast sbft prepare message to all nodes
+			for _, peer := range n.handler.peers {
+				go n.SendPrepareToNode(signedPrepareMessage, peer.ID)
+			}
+
+			n.executor.GetExecutionTriggerChannel() <- signedPrepareMessage.Message.SequenceNum
+
 		// Route commit message from protocol handler to all backup nodes
 		case signedCommitMessage := <-n.handler.GetCommitToRouteChannel():
 			// Multicast commit message to all nodes

@@ -15,6 +15,7 @@ const (
 	ExecutionTimeout  = 400 * time.Millisecond
 	ViewChangeTimeout = 700 * time.Millisecond
 	TimeAttackDelay   = 100 * time.Millisecond
+	SBFTTimeout       = 50 * time.Millisecond
 )
 
 // LinearPBFTNode represents a LinearPBFT node
@@ -68,7 +69,7 @@ func CreateLinearPBFTNode(selfNode *models.Node, peerNodes map[string]*models.No
 	viewchanger := CreateViewChangeManager(selfNode.ID, timer, serverState, serverConfig)
 	checkpointer := CreateCheckpointManager(selfNode.ID, serverState, serverConfig)
 	executor := CreateExecutor(serverState, serverConfig, bankDB, checkpointer, timer, executionTriggerChannel)
-	handler := CreateProtocolHandler(selfNode.ID, serverState, serverConfig, byzantineConfig, privateKey1, masterPublicKey1, peerNodes, timer, executionTriggerChannel)
+	handler := CreateProtocolHandler(selfNode.ID, serverState, serverConfig, byzantineConfig, privateKey1, privateKey2, masterPublicKey1, masterPublicKey2, peerNodes, timer, executionTriggerChannel)
 
 	server := &LinearPBFTNode{
 		Node:            selfNode,

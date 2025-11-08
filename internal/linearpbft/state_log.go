@@ -28,6 +28,7 @@ type LogRecord struct {
 	prepared          bool
 	committed         bool
 	executed          bool
+	sbftVerified      bool
 	prePrepareMessage *pb.SignedPrePrepareMessage
 	prepareMessage    *pb.SignedPrepareMessage
 	commitMessage     *pb.SignedCommitMessage
@@ -221,7 +222,7 @@ func (s *StateLog) AddPrePrepareMessage(sequenceNum int64, signedPrePrepareMessa
 }
 
 // AddPrepareMessages adds prepare messages to the log record
-func (s *StateLog) AddPrepareMessages(sequenceNum int64, prepareMessage *pb.SignedPrepareMessage) string {
+func (s *StateLog) AddPrepareMessages(sequenceNum int64, prepareMessage *pb.SignedPrepareMessage, sbftVerified bool) string {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	record, exists := s.log[sequenceNum]
@@ -229,6 +230,7 @@ func (s *StateLog) AddPrepareMessages(sequenceNum int64, prepareMessage *pb.Sign
 		return ""
 	}
 	record.prepareMessage = prepareMessage
+	record.sbftVerified = sbftVerified
 	status := updateLogState(record)
 
 	// Byzantine node behavior: crash attack
@@ -326,6 +328,7 @@ func createLogRecord(viewNumber int64, sequenceNumber int64, digest []byte) *Log
 		prepared:          false,
 		committed:         false,
 		executed:          false,
+		sbftVerified:      false,
 		prePrepareMessage: nil,
 		prepareMessage:    nil,
 		commitMessage:     nil,
@@ -342,7 +345,7 @@ func updateLogState(record *LogRecord) string {
 		return "PP"
 	}
 	record.prepared = true
-	if record.commitMessage == nil {
+	if record.commitMessage == nil && !record.sbftVerified {
 		return "P"
 	}
 	record.committed = true

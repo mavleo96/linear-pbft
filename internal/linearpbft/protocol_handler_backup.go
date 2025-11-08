@@ -73,8 +73,9 @@ func (h *ProtocolHandler) BackupPrePrepareRequestHandler(signedPrePrepareMessage
 		NodeID:      h.id,
 	}
 	signedPrepareMessage := &pb.SignedPrepareMessage{
-		Message:   prepareMessage,
-		Signature: crypto.Sign(prepareMessage, h.privateKey1),
+		Message:    prepareMessage,
+		Signature:  crypto.Sign(prepareMessage, h.privateKey1),
+		Signature2: crypto.Sign(prepareMessage, h.privateKey2),
 	}
 
 	// Byzantine node behavior: sign attack
@@ -86,7 +87,7 @@ func (h *ProtocolHandler) BackupPrePrepareRequestHandler(signedPrePrepareMessage
 }
 
 // BackupPrepareRequestHandler handles the prepare request backup
-func (h *ProtocolHandler) BackupPrepareRequestHandler(signedPrepareMessage *pb.SignedPrepareMessage) (*pb.SignedCommitMessage, error) {
+func (h *ProtocolHandler) BackupPrepareRequestHandler(signedPrepareMessage *pb.SignedPrepareMessage, sbftVerified bool) (*pb.SignedCommitMessage, error) {
 	prepareMessage := signedPrepareMessage.Message
 	viewNumber := prepareMessage.ViewNumber
 	sequenceNum := prepareMessage.SequenceNum
@@ -101,13 +102,18 @@ func (h *ProtocolHandler) BackupPrepareRequestHandler(signedPrepareMessage *pb.S
 	}
 
 	// Log the prepare messages in record
-	log.Infof("Logging prepare message: %s", utils.LoggingString(prepareMessage))
-	status := h.state.StateLog.AddPrepareMessages(sequenceNum, signedPrepareMessage)
+	log.Infof("Logging prepare message: %s sbftVerified: %t", utils.LoggingString(prepareMessage), sbftVerified)
+	status := h.state.StateLog.AddPrepareMessages(sequenceNum, signedPrepareMessage, sbftVerified)
 	log.Infof("v: %d s: %d status: %s", viewNumber, sequenceNum, status)
 
 	// Trigger execution if request is committed
 	if h.state.StateLog.IsCommitted(sequenceNum) {
 		h.executionTriggerCh <- sequenceNum
+	}
+
+	// If sbft verified, commit phase is skipped
+	if sbftVerified {
+		return nil, nil
 	}
 
 	// Create commit message and sign it

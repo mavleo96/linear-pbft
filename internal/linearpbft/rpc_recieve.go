@@ -102,13 +102,14 @@ func (n *LinearPBFTNode) PrepareRequest(ctx context.Context, signedPrepareMessag
 
 	// Verify Signature
 	ok := crypto.Verify(prepareMessage, n.handler.masterPublicKey1, signedPrepareMessage.Signature)
+	sbftVerified := crypto.Verify(prepareMessage, n.handler.masterPublicKey2, signedPrepareMessage.Signature2)
 	if !ok {
 		log.Warnf("Rejected: %s; invalid signature", utils.LoggingString(signedPrepareMessage))
 		return nil, status.Errorf(codes.Unauthenticated, "invalid signature")
 	}
 
 	// Handle prepare message
-	signedCommitMessage, err := n.handler.BackupPrepareRequestHandler(signedPrepareMessage)
+	signedCommitMessage, err := n.handler.BackupPrepareRequestHandler(signedPrepareMessage, sbftVerified)
 
 	// Byzantine node behavior: dark attack
 	primaryID := utils.ViewNumberToPrimaryID(prepareMessage.ViewNumber, n.config.N)
