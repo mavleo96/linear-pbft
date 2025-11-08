@@ -94,5 +94,9 @@ func CreateLinearPBFTNode(selfNode *models.Node, peerNodes map[string]*models.No
 		return server.SendGetRequest(digest)
 	}
 
+	viewchanger.SendGetRequest = func(digest []byte) (*pb.SignedTransactionRequest, error) {
+		return server.SendGetRequest(digest)
+	}
+
 	return server
 }

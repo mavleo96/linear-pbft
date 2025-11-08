@@ -305,6 +305,23 @@ func (n *LinearPBFTNode) NewViewRequest(signedNewViewMessage *pb.SignedNewViewMe
 			log.Warnf("Rejected: %s; invalid signature on preprepare message", utils.LoggingString(signedNewViewMessage))
 			return status.Errorf(codes.FailedPrecondition, "invalid signature on preprepare message")
 		}
+
+		// If request is missing then send a get request to all nodes
+		signedRequest := n.state.TransactionMap.Get(prePrepareMessage.Digest)
+		if signedRequest == nil {
+			response, err := n.viewchanger.SendGetRequest(prePrepareMessage.Digest)
+			if err != nil || response == nil || response.Request == nil {
+				return status.Errorf(codes.FailedPrecondition, "request could not be retrieved from any node")
+			}
+			signedRequest = response
+			n.state.TransactionMap.Set(prePrepareMessage.Digest, signedRequest)
+		}
+
+		// Verify Digest
+		if !cmp.Equal(prePrepareMessage.Digest, crypto.Digest(signedRequest)) {
+			log.Warnf("Rejected: %s; invalid digest on preprepare message", utils.LoggingString(signedNewViewMessage))
+			return status.Errorf(codes.FailedPrecondition, "invalid digest on preprepare message")
+		}
 	}
 
 	// Logger: add received new view message
@@ -319,9 +336,6 @@ func (n *LinearPBFTNode) NewViewRequest(signedNewViewMessage *pb.SignedNewViewMe
 		log.Warnf("New view request %s could not be handled: %s", utils.LoggingString(signedNewViewMessage), err)
 		return status.Errorf(codes.Internal, "new view request could not be handled")
 	}
-
-	// TODO: get missing requests
-	// route it to router routine and set the missing requests in the transaction map
 
 	// Route preprepare message to handler and stream prepare messages to primary
 	for _, signedPrePrepareMessage := range signedPrePrepareMessages {

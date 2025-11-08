@@ -4,6 +4,8 @@ import (
 	"github.com/mavleo96/bft-mavleo96/internal/utils"
 	"github.com/mavleo96/bft-mavleo96/pb"
 	log "github.com/sirupsen/logrus"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // ViewChangeMessageHandler handles the view change message
@@ -116,9 +118,14 @@ func (v *ViewChangeManager) LeaderNewViewRequestHandler(signedNewViewMessage *pb
 
 		// // If request is not in the transaction map then send a get request to all nodes
 		signedRequest := v.state.TransactionMap.Get(prePrepareMessage.Digest)
-		// if signedRequest == nil {
-		// 	response, err := v.SendGetRequest(prePrepareMessage.Digest)
-		// }
+		if signedRequest == nil {
+			response, err := v.SendGetRequest(prePrepareMessage.Digest)
+			if err != nil || response == nil || response.Request == nil {
+				return status.Errorf(codes.FailedPrecondition, "request could not be retrieved from any node")
+			}
+			signedRequest = response
+			v.state.TransactionMap.Set(prePrepareMessage.Digest, signedRequest)
+		}
 
 		// Update state log
 		v.state.StateLog.CreateRecordIfNotExists(viewNumber, sequenceNum, prePrepareMessage.Digest)

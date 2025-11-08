@@ -26,7 +26,7 @@ type ViewChangeManager struct {
 	checkpointInstallRequestCh chan int64
 
 	// Functions
-	SendGetCheckpoint func(sequenceNum int64) (*pb.Checkpoint, error)
+	SendGetRequest func(digest []byte) (*pb.SignedTransactionRequest, error)
 }
 
 // GetViewChangeToRouteChannel returns the channel to send view change messages to route
