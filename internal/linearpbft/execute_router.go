@@ -27,7 +27,6 @@ executeLoop:
 					break tryLoop
 				}
 				if e.state.StateLog.IsExecuted(i) {
-					// e.state.SetLastExecutedSequenceNum(i)
 					log.Fatalf("Sequence number %d was executed but state maxexecuted sequence number is %d", i, e.state.GetLastExecutedSequenceNum())
 					continue tryLoop
 				}

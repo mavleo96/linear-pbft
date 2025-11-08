@@ -104,6 +104,20 @@ func (s *ServerState) ResetForwardedRequestsLog() {
 	s.forwardedRequestsLog = make([][]byte, 0)
 }
 
+// Reset resets the server state
+func (s *ServerState) Reset() {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	s.viewNumber = 0
+	s.viewChangePhase = false
+	s.viewChangeViewNumber = 0
+	s.lastExecutedSequenceNum = 0
+	s.forwardedRequestsLog = make([][]byte, 0)
+	s.StateLog.Reset()
+	s.TransactionMap.Reset()
+	s.LastReply.Reset()
+}
+
 // CreateServerState creates a new server state
 func CreateServerState(config *ServerConfig) *ServerState {
 	return &ServerState{

@@ -46,23 +46,15 @@ func (n *LinearPBFTNode) ReconfigureNode(ctx context.Context, changeStatusMessag
 
 // ResetNode resets the server state and database
 func (n *LinearPBFTNode) ResetNode(ctx context.Context, req *emptypb.Empty) (*emptypb.Empty, error) {
-	// Reset server state
-	n.state.StateLog.log = make(map[int64]*LogRecord)
-	n.state.SetLastExecutedSequenceNum(0)
-	n.state.LastReply.ReplyMap = make(map[string]*pb.TransactionResponse)
-	n.state.SetViewNumber(0)
-	n.state.SetViewChangePhase(false)
-	n.state.SetViewChangeViewNumber(0)
-	n.state.TransactionMap = CreateTransactionMap()
-	n.state.ResetForwardedRequestsLog()
-	n.executor.checkpointer.log = make(map[int64]map[string]*pb.SignedCheckpointMessage)
-	n.executor.checkpointer.checkpoints = make(map[int64]*pb.Checkpoint)
-	n.config.lowWaterMark = 0
-	n.config.highWaterMark = 100
+	// Reset configuration
+	n.config.Reset(100)
+	n.byzantineConfig.Reset()
 
-	// Reset DB
+	// Reset server state
+	n.state.Reset()
+	n.viewchanger.Reset()
+	n.executor.checkpointer.Reset()
 	n.executor.db.ResetDB(10)
 
 	return &emptypb.Empty{}, nil
-
 }

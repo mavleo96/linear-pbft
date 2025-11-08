@@ -77,6 +77,14 @@ func (c *CheckpointManager) DeleteCheckpoint(sequenceNum int64) {
 	delete(c.checkpoints, sequenceNum)
 }
 
+// Reset resets the checkpoint manager
+func (c *CheckpointManager) Reset() {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	c.log = make(map[int64]map[string]*pb.SignedCheckpointMessage)
+	c.checkpoints = make(map[int64]*pb.Checkpoint)
+}
+
 // CreateCheckpointManager creates a new check point manager
 func CreateCheckpointManager(id string, state *ServerState, config *ServerConfig) *CheckpointManager {
 	return &CheckpointManager{

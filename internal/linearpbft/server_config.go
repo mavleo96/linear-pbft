@@ -41,6 +41,14 @@ func (sc *ServerConfig) SequenceNumberInRange(sequenceNum int64) bool {
 	return sequenceNum > sc.lowWaterMark && sequenceNum <= sc.highWaterMark
 }
 
+// Reset resets the server configuration
+func (sc *ServerConfig) Reset(l int64) {
+	sc.mutex.Lock()
+	defer sc.mutex.Unlock()
+	sc.lowWaterMark = 0
+	sc.highWaterMark = l
+}
+
 // CreateServerConfig creates a new server configuration
 func CreateServerConfig(n int64, k int64, l int64) *ServerConfig {
 	return &ServerConfig{

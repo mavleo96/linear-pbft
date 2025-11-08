@@ -198,7 +198,7 @@ func (s *StateLog) AddPrePrepareMessage(sequenceNum int64, signedPrePrepareMessa
 		return ""
 	}
 	record.prePrepareMessage = signedPrePrepareMessage
-	return record.updateLogState()
+	return updateLogState(record)
 }
 
 // AddPrepareMessages adds prepare messages to the log record
@@ -210,7 +210,7 @@ func (s *StateLog) AddPrepareMessages(sequenceNum int64, prepareMessage *pb.Sign
 		return ""
 	}
 	record.prepareMessage = prepareMessage
-	return record.updateLogState()
+	return updateLogState(record)
 }
 
 // AddCommitMessages adds commit messages to the log record
@@ -222,7 +222,7 @@ func (s *StateLog) AddCommitMessages(sequenceNum int64, commitMessage *pb.Signed
 		return ""
 	}
 	record.commitMessage = commitMessage
-	return record.updateLogState()
+	return updateLogState(record)
 }
 
 // GetPrepareProof returns the prepare proofs for all prepared log records
@@ -256,6 +256,22 @@ func (s *StateLog) GetLogRecord(sequenceNum int64) *LogRecord {
 	return record
 }
 
+// Reset resets the state log
+func (s *StateLog) Reset() {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	s.log = make(map[int64]*LogRecord)
+}
+
+// CreateStateLog creates a new state log
+func CreateStateLog(config *ServerConfig) *StateLog {
+	return &StateLog{
+		mutex:  sync.RWMutex{},
+		log:    make(map[int64]*LogRecord),
+		config: config,
+	}
+}
+
 // CreateLogRecord creates a new log record
 func createLogRecord(viewNumber int64, sequenceNumber int64, digest []byte) *LogRecord {
 	return &LogRecord{
@@ -273,72 +289,71 @@ func createLogRecord(viewNumber int64, sequenceNumber int64, digest []byte) *Log
 }
 
 // updateLogState updates the log state
-func (l *LogRecord) updateLogState() string {
-	if l.prePrepareMessage == nil {
+func updateLogState(record *LogRecord) string {
+	if record.prePrepareMessage == nil {
 		return "X"
 	}
-	l.prePrepared = true
-	if l.prepareMessage == nil {
+	record.prePrepared = true
+	if record.prepareMessage == nil {
 		return "PP"
 	}
-	l.prepared = true
-	if l.commitMessage == nil {
+	record.prepared = true
+	if record.commitMessage == nil {
 		return "P"
 	}
-	l.committed = true
-	if !l.executed {
+	record.committed = true
+	if !record.executed {
 		return "C"
 	}
 	return "E"
-}
-
-// CreateStateLog creates a new state log
-func CreateStateLog(config *ServerConfig) *StateLog {
-	return &StateLog{
-		mutex:  sync.RWMutex{},
-		log:    make(map[int64]*LogRecord),
-		config: config,
-	}
 }
 
 // ---------------------------------------------------------- //
 
 // TransactionMap represents a map of digest to signed transaction request with a mutex
 type TransactionMap struct {
-	Mutex sync.RWMutex
-	Map   map[[32]byte]*pb.SignedTransactionRequest
+	mutex      sync.RWMutex
+	requestMap map[[32]byte]*pb.SignedTransactionRequest
 }
 
 // Get returns the signed transaction request for a given digest
 func (t *TransactionMap) Get(digest []byte) *pb.SignedTransactionRequest {
-	t.Mutex.RLock()
-	defer t.Mutex.RUnlock()
-	return t.Map[utils.To32Bytes(digest)]
+	t.mutex.RLock()
+	defer t.mutex.RUnlock()
+	return t.requestMap[utils.To32Bytes(digest)]
 }
 
 // Set sets the signed transaction request for a given digest
 func (t *TransactionMap) Set(digest []byte, signedRequest *pb.SignedTransactionRequest) {
-	t.Mutex.Lock()
-	defer t.Mutex.Unlock()
-	t.Map[utils.To32Bytes(digest)] = signedRequest
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+	t.requestMap[utils.To32Bytes(digest)] = signedRequest
+}
+
+// Reset resets the transaction map
+func (t *TransactionMap) Reset() {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+	t.requestMap = make(map[[32]byte]*pb.SignedTransactionRequest)
+	t.requestMap[utils.To32Bytes(DigestNoOp)] = NoOpTransactionRequest
 }
 
 // CreateTransactionMap creates a new transaction map
 func CreateTransactionMap() *TransactionMap {
 	transactionMap := &TransactionMap{
-		Mutex: sync.RWMutex{},
-		Map:   make(map[[32]byte]*pb.SignedTransactionRequest),
+		mutex:      sync.RWMutex{},
+		requestMap: make(map[[32]byte]*pb.SignedTransactionRequest),
 	}
 	transactionMap.Set(DigestNoOp, NoOpTransactionRequest)
 	return transactionMap
 }
 
 func (t *TransactionMap) LogString() string {
-	t.Mutex.RLock()
-	defer t.Mutex.RUnlock()
+	t.mutex.RLock()
+	defer t.mutex.RUnlock()
 
 	transactionMapString := make([]string, 0)
-	for digest, signedRequest := range t.Map {
+	for digest, signedRequest := range t.requestMap {
 		transactionMapString = append(transactionMapString, fmt.Sprintf("%s: %s", hex.EncodeToString(digest[:]), utils.LoggingString(signedRequest.Request)))
 	}
 	return strings.Join(transactionMapString, "\n")
@@ -348,28 +363,35 @@ func (t *TransactionMap) LogString() string {
 
 // LastReply represents a map of sender to last sent reply with a mutex
 type LastReply struct {
-	Mutex    sync.RWMutex
-	ReplyMap map[string]*pb.TransactionResponse
+	mutex    sync.RWMutex
+	replyMap map[string]*pb.TransactionResponse
 }
 
 // Get returns the last reply sent to a sender
 func (l *LastReply) Get(sender string) *pb.TransactionResponse {
-	l.Mutex.RLock()
-	defer l.Mutex.RUnlock()
-	return l.ReplyMap[sender]
+	l.mutex.RLock()
+	defer l.mutex.RUnlock()
+	return l.replyMap[sender]
 }
 
 // Update updates the last reply sent to a sender
 func (l *LastReply) Update(sender string, reply *pb.TransactionResponse) {
-	l.Mutex.Lock()
-	defer l.Mutex.Unlock()
-	l.ReplyMap[sender] = reply
+	l.mutex.Lock()
+	defer l.mutex.Unlock()
+	l.replyMap[sender] = reply
+}
+
+// Reset resets the last reply
+func (l *LastReply) Reset() {
+	l.mutex.Lock()
+	defer l.mutex.Unlock()
+	l.replyMap = make(map[string]*pb.TransactionResponse)
 }
 
 // CreateLastReply creates a new last reply
 func CreateLastReply() *LastReply {
 	return &LastReply{
-		Mutex:    sync.RWMutex{},
-		ReplyMap: make(map[string]*pb.TransactionResponse),
+		mutex:    sync.RWMutex{},
+		replyMap: make(map[string]*pb.TransactionResponse),
 	}
 }

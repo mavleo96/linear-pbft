@@ -71,6 +71,15 @@ func (v *ViewChangeManager) AddNewViewMessage(signedNewViewMessage *pb.SignedNew
 	v.newViewLog[viewNumber] = signedNewViewMessage
 }
 
+// Reset resets the view change manager
+func (v *ViewChangeManager) Reset() {
+	v.mutex.Lock()
+	defer v.mutex.Unlock()
+	v.viewChangeLog = make(map[int64]map[string]*pb.SignedViewChangeMessage)
+	v.newViewLog = make(map[int64]*pb.SignedNewViewMessage)
+}
+
+// CreateViewChangeManager creates a new view change manager
 func CreateViewChangeManager(id string, safeTimer *SafeTimer, state *ServerState, config *ServerConfig) *ViewChangeManager {
 	return &ViewChangeManager{
 		id:            id,

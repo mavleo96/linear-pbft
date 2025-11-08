@@ -5,6 +5,7 @@ import (
 	"github.com/mavleo96/bft-mavleo96/pb"
 )
 
+// ByzantineConfig represents the configuration of a byzantine node
 type ByzantineConfig struct {
 	Alive                   bool
 	Byzantine               bool
@@ -17,6 +18,20 @@ type ByzantineConfig struct {
 	EquivocationAttackNodes []string
 }
 
+// Reset resets the byzantine config
+func (b *ByzantineConfig) Reset() {
+	b.Alive = true
+	b.Byzantine = false
+	b.SignAttack = false
+	b.CrashAttack = false
+	b.DarkAttack = false
+	b.DarkAttackNodes = make([]string, 0)
+	b.TimeAttack = false
+	b.EquivocationAttack = false
+	b.EquivocationAttackNodes = make([]string, 0)
+}
+
+// CreateByzantineConfig creates a new byzantine config
 func CreateByzantineConfig() *ByzantineConfig {
 	return &ByzantineConfig{
 		Alive:                   true,
@@ -24,10 +39,10 @@ func CreateByzantineConfig() *ByzantineConfig {
 		SignAttack:              false,
 		CrashAttack:             false,
 		DarkAttack:              false,
-		DarkAttackNodes:         []string{},
+		DarkAttackNodes:         make([]string, 0),
 		TimeAttack:              false,
 		EquivocationAttack:      false,
-		EquivocationAttackNodes: []string{},
+		EquivocationAttackNodes: make([]string, 0),
 	}
 }
 
