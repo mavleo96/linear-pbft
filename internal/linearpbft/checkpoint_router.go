@@ -16,8 +16,8 @@ checkpointingLoop:
 			log.Infof("Checkpoint routine received exit signal")
 			return
 
-		case sequenceNum := <-c.checkpointRequestCh:
-			log.Infof("Received signal to start check point routine for sequence number %d", sequenceNum)
+		case sequenceNum := <-c.checkpointPurgeCh:
+			log.Infof("Received signal to start check point routine for sequence number %d and older logs and checkpoints", sequenceNum)
 
 			// Create checkpoint digest and verify the digest on check point messages
 			checkpoint := c.GetCheckpoint(sequenceNum)

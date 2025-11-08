@@ -19,13 +19,18 @@ type CheckpointManager struct {
 	config *ServerConfig
 
 	// Channels
-	checkpointCreateCh  chan int64
-	checkpointRequestCh chan int64
+	checkpointCreateCh chan int64
+	checkpointPurgeCh  chan int64
 }
 
 // GetCheckpointCreateChannel returns the channel to create check point messages
 func (c *CheckpointManager) GetCheckpointCreateChannel() chan int64 {
 	return c.checkpointCreateCh
+}
+
+// GetCheckpointPurgeChannel returns the channel to purge checkpoints and messages
+func (c *CheckpointManager) GetCheckpointPurgeChannel() chan<- int64 {
+	return c.checkpointPurgeCh
 }
 
 // AddMessage adds a signed check point message to the log
@@ -88,13 +93,13 @@ func (c *CheckpointManager) Reset() {
 // CreateCheckpointManager creates a new check point manager
 func CreateCheckpointManager(id string, state *ServerState, config *ServerConfig) *CheckpointManager {
 	return &CheckpointManager{
-		mutex:               sync.RWMutex{},
-		id:                  id,
-		log:                 make(map[int64]map[string]*pb.SignedCheckpointMessage),
-		checkpoints:         make(map[int64]*pb.Checkpoint),
-		state:               state,
-		config:              config,
-		checkpointCreateCh:  make(chan int64, 5),
-		checkpointRequestCh: make(chan int64, 5),
+		mutex:              sync.RWMutex{},
+		id:                 id,
+		log:                make(map[int64]map[string]*pb.SignedCheckpointMessage),
+		checkpoints:        make(map[int64]*pb.Checkpoint),
+		state:              state,
+		config:             config,
+		checkpointCreateCh: make(chan int64, 5),
+		checkpointPurgeCh:  make(chan int64, 5),
 	}
 }

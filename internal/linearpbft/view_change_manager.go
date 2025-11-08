@@ -16,6 +16,7 @@ type ViewChangeManager struct {
 	SafeTimer     *SafeTimer
 	state         *ServerState
 	config        *ServerConfig
+	checkpointer  *CheckpointManager
 
 	// Channels
 	viewChangeTriggerCh        chan int64
@@ -80,7 +81,7 @@ func (v *ViewChangeManager) Reset() {
 }
 
 // CreateViewChangeManager creates a new view change manager
-func CreateViewChangeManager(id string, safeTimer *SafeTimer, state *ServerState, config *ServerConfig) *ViewChangeManager {
+func CreateViewChangeManager(id string, safeTimer *SafeTimer, state *ServerState, config *ServerConfig, checkpointer *CheckpointManager) *ViewChangeManager {
 	return &ViewChangeManager{
 		id:            id,
 		mutex:         sync.RWMutex{},
@@ -89,6 +90,7 @@ func CreateViewChangeManager(id string, safeTimer *SafeTimer, state *ServerState
 		SafeTimer:     safeTimer,
 		state:         state,
 		config:        config,
+		checkpointer:  checkpointer,
 
 		// Should trigger channels be non-buffered instead of buffered?
 		viewChangeTriggerCh:        make(chan int64, 5),

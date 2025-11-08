@@ -68,6 +68,11 @@ func (n *LinearPBFTNode) PrePrepareRequest(ctx context.Context, signedMessage *p
 		return nil, status.Errorf(codes.Unavailable, "node not alive")
 	}
 
+	// Byzantine node behavior: crash attack
+	if n.byzantineConfig.Byzantine && n.byzantineConfig.CrashAttack {
+		return nil, status.Errorf(codes.Unavailable, "node not alive")
+	}
+
 	return signedPrepareMessage, err
 }
 
@@ -307,6 +312,11 @@ func (n *LinearPBFTNode) NewViewRequest(signedNewViewMessage *pb.SignedNewViewMe
 		// Byzantine node behavior: dark attack
 		primaryID := utils.ViewNumberToPrimaryID(signedPrepareMessage.Message.ViewNumber, n.config.N)
 		if n.byzantineConfig.Byzantine && n.byzantineConfig.DarkAttack && slices.Contains(n.byzantineConfig.DarkAttackNodes, primaryID) {
+			continue
+		}
+
+		// Byzantine node behavior: crash attack
+		if n.byzantineConfig.Byzantine && n.byzantineConfig.CrashAttack {
 			continue
 		}
 

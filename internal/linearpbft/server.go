@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	ExecutionTimeout  = 400 * time.Millisecond
+	ExecutionTimeout  = 350 * time.Millisecond
 	ViewChangeTimeout = 700 * time.Millisecond
 	TimeAttackDelay   = 100 * time.Millisecond
 	SBFTTimeout       = 50 * time.Millisecond
@@ -66,8 +66,8 @@ func CreateLinearPBFTNode(selfNode *models.Node, peerNodes map[string]*models.No
 
 	executionTriggerChannel := make(chan int64, 100)
 
-	viewchanger := CreateViewChangeManager(selfNode.ID, timer, serverState, serverConfig)
 	checkpointer := CreateCheckpointManager(selfNode.ID, serverState, serverConfig)
+	viewchanger := CreateViewChangeManager(selfNode.ID, timer, serverState, serverConfig, checkpointer)
 	executor := CreateExecutor(serverState, serverConfig, bankDB, checkpointer, timer, executionTriggerChannel)
 	handler := CreateProtocolHandler(selfNode.ID, serverState, serverConfig, byzantineConfig, privateKey1, privateKey2, masterPublicKey1, masterPublicKey2, peerNodes, timer, executionTriggerChannel)
 

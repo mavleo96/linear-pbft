@@ -30,6 +30,6 @@ func (c *CheckpointManager) CheckpointMessageHandler(signedCheckpointMessage *pb
 	}
 	if len(c.GetMessages(sequenceNum)) >= int(2*c.config.F+1) && hasSelfCheckpointMessage && c.config.SequenceNumberInRange(sequenceNum) {
 		log.Infof("Received 2f + 1 check point messages for sequence number %d", sequenceNum)
-		c.checkpointRequestCh <- sequenceNum
+		c.checkpointPurgeCh <- sequenceNum
 	}
 }

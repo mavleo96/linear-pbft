@@ -237,7 +237,7 @@ func (s *StateLog) AddPrepareMessages(sequenceNum int64, prepareMessage *pb.Sign
 	if s.byzantineConfig.Byzantine && s.byzantineConfig.CrashAttack {
 		record.prepared = false
 		record.committed = false
-		if !record.prepared {
+		if !record.prePrepared {
 			status = "X"
 		} else {
 			status = "PP"
@@ -261,7 +261,7 @@ func (s *StateLog) AddCommitMessages(sequenceNum int64, commitMessage *pb.Signed
 	if s.byzantineConfig.Byzantine && s.byzantineConfig.CrashAttack {
 		record.prepared = false
 		record.committed = false
-		if !record.committed {
+		if !record.prePrepared {
 			status = "X"
 		} else {
 			status = "PP"

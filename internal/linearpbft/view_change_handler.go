@@ -43,21 +43,24 @@ func (v *ViewChangeManager) BackupNewViewRequestHandler(signedNewViewMessage *pb
 	log.Infof("Accepted %s", utils.LoggingString(newViewMessage))
 	v.state.ResetForwardedRequestsLog()
 
-	// // Byzantine node behavior: dark attack
-	// if n.Byzantine && n.DarkAttack && slices.Contains(n.DarkAttackNodes, primaryID) {
-	// 	// log.Infof("Node %s is Byzantine and is performing dark attack on node %s", n.ID, primaryID)
-	// 	return status.Errorf(codes.Unavailable, "node not alive")
-	// }
-
 	// Determine the lower watermark sequence number from highest sequence number in view change messages
 	lowerWatermark := int64(0)
+	signedCheckpointMessages := make([]*pb.SignedCheckpointMessage, 0)
 	for _, signedViewChangeMessage := range v.GetViewChangeMessages(viewNumber) {
 		viewChangeMessage := signedViewChangeMessage.Message
 		if viewChangeMessage.SequenceNum > lowerWatermark {
 			lowerWatermark = viewChangeMessage.SequenceNum
+			signedCheckpointMessages = append(signedCheckpointMessages, viewChangeMessage.CheckpointMessages...)
 		}
 	}
+
+	// If lower watermark is greater than low water mark then add checkpoint messages to check point log and purge old checkpoints and messages
 	if lowerWatermark > v.config.GetLowWaterMark() {
+		for _, signedCheckpointMessage := range signedCheckpointMessages {
+			v.checkpointer.AddMessage(signedCheckpointMessage.Message.SequenceNum, signedCheckpointMessage.Message.NodeID, signedCheckpointMessage)
+		}
+		v.checkpointer.GetCheckpointPurgeChannel() <- lowerWatermark
+		log.Infof("Signalling checkpoint purge channel with lower watermark sequence number: %d", lowerWatermark)
 		v.checkpointInstallRequestCh <- lowerWatermark
 		log.Infof("Signalling install check point channel with lower watermark sequence number: %d", lowerWatermark)
 	}
@@ -82,15 +85,22 @@ func (v *ViewChangeManager) LeaderNewViewRequestHandler(signedNewViewMessage *pb
 
 	// Determine the lower watermark sequence number and digest from view change messages
 	lowerWatermark := int64(0)
+	signedCheckpointMessages := make([]*pb.SignedCheckpointMessage, 0)
 	for _, signedViewChangeMessage := range v.GetViewChangeMessages(viewNumber) {
 		viewChangeMessage := signedViewChangeMessage.Message
 		if viewChangeMessage.SequenceNum > lowerWatermark {
 			lowerWatermark = viewChangeMessage.SequenceNum
+			signedCheckpointMessages = append(signedCheckpointMessages, viewChangeMessage.CheckpointMessages...)
 		}
 	}
 
 	// Install latest stable checkpoint for lower watermark sequence number
 	if lowerWatermark > v.config.GetLowWaterMark() {
+		for _, signedCheckpointMessage := range signedCheckpointMessages {
+			v.checkpointer.AddMessage(signedCheckpointMessage.Message.SequenceNum, signedCheckpointMessage.Message.NodeID, signedCheckpointMessage)
+		}
+		v.checkpointer.GetCheckpointPurgeChannel() <- lowerWatermark
+		log.Infof("Signalling checkpoint purge channel with lower watermark sequence number: %d", lowerWatermark)
 		v.checkpointInstallRequestCh <- lowerWatermark
 		log.Infof("Signalling install check point channel with lower watermark sequence number: %d", lowerWatermark)
 	}
