@@ -59,6 +59,14 @@ func (n *LinearPBFTNode) TransferRequest(ctx context.Context, signedRequest *pb.
 			log.Infof("Ignored: %s; already forwarded", utils.LoggingString(request))
 			return &emptypb.Empty{}, nil
 		}
+
+		// Check if already preprepared in current view number
+		sequenceNum := n.state.StateLog.GetSequenceNumberByDigest(digest)
+		if sequenceNum != 0 && n.state.StateLog.IsPrePrepared(sequenceNum) && n.state.StateLog.GetViewNumber(sequenceNum) == n.state.GetViewNumber() {
+			log.Infof("Ignored: %s; already preprepared", utils.LoggingString(request))
+			return &emptypb.Empty{}, nil
+		}
+
 		n.handler.timer.IncrementWaitCountOrStart()
 		ctx := n.handler.timer.GetContext()
 		go n.ForwardRequest(ctx, signedRequest)

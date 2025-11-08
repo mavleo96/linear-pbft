@@ -131,11 +131,8 @@ func (n *LinearPBFTNode) RouterRoutine(ctx context.Context) {
 
 		// Route view change message from view change manager to all nodes
 		case viewNumber := <-n.viewchanger.GetViewChangeToRouteChannel():
-			// NOTE: this should be part of the view change manager
-			// but view change manager does not have access to the check point log
 			signedViewChangeMessage := n.CreateViewChangeMessage(viewNumber)
-			log.Infof("Router routine has logged view change message: %s", utils.LoggingString(signedViewChangeMessage.Message))
-			n.viewchanger.AddViewChangeMessage(signedViewChangeMessage)
+			n.viewchanger.ViewChangeMessageHandler(signedViewChangeMessage)
 
 			// Multicast view change message to all nodes
 			log.Infof("Router routine is multicasting view change message to all nodes: %s", utils.LoggingString(signedViewChangeMessage.Message))

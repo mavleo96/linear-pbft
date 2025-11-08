@@ -98,6 +98,7 @@ func (t *SafeTimer) StopViewTimer() {
 		t.running = false
 	}
 	t.waitCount = 0
+	log.Infof("SafeTimer: Stopped view timer at try count: %d", t.viewChangeTryCount)
 }
 
 // getViewChangeTimeout returns the view change timeout for the current view change try count

@@ -127,6 +127,10 @@ interactionLoop:
 				clientSignalChs[clientID] <- testSet
 			}
 			continue interactionLoop
+		case "skip":
+			nextTestSet++
+			log.Infof("Skipping test set %d", testSets[nextTestSet].SetNumber)
+			continue interactionLoop
 		case "print log":
 			clientapp.SendPrintLogCommand(nodeMap)
 		case "print db":

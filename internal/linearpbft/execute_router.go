@@ -88,6 +88,8 @@ executeLoop:
 			log.Infof("Installed snapshot for sequence number %d and last executed sequence number is now %d", sequenceNum, e.state.GetLastExecutedSequenceNum())
 			e.executionTriggerCh <- sequenceNum
 			log.Infof("Signaled execute channel for sequence number %d", sequenceNum)
+			e.checkpointer.GetCheckpointPurgeChannel() <- sequenceNum
+			log.Infof("Signalled checkpoint purge channel for sequence number %d", sequenceNum)
 		}
 	}
 }

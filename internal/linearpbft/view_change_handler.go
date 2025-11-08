@@ -6,8 +6,8 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// ViewChangeRequestHandler handles the view change request
-func (v *ViewChangeManager) ViewChangeRequestHandler(signedViewChangeMessage *pb.SignedViewChangeMessage) {
+// ViewChangeMessageHandler handles the view change message
+func (v *ViewChangeManager) ViewChangeMessageHandler(signedViewChangeMessage *pb.SignedViewChangeMessage) {
 	viewChangeMessage := signedViewChangeMessage.Message
 	viewNumber := viewChangeMessage.ViewNumber
 
@@ -59,8 +59,6 @@ func (v *ViewChangeManager) BackupNewViewRequestHandler(signedNewViewMessage *pb
 		for _, signedCheckpointMessage := range signedCheckpointMessages {
 			v.checkpointer.AddMessage(signedCheckpointMessage.Message.SequenceNum, signedCheckpointMessage.Message.NodeID, signedCheckpointMessage)
 		}
-		v.checkpointer.GetCheckpointPurgeChannel() <- lowerWatermark
-		log.Infof("Signalling checkpoint purge channel with lower watermark sequence number: %d", lowerWatermark)
 		v.checkpointInstallRequestCh <- lowerWatermark
 		log.Infof("Signalling install check point channel with lower watermark sequence number: %d", lowerWatermark)
 	}
@@ -99,8 +97,6 @@ func (v *ViewChangeManager) LeaderNewViewRequestHandler(signedNewViewMessage *pb
 		for _, signedCheckpointMessage := range signedCheckpointMessages {
 			v.checkpointer.AddMessage(signedCheckpointMessage.Message.SequenceNum, signedCheckpointMessage.Message.NodeID, signedCheckpointMessage)
 		}
-		v.checkpointer.GetCheckpointPurgeChannel() <- lowerWatermark
-		log.Infof("Signalling checkpoint purge channel with lower watermark sequence number: %d", lowerWatermark)
 		v.checkpointInstallRequestCh <- lowerWatermark
 		log.Infof("Signalling install check point channel with lower watermark sequence number: %d", lowerWatermark)
 	}

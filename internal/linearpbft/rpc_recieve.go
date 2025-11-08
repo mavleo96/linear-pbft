@@ -235,7 +235,7 @@ func (n *LinearPBFTNode) ViewChangeRequest(ctx context.Context, signedViewChange
 		}
 	}
 
-	go n.viewchanger.ViewChangeRequestHandler(signedViewChangeMessage)
+	go n.viewchanger.ViewChangeMessageHandler(signedViewChangeMessage)
 
 	return &emptypb.Empty{}, nil
 }
