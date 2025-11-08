@@ -48,10 +48,6 @@ type LinearPBFTNode struct {
 	// Clients and their information
 	Clients map[string]*models.Client
 
-	// State variables and mutex for synchronizing access to shared resources
-	Mutex     sync.RWMutex
-	LastReply *LastReply
-
 	// Server state
 	State *ServerState
 
@@ -71,7 +67,6 @@ type LinearPBFTNode struct {
 	SafeTimer *SafeTimer
 
 	// Message logs
-	ViewChangeMessageLog map[int64]map[string]*pb.SignedViewChangeMessage // v -> (id -> msg)
 	ForwardedRequestsLog []*pb.SignedTransactionRequest
 	// CheckPointLog        *CheckpointLog
 
@@ -102,6 +97,7 @@ func CreateLinearPBFTNode(selfNode *models.Node, peerNodes map[string]*models.No
 		StateLog:                &StateLog{mutex: sync.RWMutex{}, log: make(map[int64]*LogRecord), config: serverConfig},
 		TransactionMap:          CreateTransactionMap(),
 		config:                  serverConfig,
+		LastReply:               &LastReply{Mutex: sync.RWMutex{}, ReplyMap: make(map[string]*pb.TransactionResponse)},
 	}
 
 	executeChannel := make(chan int64, 20)
@@ -173,15 +169,12 @@ func CreateLinearPBFTNode(selfNode *models.Node, peerNodes map[string]*models.No
 
 		Clients:              clientMap,
 		config:               serverConfig,
-		Mutex:                sync.RWMutex{},
-		LastReply:            &LastReply{Mutex: sync.RWMutex{}, ReplyMap: make(map[string]*pb.TransactionResponse)},
 		State:                serverState,
 		SafeTimer:            timer,
 		Executor:             executor,
 		Handler:              handler,
 		ViewChangeManager:    ViewChangeManager,
 		CheckPointManager:    CheckPointManager,
-		ViewChangeMessageLog: make(map[int64]map[string]*pb.SignedViewChangeMessage),
 		ForwardedRequestsLog: make([]*pb.SignedTransactionRequest, 0),
 	}
 

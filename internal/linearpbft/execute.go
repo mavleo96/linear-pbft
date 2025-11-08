@@ -31,6 +31,7 @@ func (e *Executor) GetInstallCheckPointChannel() chan<- int64 {
 }
 
 func (e *Executor) ExecuteRoutine(ctx context.Context) {
+executeLoop:
 	for {
 		select {
 		case <-ctx.Done():
@@ -40,7 +41,7 @@ func (e *Executor) ExecuteRoutine(ctx context.Context) {
 			sequenceNum := e.state.GetLastExecutedSequenceNum()
 			maxSequenceNum := e.state.StateLog.MaxSequenceNum()
 			if sequenceNum == maxSequenceNum {
-				continue
+				continue executeLoop
 			}
 
 		tryLoop:

@@ -14,6 +14,7 @@ type ServerState struct {
 	StateLog       *StateLog
 	TransactionMap *TransactionMap
 	config         *ServerConfig
+	LastReply      *LastReply
 }
 
 // GetViewNumber returns the current view number

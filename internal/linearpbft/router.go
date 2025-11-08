@@ -4,14 +4,12 @@ import (
 	"context"
 	"sync"
 
-	"github.com/mavleo96/bft-mavleo96/internal/crypto"
 	"github.com/mavleo96/bft-mavleo96/internal/models"
 	"github.com/mavleo96/bft-mavleo96/internal/utils"
 	"github.com/mavleo96/bft-mavleo96/pb"
 	log "github.com/sirupsen/logrus"
 )
 
-// TODO: router should not be responsible for collecting messages; it should only route them
 func (n *LinearPBFTNode) RouteAndCollectRoutine(ctx context.Context) {
 	log.Infof("Router routine started")
 	for {
@@ -29,10 +27,10 @@ func (n *LinearPBFTNode) RouteAndCollectRoutine(ctx context.Context) {
 				wg.Add(1)
 				go func(peer *models.Node) {
 					defer wg.Done()
-					signedPrepareMsg, _ := n.SendPrePrepareToNode(signedPreprepareMessage, peer.ID)
-					// if err != nil {
-					// 	return
-					// }
+					signedPrepareMsg, err := n.SendPrePrepareToNode(signedPreprepareMessage, peer.ID)
+					if err != nil {
+						return
+					}
 					responseCh <- signedPrepareMsg
 				}(peer)
 			}
@@ -43,32 +41,8 @@ func (n *LinearPBFTNode) RouteAndCollectRoutine(ctx context.Context) {
 				close(responseCh)
 			}()
 
-			// Collect 2f + 1 matching prepare messages including self
-			signedPrepareMsgs := make([]*pb.SignedPrepareMessage, 0)
-			// Add primary's own prepare message
-			prepareMessage := &pb.PrepareMessage{
-				ViewNumber:  signedPreprepareMessage.Message.ViewNumber,
-				SequenceNum: signedPreprepareMessage.Message.SequenceNum,
-				Digest:      signedPreprepareMessage.Message.Digest,
-				NodeID:      n.ID,
-			}
-			signedPrepareMessage := &pb.SignedPrepareMessage{
-				Message:   prepareMessage,
-				Signature: crypto.Sign(prepareMessage, n.Handler.privateKey1),
-			}
-			signedPrepareMsgs = append(signedPrepareMsgs, signedPrepareMessage)
-
-			for range len(n.Handler.peers) {
-				signedPrepareMsg := <-responseCh
-				if signedPrepareMsg == nil || signedPrepareMsg.Message == nil {
-					continue
-				}
-				signedPrepareMsgs = append(signedPrepareMsgs, signedPrepareMsg)
-				if len(signedPrepareMsgs) == int(n.config.N-n.config.F) {
-					n.Handler.LeaderPrepareMessageHandler(signedPrepareMsgs)
-				}
-				// Rest are just ignored after collection
-			}
+			// // Collect 2f prepare messages
+			go n.CollectPrepareMessages(responseCh)
 
 		// Route prepare message from protocol handler to all backup nodes
 		case signedPrepareMessage := <-n.Handler.GetPrepareChannel():
@@ -79,7 +53,10 @@ func (n *LinearPBFTNode) RouteAndCollectRoutine(ctx context.Context) {
 				wg.Add(1)
 				go func(peer *models.Node) {
 					defer wg.Done()
-					signedCommitMsg, _ := n.SendPrepareToNode(signedPrepareMessage, peer.ID)
+					signedCommitMsg, err := n.SendPrepareToNode(signedPrepareMessage, peer.ID)
+					if err != nil {
+						return
+					}
 					responseCh <- signedCommitMsg
 				}(peer)
 			}
@@ -87,31 +64,8 @@ func (n *LinearPBFTNode) RouteAndCollectRoutine(ctx context.Context) {
 				wg.Wait()
 				close(responseCh)
 			}()
-			// Collect 2f + 1 matching commit messages including self
-			signedCommitMsgs := make([]*pb.SignedCommitMessage, 0)
-			// Add primary's own commit message
-			commitMessage := &pb.CommitMessage{
-				ViewNumber:  signedPrepareMessage.Message.ViewNumber,
-				SequenceNum: signedPrepareMessage.Message.SequenceNum,
-				Digest:      signedPrepareMessage.Message.Digest,
-				NodeID:      n.ID,
-			}
-			signedCommitMessage := &pb.SignedCommitMessage{
-				Message:   commitMessage,
-				Signature: crypto.Sign(commitMessage, n.Handler.privateKey1),
-			}
-			signedCommitMsgs = append(signedCommitMsgs, signedCommitMessage)
-			for range len(n.Handler.peers) {
-				signedCommitMsg := <-responseCh
-				if signedCommitMsg == nil || signedCommitMsg.Message == nil {
-					continue
-				}
-				signedCommitMsgs = append(signedCommitMsgs, signedCommitMsg)
-				if len(signedCommitMsgs) == int(n.config.N-n.config.F) {
-					n.Handler.LeaderCommitMessageHandler(signedCommitMsgs)
-				}
-				// Rest are just ignored after collection
-			}
+			// // Collect 2f + 1 matching commit messages including self
+			go n.CollectCommitMessages(responseCh)
 
 		// Route commit message from protocol handler to all backup nodes
 		case signedCommitMessage := <-n.Handler.GetCommitChannel():
@@ -119,6 +73,9 @@ func (n *LinearPBFTNode) RouteAndCollectRoutine(ctx context.Context) {
 			for _, peer := range n.Handler.peers {
 				go n.SendCommitToNode(signedCommitMessage, peer.ID)
 			}
+
+			// Signal the executor to execute the next sequence number
+			n.Executor.GetExecuteChannel() <- 0
 
 		// Route view change message from view change manager to all nodes
 		case viewNumber := <-n.ViewChangeManager.GetViewChangeChannel():
@@ -186,51 +143,5 @@ func (n *LinearPBFTNode) RouteAndCollectRoutine(ctx context.Context) {
 
 		}
 
-		// Route get check point message from router to all nodes
-
-		// NOTE: The executor is signalled everytime may be redundant; but it is safe to do so
-		// TODO: need to check if calling only in commit message handler or in router routine is sufficient
-		n.Executor.GetExecuteChannel() <- 0
-
-	}
-}
-
-func (n *LinearPBFTNode) CollectPrepareMessages(responseCh chan *pb.SignedPrepareMessage) {
-	signedPrepareMessageMap := make(map[int64]map[string]*pb.SignedPrepareMessage) // sequence number -> node ID -> signed prepare message
-
-	// Keep looping and send to handler once we have 2f + 1 prepare messages for a sequence number
-	for {
-		// Keep collecting until the channel is closed
-		signedPrepareMessage, ok := <-responseCh
-		if !ok {
-			break
-		}
-		prepareMessage := signedPrepareMessage.Message
-		sequenceNum := prepareMessage.SequenceNum
-		if _, ok := signedPrepareMessageMap[sequenceNum]; !ok {
-			signedPrepareMessageMap[sequenceNum] = make(map[string]*pb.SignedPrepareMessage)
-		}
-
-		// Log the prepare message in collection map
-		signedPrepareMessageMap[sequenceNum][prepareMessage.NodeID] = signedPrepareMessage
-
-		// If we have 2f prepare messages for a sequence number, send to handler
-		if len(signedPrepareMessageMap[sequenceNum]) == int(2*n.config.F) {
-			log.Infof("New view prepare collector: Collected 2f prepare messages for sequence number %d", sequenceNum)
-			// Convert map to slice of signed prepare messages and add self's prepare message
-			signedPrepareMessages := utils.Values(signedPrepareMessageMap[sequenceNum])
-			prepareMessage := &pb.PrepareMessage{
-				ViewNumber:  signedPrepareMessage.Message.ViewNumber,
-				SequenceNum: sequenceNum,
-				Digest:      signedPrepareMessage.Message.Digest,
-				NodeID:      n.ID,
-			}
-			signedPrepareMessage := &pb.SignedPrepareMessage{
-				Message:   prepareMessage,
-				Signature: crypto.Sign(prepareMessage, n.Handler.privateKey1),
-			}
-			signedPrepareMessages = append(signedPrepareMessages, signedPrepareMessage)
-			go n.Handler.LeaderPrepareMessageHandler(signedPrepareMessages)
-		}
 	}
 }

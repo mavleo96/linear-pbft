@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"sync"
 
 	"github.com/mavleo96/bft-mavleo96/pb"
 	log "github.com/sirupsen/logrus"
@@ -13,9 +12,6 @@ import (
 
 // ReconfigureNode reconfigures a node's status and attacks
 func (n *LinearPBFTNode) ReconfigureNode(ctx context.Context, changeStatusMessage *pb.ChangeStatusMessage) (*emptypb.Empty, error) {
-	n.Mutex.Lock()
-	defer n.Mutex.Unlock()
-
 	n.Alive = changeStatusMessage.Alive
 	n.Byzantine = changeStatusMessage.Byzantine
 	logString := fmt.Sprintf("Reconfigured node %s to alive: %t, byzantine: %t", n.ID, n.Alive, n.Byzantine)
@@ -50,21 +46,19 @@ func (n *LinearPBFTNode) ReconfigureNode(ctx context.Context, changeStatusMessag
 
 // ResetNode resets the server state and database
 func (n *LinearPBFTNode) ResetNode(ctx context.Context, req *emptypb.Empty) (*emptypb.Empty, error) {
-	// n.Mutex.Lock()
-	// defer n.Mutex.Unlock()
-
 	// Reset server state
-	n.State.StateLog = &StateLog{mutex: sync.RWMutex{}, log: make(map[int64]*LogRecord)}
+	n.State.StateLog.log = make(map[int64]*LogRecord)
 	n.State.SetLastExecutedSequenceNum(0)
-	n.LastReply = &LastReply{Mutex: sync.RWMutex{}, ReplyMap: make(map[string]*pb.TransactionResponse)}
+	n.State.LastReply.ReplyMap = make(map[string]*pb.TransactionResponse)
 	n.State.SetViewNumber(0)
 	n.State.SetViewChangePhase(false)
 	n.State.SetViewChangeViewNumber(0)
 	n.State.TransactionMap = CreateTransactionMap()
-	n.ViewChangeMessageLog = make(map[int64]map[string]*pb.SignedViewChangeMessage)
 	n.ForwardedRequestsLog = make([]*pb.SignedTransactionRequest, 0)
 	n.CheckPointManager.log = make(map[int64]map[string]*pb.SignedCheckPointMessage)
 	n.CheckPointManager.checkpoints = make(map[int64]*pb.CheckPoint)
+	n.config.LowWaterMark = 0
+	n.config.HighWaterMark = 100
 
 	// Reset DB
 	n.Executor.db.ResetDB(10)
