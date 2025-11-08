@@ -152,7 +152,7 @@ func CreateLinearPBFTNode(selfNode *models.Node, peerNodes map[string]*models.No
 		state:         serverState,
 		config:        serverConfig,
 
-		viewChangeRequestCh: make(chan bool, 5),
+		viewChangeRequestCh: make(chan int64, 5),
 		newViewRequestCh:    make(chan bool, 5),
 		viewChangeRouterCh:  make(chan int64, 5),
 		newViewRouterCh:     make(chan int64, 5),

@@ -19,15 +19,8 @@ func (v *ViewChangeManager) ViewChangeRequestHandler(signedViewChangeMessage *pb
 	// Send view change message to all nodes if f + 1 view change messages are collected
 	if v.state.GetViewChangeViewNumber() < viewNumber && len(v.viewChangeLog[viewNumber]) == int(v.config.F+1) {
 		alreadyExpired := v.SafeTimer.Cleanup()
-		if !alreadyExpired || utils.ViewNumberToPrimaryID(viewNumber, v.config.N) != v.id {
-			// log.Infof("Sending view change message to all nodes since f + 1 view change messages are collected: %s", utils.LoggingString(viewChangeMessage))
-			// go v.SendViewChange(viewNumber)
-			// TODO: signal view change request channel
-			log.Infof("Signaling view change request channel since f + 1 view change messages are collected: %s", utils.LoggingString(viewChangeMessage))
-			v.viewChangeRequestCh <- true
-		} else {
-			log.Infof("View change timer already expired at v %d vc %d", v.state.GetViewNumber(), v.state.GetViewChangeViewNumber())
-		}
+		log.Infof("Signaling view change request channel since f + 1 view change messages are collected and time status was %t: %s", alreadyExpired, utils.LoggingString(viewChangeMessage))
+		v.viewChangeRequestCh <- viewNumber
 	}
 
 	// If 2f + 1 view change messages are collected and next primary then send new view message
@@ -137,7 +130,11 @@ func (v *ViewChangeManager) LeaderNewViewRequestHandler(signedNewViewMessage *pb
 		v.state.StateLog.CreateRecordIfNotExists(viewNumber, sequenceNum, prePrepareMessage.Digest)
 		log.Infof("Logging preprepare message: %s", utils.LoggingString(prePrepareMessage))
 		status := v.state.StateLog.AddPrePrepareMessage(sequenceNum, signedPrePrepareMessage)
-		log.Infof("v: %d s: %d status: %s req: %s", prePrepareMessage.ViewNumber, prePrepareMessage.SequenceNum, status, utils.LoggingString(signedRequest.Request))
+		if signedRequest != nil && signedRequest.Request != nil {
+			log.Infof("v: %d s: %d status: %s req: %s", prePrepareMessage.ViewNumber, prePrepareMessage.SequenceNum, status, utils.LoggingString(signedRequest.Request))
+		} else {
+			log.Infof("v: %d s: %d status: %s req: nil", prePrepareMessage.ViewNumber, prePrepareMessage.SequenceNum, status)
+		}
 	}
 
 	// Purge log records greater than max sequence number
