@@ -2,6 +2,7 @@ package linearpbft
 
 import (
 	"context"
+	"slices"
 	"sync"
 
 	"github.com/mavleo96/bft-mavleo96/internal/models"
@@ -27,6 +28,12 @@ func (n *LinearPBFTNode) RouterRoutine(ctx context.Context) {
 				wg.Add(1)
 				go func(peer *models.Node) {
 					defer wg.Done()
+
+					// Byzantine node behavior: equivocation attack
+					if n.byzantineConfig.Byzantine && n.byzantineConfig.EquivocationAttack && slices.Contains(n.byzantineConfig.EquivocationAttackNodes, peer.ID) {
+						return
+					}
+
 					log.Infof("Preprepare was sent to node %s: %s", peer.ID, utils.LoggingString(signedPreprepareMessage.Message))
 					signedPrepareMsg, err := n.SendPrePrepareToNode(signedPreprepareMessage, peer.ID)
 					if err != nil {
@@ -44,6 +51,40 @@ func (n *LinearPBFTNode) RouterRoutine(ctx context.Context) {
 			}()
 
 			// // Collect 2f prepare messages
+			go n.CollectPrepareMessages(responseCh)
+
+		// Route equivocation preprepare message from handler to attacked backup nodes
+		case signedPreprepareMessage := <-n.byzantineConfig.GetEquivocationPrePrepareToRouteChannel():
+			// Multicast equivocation preprepare message to other nodes
+			responseCh := make(chan *pb.SignedPrepareMessage, len(n.handler.peers))
+			wg := sync.WaitGroup{}
+			for _, peer := range n.handler.peers {
+				wg.Add(1)
+				go func(peer *models.Node) {
+					defer wg.Done()
+
+					// Byzantine node behavior: equivocation attack
+					if n.byzantineConfig.Byzantine && n.byzantineConfig.EquivocationAttack && !slices.Contains(n.byzantineConfig.EquivocationAttackNodes, peer.ID) {
+						return
+					}
+
+					log.Infof("Equivocation preprepare was sent to node %s: %s", peer.ID, utils.LoggingString(signedPreprepareMessage.Message))
+					signedPrepareMsg, err := n.SendPrePrepareToNode(signedPreprepareMessage, peer.ID)
+					if err != nil {
+						return
+					}
+					log.Infof("Prepare was sent to collector channel: %s", utils.LoggingString(signedPrepareMsg.Message))
+					responseCh <- signedPrepareMsg
+				}(peer)
+			}
+
+			// Wait for all responses and close the channel
+			go func() {
+				wg.Wait()
+				close(responseCh)
+			}()
+
+			// Collect 2f prepare messages
 			go n.CollectPrepareMessages(responseCh)
 
 		// Route prepare message from protocol handler to all backup nodes

@@ -76,6 +76,12 @@ func (s *StateLog) AssignSequenceNumberAndCreateRecord(viewNumber int64, digest 
 	}
 	// TODO: -1 is a placeholder for view number, need to change this later
 	s.log[sequenceNum] = createLogRecord(viewNumber, sequenceNum, digest)
+
+	// Byzantine node behavior: equivocation attack
+	if s.byzantineConfig.Byzantine && s.byzantineConfig.EquivocationAttack {
+		s.log[sequenceNum+1] = createLogRecord(viewNumber, sequenceNum+1, digest)
+	}
+
 	return sequenceNum, true
 }
 

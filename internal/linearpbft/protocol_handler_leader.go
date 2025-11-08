@@ -50,6 +50,28 @@ func (h *ProtocolHandler) LeaderTransactionRequestHandler(signedRequest *pb.Sign
 
 	h.preprepareToRouteCh <- signedPreprepare
 
+	// Byzantine node behavior: equivocation attack
+	if h.byzantineConfig.Byzantine && h.byzantineConfig.EquivocationAttack {
+		// Create equivocation preprepare message
+		equivocationPreprepare := &pb.PrePrepareMessage{
+			ViewNumber:  h.state.GetViewNumber(),
+			SequenceNum: sequenceNum + 1,
+			Digest:      crypto.Digest(signedRequest),
+		}
+		signedEquivocationPreprepare := &pb.SignedPrePrepareMessage{
+			Message:   equivocationPreprepare,
+			Signature: crypto.Sign(equivocationPreprepare, h.privateKey1),
+			Request:   signedRequest,
+		}
+
+		// Preprepare the transaction
+		status := h.state.StateLog.AddPrePrepareMessage(sequenceNum+1, signedEquivocationPreprepare)
+		log.Infof("v: %d s: %d status: %s req: %s", equivocationPreprepare.ViewNumber, equivocationPreprepare.SequenceNum, status, utils.LoggingString(signedRequest.Request))
+
+		// Route equivocation preprepare message to backup nodes
+		h.byzantineConfig.GetEquivocationPrePrepareToRouteChannel() <- signedEquivocationPreprepare
+	}
+
 	return nil
 }
 

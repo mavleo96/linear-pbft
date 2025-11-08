@@ -45,7 +45,7 @@ executeLoop:
 					success, err = e.db.UpdateDB(request.Transaction)
 					result = utils.BoolToInt64(success)
 				default:
-					continue
+					log.Infof("Null transaction type at sequence number %d", i)
 				}
 				if err != nil {
 					log.Fatal(err)

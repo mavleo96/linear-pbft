@@ -1,16 +1,24 @@
 package linearpbft
 
+import "github.com/mavleo96/bft-mavleo96/pb"
+
 // ByzantineConfig represents the configuration of a byzantine node
 type ByzantineConfig struct {
-	Alive                   bool
-	Byzantine               bool
-	SignAttack              bool
-	CrashAttack             bool
-	DarkAttack              bool
-	DarkAttackNodes         []string
-	TimeAttack              bool
-	EquivocationAttack      bool
-	EquivocationAttackNodes []string
+	Alive                           bool
+	Byzantine                       bool
+	SignAttack                      bool
+	CrashAttack                     bool
+	DarkAttack                      bool
+	DarkAttackNodes                 []string
+	TimeAttack                      bool
+	EquivocationAttack              bool
+	EquivocationAttackNodes         []string
+	equivocationPrePrepareToRouteCh chan *pb.SignedPrePrepareMessage
+}
+
+// GetEquivocationPrePrepareToRouteChannel returns the channel to send equivocation preprepare messages to route
+func (b *ByzantineConfig) GetEquivocationPrePrepareToRouteChannel() chan *pb.SignedPrePrepareMessage {
+	return b.equivocationPrePrepareToRouteCh
 }
 
 // Reset resets the byzantine config
@@ -29,14 +37,15 @@ func (b *ByzantineConfig) Reset() {
 // CreateByzantineConfig creates a new byzantine config
 func CreateByzantineConfig() *ByzantineConfig {
 	return &ByzantineConfig{
-		Alive:                   true,
-		Byzantine:               false,
-		SignAttack:              false,
-		CrashAttack:             false,
-		DarkAttack:              false,
-		DarkAttackNodes:         make([]string, 0),
-		TimeAttack:              false,
-		EquivocationAttack:      false,
-		EquivocationAttackNodes: make([]string, 0),
+		Alive:                           true,
+		Byzantine:                       false,
+		SignAttack:                      false,
+		CrashAttack:                     false,
+		DarkAttack:                      false,
+		DarkAttackNodes:                 make([]string, 0),
+		TimeAttack:                      false,
+		EquivocationAttack:              false,
+		EquivocationAttackNodes:         make([]string, 0),
+		equivocationPrePrepareToRouteCh: make(chan *pb.SignedPrePrepareMessage, 100),
 	}
 }

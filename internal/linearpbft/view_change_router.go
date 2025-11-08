@@ -18,15 +18,12 @@ func (v *ViewChangeManager) ViewChangeRoutine(ctx context.Context) {
 		case viewNumber := <-v.viewChangeTriggerCh:
 			// TODO: What if timer expires at this point? -> double view change
 			log.Infof("View change request channel signaled")
-			// TODO: handle view change request
-			// TODO: send view change message to all nodes if f + 1 view change messages are collected
 			if viewNumber <= v.state.GetViewChangeViewNumber() {
 				log.Infof("View change request channel signaled for view number %d but already in view change phase for view number %d", viewNumber, v.state.GetViewChangeViewNumber())
 				continue
 			}
 
-			log.Infof("VCN: %d, NEW VCN: %d, Key of VC log: %d", v.state.GetViewChangeViewNumber(), viewNumber, utils.Keys(v.viewChangeLog))
-			log.Infof("Node %s is entering view change phase and updated vc to %d", v.id, viewNumber)
+			// Update state
 			v.state.SetViewChangeViewNumber(viewNumber)
 			v.state.SetViewChangePhase(true)
 			v.viewChangeToRouteCh <- viewNumber
