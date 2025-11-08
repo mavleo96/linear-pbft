@@ -16,7 +16,7 @@ import (
 
 const (
 	maxAttempts   = 1000
-	clientTimeout = 1000 * time.Millisecond
+	clientTimeout = 800 * time.Millisecond
 )
 
 // Processor processes transactions

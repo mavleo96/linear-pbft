@@ -13,7 +13,7 @@ import (
 
 const (
 	ExecutionTimeout  = 350 * time.Millisecond
-	ViewChangeTimeout = 700 * time.Millisecond
+	ViewChangeTimeout = 600 * time.Millisecond
 	TimeAttackDelay   = 100 * time.Millisecond
 	SBFTTimeout       = 50 * time.Millisecond
 )
