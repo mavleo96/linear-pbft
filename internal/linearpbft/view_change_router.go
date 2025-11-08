@@ -16,7 +16,6 @@ func (v *ViewChangeManager) ViewChangeRoutine(ctx context.Context) {
 			return
 
 		case viewNumber := <-v.viewChangeTriggerCh:
-			// TODO: What if timer expires at this point? -> double view change
 			log.Infof("View change request channel signaled")
 			if viewNumber <= v.state.GetViewChangeViewNumber() {
 				log.Infof("View change request channel signaled for view number %d but already in view change phase for view number %d", viewNumber, v.state.GetViewChangeViewNumber())

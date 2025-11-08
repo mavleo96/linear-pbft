@@ -80,7 +80,6 @@ func (v *ViewChangeManager) LeaderNewViewRequestHandler(signedNewViewMessage *pb
 	// Update state
 	v.state.SetViewNumber(viewNumber)
 	// v.state.SetViewChangeViewNumber(viewNumber)
-	v.state.SetViewChangePhase(false) // TODO: maybe not safe before updating the logs
 	log.Infof("Accepted %s", utils.LoggingString(signedNewViewMessage))
 
 	// Determine the lower watermark sequence number and digest from view change messages
@@ -102,8 +101,6 @@ func (v *ViewChangeManager) LeaderNewViewRequestHandler(signedNewViewMessage *pb
 		v.checkpointInstallRequestCh <- lowerWatermark
 		log.Infof("Signalling install check point channel with lower watermark sequence number: %d", lowerWatermark)
 	}
-
-	// TODO: get missing requests
 
 	// Primary needs to first preprepare the requests in its own log record
 	maxSequenceNum := int64(0)
@@ -142,6 +139,9 @@ func (v *ViewChangeManager) LeaderNewViewRequestHandler(signedNewViewMessage *pb
 	for i := maxSequenceNum + 1; i <= v.state.StateLog.MaxSequenceNum(); i++ {
 		v.state.StateLog.Delete(i)
 	}
+
+	// Now safe to clear view change phase
+	v.state.SetViewChangePhase(false)
 
 	// Return nil
 	return nil

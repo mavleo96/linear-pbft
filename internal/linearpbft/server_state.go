@@ -12,7 +12,7 @@ type ServerState struct {
 	config                  *ServerConfig
 	viewNumber              int64
 	viewChangePhase         bool
-	viewChangeViewNumber    int64 // TODO: rename this to latestViewChangeViewNumber
+	viewChangeViewNumber    int64
 	lastExecutedSequenceNum int64
 	forwardedRequestsLog    [][]byte
 

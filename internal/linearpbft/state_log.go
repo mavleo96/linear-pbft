@@ -76,7 +76,6 @@ func (s *StateLog) AssignSequenceNumberAndCreateRecord(viewNumber int64, digest 
 	if utils.Max(utils.Keys(s.log)) != 0 {
 		sequenceNum = utils.Max(utils.Keys(s.log)) + 1
 	}
-	// TODO: -1 is a placeholder for view number, need to change this later
 	s.log[sequenceNum] = createLogRecord(viewNumber, sequenceNum, digest)
 
 	// Byzantine node behavior: equivocation attack
