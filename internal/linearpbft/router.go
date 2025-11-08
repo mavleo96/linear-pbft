@@ -33,7 +33,7 @@ func (n *LinearPBFTNode) RouterRoutine(ctx context.Context) {
 					defer wg.Done()
 
 					// Byzantine node behavior: equivocation attack
-					if n.byzantineConfig.Byzantine && n.byzantineConfig.EquivocationAttack && slices.Contains(n.byzantineConfig.EquivocationAttackNodes, peer.ID) {
+					if n.byzantineConfig.Byzantine && n.byzantineConfig.EquivocationAttack && !slices.Contains(n.byzantineConfig.EquivocationAttackNodes, peer.ID) {
 						return
 					}
 
@@ -70,7 +70,7 @@ func (n *LinearPBFTNode) RouterRoutine(ctx context.Context) {
 					defer wg.Done()
 
 					// Byzantine node behavior: equivocation attack
-					if n.byzantineConfig.Byzantine && n.byzantineConfig.EquivocationAttack && !slices.Contains(n.byzantineConfig.EquivocationAttackNodes, peer.ID) {
+					if n.byzantineConfig.Byzantine && n.byzantineConfig.EquivocationAttack && slices.Contains(n.byzantineConfig.EquivocationAttackNodes, peer.ID) {
 						return
 					}
 
@@ -214,6 +214,16 @@ func (n *LinearPBFTNode) RouterRoutine(ctx context.Context) {
 			// Signal the executor to install the checkpoint
 			n.executor.GetCheckpointInstallChannel() <- sequenceNum
 
+			// // Send reply to client
+			// case sequenceNum := <-n.executor.GetSendReplyChannel():
+			// 	result := n.state.StateLog.GetResult(sequenceNum)
+			// 	if result == -1 {
+			// 		log.Warnf("Result not found for sequence number %d", sequenceNum)
+			// 		continue
+			// 	}
+			// 	digest := n.state.StateLog.GetDigest(sequenceNum)
+			// 	signedRequest := n.state.TransactionMap.Get(digest)
+			// 	go n.SendReply(signedRequest, result)
 		}
 
 	}

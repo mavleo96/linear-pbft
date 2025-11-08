@@ -53,10 +53,12 @@ executeLoop:
 
 				// Add to executed log and send reply if transaction is not null
 				e.state.StateLog.SetExecuted(i)
+				e.state.StateLog.SetResult(i, result)
 				// TODO: make this elegant since primary doesn't have a safe timer running
 				e.timer.DecrementWaitCountAndResetOrStopIfZero()
 				log.Infof("Executed (v: %d, s: %d): %s", e.state.GetViewNumber(), i, utils.LoggingString(request.Transaction))
 				if request.Transaction.Type != "null" {
+					// e.sendReplyCh <- i
 					go e.sendReply(signedRequest, result)
 				}
 				e.state.SetLastExecutedSequenceNum(i)

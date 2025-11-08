@@ -28,10 +28,11 @@ type LogRecord struct {
 	prepared          bool
 	committed         bool
 	executed          bool
-	sbftVerified      bool
-	prePrepareMessage *pb.SignedPrePrepareMessage
-	prepareMessage    *pb.SignedPrepareMessage
-	commitMessage     *pb.SignedCommitMessage
+	result            int64
+	sbftVerified      map[int64]bool
+	prePrepareMessage map[int64]*pb.SignedPrePrepareMessage
+	prepareMessage    map[int64]*pb.SignedPrepareMessage
+	commitMessage     map[int64]*pb.SignedCommitMessage
 }
 
 // GetSequenceNumberByDigest returns the sequence number of a log record for a given digest and returns 0 if not found
@@ -205,16 +206,39 @@ func (s *StateLog) SetExecuted(sequenceNum int64) {
 	record.executed = true
 }
 
+// GetResult returns the result of a log record; returns -1 if not found
+func (s *StateLog) GetResult(sequenceNum int64) int64 {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	record, exists := s.log[sequenceNum]
+	if !exists {
+		return -1
+	}
+	return record.result
+}
+
+// SetResult sets the result of a log record
+func (s *StateLog) SetResult(sequenceNum int64, result int64) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	record, exists := s.log[sequenceNum]
+	if !exists {
+		return
+	}
+	record.result = result
+}
+
 // AddPrePrepareMessage adds a preprepare message to the log record
 func (s *StateLog) AddPrePrepareMessage(sequenceNum int64, signedPrePrepareMessage *pb.SignedPrePrepareMessage) string {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	record, exists := s.log[sequenceNum]
 	if !exists {
-		return ""
+		return "X"
 	}
-	record.prePrepareMessage = signedPrePrepareMessage
-	updateLogState(record)
+	viewNumber := signedPrePrepareMessage.Message.ViewNumber
+	record.prePrepareMessage[viewNumber] = signedPrePrepareMessage
+	updateLogState(record, viewNumber)
 
 	// Byzantine node behavior: crash attack
 	if s.byzantineConfig.Byzantine && s.byzantineConfig.CrashAttack {
@@ -230,11 +254,12 @@ func (s *StateLog) AddPrepareMessages(sequenceNum int64, prepareMessage *pb.Sign
 	defer s.mutex.Unlock()
 	record, exists := s.log[sequenceNum]
 	if !exists {
-		return ""
+		return "X"
 	}
-	record.prepareMessage = prepareMessage
-	record.sbftVerified = sbftVerified
-	updateLogState(record)
+	viewNumber := prepareMessage.Message.ViewNumber
+	record.prepareMessage[viewNumber] = prepareMessage
+	record.sbftVerified[viewNumber] = sbftVerified
+	updateLogState(record, viewNumber)
 
 	// Byzantine node behavior: crash attack
 	if s.byzantineConfig.Byzantine && s.byzantineConfig.CrashAttack {
@@ -250,10 +275,11 @@ func (s *StateLog) AddCommitMessages(sequenceNum int64, commitMessage *pb.Signed
 	defer s.mutex.Unlock()
 	record, exists := s.log[sequenceNum]
 	if !exists {
-		return ""
+		return "X"
 	}
-	record.commitMessage = commitMessage
-	updateLogState(record)
+	viewNumber := commitMessage.Message.ViewNumber
+	record.commitMessage[viewNumber] = commitMessage
+	updateLogState(record, viewNumber)
 
 	// Byzantine node behavior: crash attack
 	if s.byzantineConfig.Byzantine && s.byzantineConfig.CrashAttack {
@@ -274,9 +300,13 @@ func (s *StateLog) GetPrepareProof() []*pb.PrepareProof {
 			continue
 		}
 		if record.prepared {
+			// max view number of prepare messages
+			maxViewNumber := utils.Max(utils.Keys(record.prepareMessage))
+			prePrepareMessage := record.prePrepareMessage[maxViewNumber]
+			prepareMessage := record.prepareMessage[maxViewNumber]
 			prepareProofs = append(prepareProofs, &pb.PrepareProof{
-				SignedPrePrepareMessage: record.prePrepareMessage,
-				SignedPrepareMessage:    record.prepareMessage,
+				SignedPrePrepareMessage: prePrepareMessage,
+				SignedPrepareMessage:    prepareMessage,
 			})
 		}
 	}
@@ -289,10 +319,10 @@ func (s *StateLog) GetLogString(sequenceNum int64) string {
 	defer s.mutex.RUnlock()
 	record, exists := s.log[sequenceNum]
 	if !exists {
-		return fmt.Sprintf("S: %d, STATUS: X", sequenceNum)
+		return fmt.Sprintf("s: %d, status: X", sequenceNum)
 	}
 	status := statusString(record)
-	return fmt.Sprintf("S: %d, STATUS: %s, V: %d, SBFT: %t", sequenceNum, status, record.viewNumber, record.sbftVerified)
+	return fmt.Sprintf("s: %d, status: %s view: %d, result: %d", sequenceNum, status, record.viewNumber, record.result)
 }
 
 // Reset resets the state log
@@ -342,24 +372,24 @@ func createLogRecord(viewNumber int64, sequenceNumber int64, digest []byte) *Log
 		prepared:          false,
 		committed:         false,
 		executed:          false,
-		sbftVerified:      false,
-		prePrepareMessage: nil,
-		prepareMessage:    nil,
-		commitMessage:     nil,
+		sbftVerified:      make(map[int64]bool),
+		prePrepareMessage: make(map[int64]*pb.SignedPrePrepareMessage),
+		prepareMessage:    make(map[int64]*pb.SignedPrepareMessage),
+		commitMessage:     make(map[int64]*pb.SignedCommitMessage),
 	}
 }
 
-// updateLogState updates the log state
-func updateLogState(record *LogRecord) {
-	if record.prePrepareMessage == nil {
+// updateLogState updates the log state with messages logged in the given view number from a given view number
+func updateLogState(record *LogRecord, viewNumber int64) {
+	if record.prePrepareMessage[viewNumber] == nil {
 		return
 	}
 	record.prePrepared = true
-	if record.prepareMessage == nil {
+	if record.prepareMessage[viewNumber] == nil {
 		return
 	}
 	record.prepared = true
-	if record.commitMessage == nil && !record.sbftVerified {
+	if record.commitMessage[viewNumber] == nil && !record.sbftVerified[viewNumber] {
 		return
 	}
 	record.committed = true
