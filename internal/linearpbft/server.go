@@ -31,6 +31,7 @@ type LinearPBFTNode struct {
 	executor    *Executor
 	handler     *ProtocolHandler
 	viewchanger *ViewChangeManager
+	logger      *Logger
 
 	// Wait group for graceful shutdown
 	wg sync.WaitGroup
@@ -70,6 +71,7 @@ func CreateLinearPBFTNode(selfNode *models.Node, peerNodes map[string]*models.No
 	viewchanger := CreateViewChangeManager(selfNode.ID, timer, serverState, serverConfig, checkpointer)
 	executor := CreateExecutor(serverState, serverConfig, bankDB, checkpointer, timer, executionTriggerChannel)
 	handler := CreateProtocolHandler(selfNode.ID, serverState, serverConfig, byzantineConfig, privateKey1, privateKey2, masterPublicKey1, masterPublicKey2, peerNodes, timer, executionTriggerChannel)
+	logger := CreateLogger()
 
 	server := &LinearPBFTNode{
 		Node:            selfNode,
@@ -80,6 +82,7 @@ func CreateLinearPBFTNode(selfNode *models.Node, peerNodes map[string]*models.No
 		executor:        executor,
 		handler:         handler,
 		viewchanger:     viewchanger,
+		logger:          logger,
 		wg:              sync.WaitGroup{},
 	}
 

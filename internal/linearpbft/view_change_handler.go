@@ -12,13 +12,13 @@ func (v *ViewChangeManager) ViewChangeMessageHandler(signedViewChangeMessage *pb
 	viewNumber := viewChangeMessage.ViewNumber
 
 	// Log the view change message
-	log.Infof("Logged: %s", utils.LoggingString(viewChangeMessage))
+	log.Infof("Logged: %s", utils.LoggingString(signedViewChangeMessage))
 	v.AddViewChangeMessage(signedViewChangeMessage)
 
 	// Send view change message to all nodes if f + 1 view change messages are collected
 	if v.state.GetViewChangeViewNumber() < viewNumber && len(v.GetViewChangeMessages(viewNumber)) == int(v.config.F+1) {
 		alreadyExpired := v.SafeTimer.Cleanup()
-		log.Infof("Signaling view change request channel since f + 1 view change messages are collected and time status was %t: %s", alreadyExpired, utils.LoggingString(viewChangeMessage))
+		log.Infof("Signaling view change request channel since f + 1 view change messages are collected and time status was %t: %s", alreadyExpired, utils.LoggingString(signedViewChangeMessage))
 		v.viewChangeTriggerCh <- viewNumber
 	}
 
@@ -33,14 +33,14 @@ func (v *ViewChangeManager) BackupNewViewRequestHandler(signedNewViewMessage *pb
 	viewNumber := newViewMessage.ViewNumber
 
 	// Log the new view message
-	log.Infof("Logged: %s", utils.LoggingString(newViewMessage))
+	log.Infof("Logged: %s", utils.LoggingString(signedNewViewMessage))
 	v.AddNewViewMessage(signedNewViewMessage)
 
 	// Update state
 	v.state.SetViewNumber(viewNumber)
 	v.state.SetViewChangeViewNumber(viewNumber)
 	v.state.SetViewChangePhase(false)
-	log.Infof("Accepted %s", utils.LoggingString(newViewMessage))
+	log.Infof("Accepted %s", utils.LoggingString(signedNewViewMessage))
 	v.state.ResetForwardedRequestsLog()
 
 	// Determine the lower watermark sequence number from highest sequence number in view change messages
@@ -72,14 +72,14 @@ func (v *ViewChangeManager) LeaderNewViewRequestHandler(signedNewViewMessage *pb
 	signedPrePrepareMessages := newViewMessage.SignedPrePrepareMessages
 
 	// Log the new view message
-	log.Infof("Logged: %s", utils.LoggingString(newViewMessage))
+	log.Infof("Logged: %s", utils.LoggingString(signedNewViewMessage))
 	v.AddNewViewMessage(signedNewViewMessage)
 
 	// Update state
 	v.state.SetViewNumber(viewNumber)
 	// v.state.SetViewChangeViewNumber(viewNumber)
 	v.state.SetViewChangePhase(false) // TODO: maybe not safe before updating the logs
-	log.Infof("Accepted %s", utils.LoggingString(newViewMessage))
+	log.Infof("Accepted %s", utils.LoggingString(signedNewViewMessage))
 
 	// Determine the lower watermark sequence number and digest from view change messages
 	lowerWatermark := int64(0)
@@ -122,10 +122,10 @@ func (v *ViewChangeManager) LeaderNewViewRequestHandler(signedNewViewMessage *pb
 
 		// Update state log
 		v.state.StateLog.CreateRecordIfNotExists(viewNumber, sequenceNum, prePrepareMessage.Digest)
-		log.Infof("Logging preprepare message: %s", utils.LoggingString(prePrepareMessage))
+		log.Infof("Logging preprepare message: %s", utils.LoggingString(signedPrePrepareMessage))
 		status := v.state.StateLog.AddPrePrepareMessage(sequenceNum, signedPrePrepareMessage)
 		if signedRequest != nil && signedRequest.Request != nil {
-			log.Infof("v: %d s: %d status: %s req: %s", prePrepareMessage.ViewNumber, prePrepareMessage.SequenceNum, status, utils.LoggingString(signedRequest.Request))
+			log.Infof("v: %d s: %d status: %s req: %s", prePrepareMessage.ViewNumber, prePrepareMessage.SequenceNum, status, utils.LoggingString(signedRequest))
 		} else {
 			log.Infof("v: %d s: %d status: %s req: nil", prePrepareMessage.ViewNumber, prePrepareMessage.SequenceNum, status)
 		}

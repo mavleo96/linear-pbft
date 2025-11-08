@@ -34,6 +34,7 @@ const (
 	LinearPBFTNode_PrintLog_FullMethodName          = "/pb.LinearPBFTNode/PrintLog"
 	LinearPBFTNode_PrintDB_FullMethodName           = "/pb.LinearPBFTNode/PrintDB"
 	LinearPBFTNode_PrintStatus_FullMethodName       = "/pb.LinearPBFTNode/PrintStatus"
+	LinearPBFTNode_PrintView_FullMethodName         = "/pb.LinearPBFTNode/PrintView"
 	LinearPBFTNode_ReconfigureNode_FullMethodName   = "/pb.LinearPBFTNode/ReconfigureNode"
 	LinearPBFTNode_ResetNode_FullMethodName         = "/pb.LinearPBFTNode/ResetNode"
 )
@@ -52,9 +53,10 @@ type LinearPBFTNodeClient interface {
 	NewViewRequest(ctx context.Context, in *SignedNewViewMessage, opts ...grpc.CallOption) (LinearPBFTNode_NewViewRequestClient, error)
 	GetRequest(ctx context.Context, in *GetRequestMessage, opts ...grpc.CallOption) (*SignedTransactionRequest, error)
 	GetCheckpoint(ctx context.Context, in *GetCheckpointMessage, opts ...grpc.CallOption) (*Checkpoint, error)
-	PrintLog(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	PrintDB(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	PrintStatus(ctx context.Context, in *wrapperspb.Int64Value, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	PrintLog(ctx context.Context, in *wrapperspb.Int64Value, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	PrintDB(ctx context.Context, in *wrapperspb.Int64Value, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	PrintStatus(ctx context.Context, in *StatusRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	PrintView(ctx context.Context, in *wrapperspb.Int64Value, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	ReconfigureNode(ctx context.Context, in *ChangeStatusMessage, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	ResetNode(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
@@ -180,7 +182,7 @@ func (c *linearPBFTNodeClient) GetCheckpoint(ctx context.Context, in *GetCheckpo
 	return out, nil
 }
 
-func (c *linearPBFTNodeClient) PrintLog(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *linearPBFTNodeClient) PrintLog(ctx context.Context, in *wrapperspb.Int64Value, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, LinearPBFTNode_PrintLog_FullMethodName, in, out, opts...)
 	if err != nil {
@@ -189,7 +191,7 @@ func (c *linearPBFTNodeClient) PrintLog(ctx context.Context, in *emptypb.Empty, 
 	return out, nil
 }
 
-func (c *linearPBFTNodeClient) PrintDB(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *linearPBFTNodeClient) PrintDB(ctx context.Context, in *wrapperspb.Int64Value, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, LinearPBFTNode_PrintDB_FullMethodName, in, out, opts...)
 	if err != nil {
@@ -198,9 +200,18 @@ func (c *linearPBFTNodeClient) PrintDB(ctx context.Context, in *emptypb.Empty, o
 	return out, nil
 }
 
-func (c *linearPBFTNodeClient) PrintStatus(ctx context.Context, in *wrapperspb.Int64Value, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *linearPBFTNodeClient) PrintStatus(ctx context.Context, in *StatusRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, LinearPBFTNode_PrintStatus_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *linearPBFTNodeClient) PrintView(ctx context.Context, in *wrapperspb.Int64Value, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, LinearPBFTNode_PrintView_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -239,9 +250,10 @@ type LinearPBFTNodeServer interface {
 	NewViewRequest(*SignedNewViewMessage, LinearPBFTNode_NewViewRequestServer) error
 	GetRequest(context.Context, *GetRequestMessage) (*SignedTransactionRequest, error)
 	GetCheckpoint(context.Context, *GetCheckpointMessage) (*Checkpoint, error)
-	PrintLog(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
-	PrintDB(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
-	PrintStatus(context.Context, *wrapperspb.Int64Value) (*emptypb.Empty, error)
+	PrintLog(context.Context, *wrapperspb.Int64Value) (*emptypb.Empty, error)
+	PrintDB(context.Context, *wrapperspb.Int64Value) (*emptypb.Empty, error)
+	PrintStatus(context.Context, *StatusRequest) (*emptypb.Empty, error)
+	PrintView(context.Context, *wrapperspb.Int64Value) (*emptypb.Empty, error)
 	ReconfigureNode(context.Context, *ChangeStatusMessage) (*emptypb.Empty, error)
 	ResetNode(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
 	mustEmbedUnimplementedLinearPBFTNodeServer()
@@ -281,14 +293,17 @@ func (UnimplementedLinearPBFTNodeServer) GetRequest(context.Context, *GetRequest
 func (UnimplementedLinearPBFTNodeServer) GetCheckpoint(context.Context, *GetCheckpointMessage) (*Checkpoint, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetCheckpoint not implemented")
 }
-func (UnimplementedLinearPBFTNodeServer) PrintLog(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
+func (UnimplementedLinearPBFTNodeServer) PrintLog(context.Context, *wrapperspb.Int64Value) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method PrintLog not implemented")
 }
-func (UnimplementedLinearPBFTNodeServer) PrintDB(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
+func (UnimplementedLinearPBFTNodeServer) PrintDB(context.Context, *wrapperspb.Int64Value) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method PrintDB not implemented")
 }
-func (UnimplementedLinearPBFTNodeServer) PrintStatus(context.Context, *wrapperspb.Int64Value) (*emptypb.Empty, error) {
+func (UnimplementedLinearPBFTNodeServer) PrintStatus(context.Context, *StatusRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method PrintStatus not implemented")
+}
+func (UnimplementedLinearPBFTNodeServer) PrintView(context.Context, *wrapperspb.Int64Value) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method PrintView not implemented")
 }
 func (UnimplementedLinearPBFTNodeServer) ReconfigureNode(context.Context, *ChangeStatusMessage) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ReconfigureNode not implemented")
@@ -493,7 +508,7 @@ func _LinearPBFTNode_GetCheckpoint_Handler(srv interface{}, ctx context.Context,
 }
 
 func _LinearPBFTNode_PrintLog_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(emptypb.Empty)
+	in := new(wrapperspb.Int64Value)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -505,13 +520,13 @@ func _LinearPBFTNode_PrintLog_Handler(srv interface{}, ctx context.Context, dec 
 		FullMethod: LinearPBFTNode_PrintLog_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(LinearPBFTNodeServer).PrintLog(ctx, req.(*emptypb.Empty))
+		return srv.(LinearPBFTNodeServer).PrintLog(ctx, req.(*wrapperspb.Int64Value))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
 func _LinearPBFTNode_PrintDB_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(emptypb.Empty)
+	in := new(wrapperspb.Int64Value)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -523,13 +538,13 @@ func _LinearPBFTNode_PrintDB_Handler(srv interface{}, ctx context.Context, dec f
 		FullMethod: LinearPBFTNode_PrintDB_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(LinearPBFTNodeServer).PrintDB(ctx, req.(*emptypb.Empty))
+		return srv.(LinearPBFTNodeServer).PrintDB(ctx, req.(*wrapperspb.Int64Value))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
 func _LinearPBFTNode_PrintStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(wrapperspb.Int64Value)
+	in := new(StatusRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -541,7 +556,25 @@ func _LinearPBFTNode_PrintStatus_Handler(srv interface{}, ctx context.Context, d
 		FullMethod: LinearPBFTNode_PrintStatus_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(LinearPBFTNodeServer).PrintStatus(ctx, req.(*wrapperspb.Int64Value))
+		return srv.(LinearPBFTNodeServer).PrintStatus(ctx, req.(*StatusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _LinearPBFTNode_PrintView_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(wrapperspb.Int64Value)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LinearPBFTNodeServer).PrintView(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LinearPBFTNode_PrintView_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LinearPBFTNodeServer).PrintView(ctx, req.(*wrapperspb.Int64Value))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -636,6 +669,10 @@ var LinearPBFTNode_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "PrintStatus",
 			Handler:    _LinearPBFTNode_PrintStatus_Handler,
+		},
+		{
+			MethodName: "PrintView",
+			Handler:    _LinearPBFTNode_PrintView_Handler,
 		},
 		{
 			MethodName: "ReconfigureNode",

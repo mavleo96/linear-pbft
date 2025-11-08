@@ -55,6 +55,7 @@ func (n *LinearPBFTNode) ResetNode(ctx context.Context, req *emptypb.Empty) (*em
 	n.viewchanger.Reset()
 	n.executor.checkpointer.Reset()
 	n.executor.db.ResetDB(10)
+	n.logger.Reset()
 
 	return &emptypb.Empty{}, nil
 }

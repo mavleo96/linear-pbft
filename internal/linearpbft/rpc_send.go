@@ -50,6 +50,9 @@ func (n *LinearPBFTNode) SendPrePrepareToNode(signedPreprepareMessage *pb.Signed
 		return nil, errors.New("invalid prepare message")
 	}
 
+	// Logger: add collected prepare message
+	n.logger.AddCollectedPrepareMessage(signedPrepareMsg)
+
 	// Return the signed prepare message
 	return signedPrepareMsg, nil
 }
@@ -90,6 +93,9 @@ func (n *LinearPBFTNode) SendPrepareToNode(signedPrepareMessage *pb.SignedPrepar
 		!cmp.Equal(signedCommitMsg.Message.Digest, prepareMessage.Digest) {
 		return nil, errors.New("invalid commit message")
 	}
+
+	// Logger: add collected commit message
+	n.logger.AddCollectedCommitMessage(signedCommitMsg)
 
 	// Return the signed commit message
 	return signedCommitMsg, nil
@@ -196,9 +202,11 @@ func (n *LinearPBFTNode) SendNewViewMessageToNode(signedNewViewMessage *pb.Signe
 		if prepareMessage.ViewNumber != prePrepareMessage.ViewNumber ||
 			prepareMessage.SequenceNum != prePrepareMessage.SequenceNum ||
 			!cmp.Equal(prepareMessage.Digest, prePrepareMessage.Digest) {
-			// log.Warnf("Rejected: %s; preprepare message does not match", utils.LoggingString(prepareMessage))
 			continue
 		}
+
+		// Logger: add collected prepare message
+		n.logger.AddCollectedPrepareMessage(signedPrepareMessage)
 
 		// Send on response channel to be collected
 		responseCh <- signedPrepareMessage

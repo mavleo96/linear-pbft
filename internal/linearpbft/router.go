@@ -21,6 +21,9 @@ func (n *LinearPBFTNode) RouterRoutine(ctx context.Context) {
 
 		// Route preprepare message from protocol handler to all backup nodes
 		case signedPreprepareMessage := <-n.handler.GetPreprepareToRouteChannel():
+			// Logger: add sent preprepare message
+			n.logger.AddSentPrePrepareMessage(signedPreprepareMessage)
+
 			// Multicast preprepare message to all nodes
 			responseCh := make(chan *pb.SignedPrepareMessage, len(n.handler.peers))
 			wg := sync.WaitGroup{}
@@ -34,12 +37,12 @@ func (n *LinearPBFTNode) RouterRoutine(ctx context.Context) {
 						return
 					}
 
-					log.Infof("Preprepare was sent to node %s: %s", peer.ID, utils.LoggingString(signedPreprepareMessage.Message))
+					log.Infof("Preprepare was sent to node %s: %s", peer.ID, utils.LoggingString(signedPreprepareMessage))
 					signedPrepareMsg, err := n.SendPrePrepareToNode(signedPreprepareMessage, peer.ID)
 					if err != nil {
 						return
 					}
-					log.Infof("Prepare was sent to collector channel: %s", utils.LoggingString(signedPrepareMsg.Message))
+					log.Infof("Prepare was sent to collector channel: %s", utils.LoggingString(signedPrepareMsg))
 					responseCh <- signedPrepareMsg
 				}(peer)
 			}
@@ -55,6 +58,9 @@ func (n *LinearPBFTNode) RouterRoutine(ctx context.Context) {
 
 		// Route equivocation preprepare message from handler to attacked backup nodes
 		case signedPreprepareMessage := <-n.byzantineConfig.GetEquivocationPrePrepareToRouteChannel():
+			// Logger: add sent preprepare message
+			n.logger.AddSentPrePrepareMessage(signedPreprepareMessage)
+
 			// Multicast equivocation preprepare message to other nodes
 			responseCh := make(chan *pb.SignedPrepareMessage, len(n.handler.peers))
 			wg := sync.WaitGroup{}
@@ -68,12 +74,12 @@ func (n *LinearPBFTNode) RouterRoutine(ctx context.Context) {
 						return
 					}
 
-					log.Infof("Equivocation preprepare was sent to node %s: %s", peer.ID, utils.LoggingString(signedPreprepareMessage.Message))
+					log.Infof("Equivocation preprepare was sent to node %s: %s", peer.ID, utils.LoggingString(signedPreprepareMessage))
 					signedPrepareMsg, err := n.SendPrePrepareToNode(signedPreprepareMessage, peer.ID)
 					if err != nil {
 						return
 					}
-					log.Infof("Prepare was sent to collector channel: %s", utils.LoggingString(signedPrepareMsg.Message))
+					log.Infof("Prepare was sent to collector channel: %s", utils.LoggingString(signedPrepareMsg))
 					responseCh <- signedPrepareMsg
 				}(peer)
 			}
@@ -89,6 +95,9 @@ func (n *LinearPBFTNode) RouterRoutine(ctx context.Context) {
 
 		// Route prepare message from protocol handler to all backup nodes
 		case signedPrepareMessage := <-n.handler.GetPrepareToRouteChannel():
+			// Logger: add sent aggregated prepare message
+			n.logger.AddSentAggregatedPrepareMessage(signedPrepareMessage)
+
 			// Multicast prepare message to all nodes
 			responseCh := make(chan *pb.SignedCommitMessage, len(n.handler.peers))
 			wg := sync.WaitGroup{}
@@ -112,6 +121,9 @@ func (n *LinearPBFTNode) RouterRoutine(ctx context.Context) {
 
 		// SBFT Prepare Route: Prepares are sent to all nodes without collecting commit messages
 		case signedPrepareMessage := <-n.handler.GetSBFTPrepareToRouteChannel():
+			// Logger: add sent aggregated prepare message
+			n.logger.AddSentAggregatedPrepareMessage(signedPrepareMessage)
+
 			// Multicast sbft prepare message to all nodes
 			for _, peer := range n.handler.peers {
 				go n.SendPrepareToNode(signedPrepareMessage, peer.ID)
@@ -121,6 +133,9 @@ func (n *LinearPBFTNode) RouterRoutine(ctx context.Context) {
 
 		// Route commit message from protocol handler to all backup nodes
 		case signedCommitMessage := <-n.handler.GetCommitToRouteChannel():
+			// Logger: add sent aggregated commit message
+			n.logger.AddSentAggregatedCommitMessage(signedCommitMessage)
+
 			// Multicast commit message to all nodes
 			for _, peer := range n.handler.peers {
 				go n.SendCommitToNode(signedCommitMessage, peer.ID)
@@ -134,8 +149,11 @@ func (n *LinearPBFTNode) RouterRoutine(ctx context.Context) {
 			signedViewChangeMessage := n.CreateViewChangeMessage(viewNumber)
 			n.viewchanger.ViewChangeMessageHandler(signedViewChangeMessage)
 
+			// Logger: add sent view change message
+			n.logger.AddSentViewChangeMessage(signedViewChangeMessage)
+
 			// Multicast view change message to all nodes
-			log.Infof("Router routine is multicasting view change message to all nodes: %s", utils.LoggingString(signedViewChangeMessage.Message))
+			log.Infof("Router routine is multicasting view change message to all nodes: %s", utils.LoggingString(signedViewChangeMessage))
 			for _, peer := range n.handler.peers {
 				go n.SendViewChangeMessageToNode(signedViewChangeMessage, peer.ID)
 			}
@@ -145,6 +163,9 @@ func (n *LinearPBFTNode) RouterRoutine(ctx context.Context) {
 			// Create new view message and route it to the leader handler
 			signedNewViewMessage := n.CreateNewViewMessage(viewNumber)
 			n.viewchanger.LeaderNewViewRequestHandler(signedNewViewMessage)
+
+			// Logger: add sent new view message
+			n.logger.AddSentNewViewMessage(signedNewViewMessage)
 
 			// Multicast new view message to all nodes and collect prepare messages from all nodes
 			responseCh := make(chan *pb.SignedPrepareMessage, 100)
@@ -167,8 +188,11 @@ func (n *LinearPBFTNode) RouterRoutine(ctx context.Context) {
 		// Create Check Point: Route check point message from check point manager to all nodes
 		case sequenceNum := <-n.executor.checkpointer.GetCheckpointCreateChannel():
 			signedCheckpointMessage := n.CreateCheckpointMessage(sequenceNum)
-			log.Infof("Router is trying to log check point message: %s", utils.LoggingString(signedCheckpointMessage.Message))
+			log.Infof("Router is trying to log check point message: %s", utils.LoggingString(signedCheckpointMessage))
 			n.executor.checkpointer.CheckpointMessageHandler(signedCheckpointMessage)
+
+			// Logger: add sent checkpoint message
+			n.logger.AddSentCheckpointMessage(signedCheckpointMessage)
 
 			// Multicast check point message to all nodes
 			for _, peer := range n.handler.peers {

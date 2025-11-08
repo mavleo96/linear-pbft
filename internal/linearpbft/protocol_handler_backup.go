@@ -30,14 +30,12 @@ func (h *ProtocolHandler) BackupPrePrepareRequestHandler(signedPrePrepareMessage
 		}
 		signedRequest = response
 	}
-	log.Infof("Adding request to transaction map: %s", utils.LoggingString(signedRequest.Request))
+	log.Infof("Adding request to transaction map: %s", utils.LoggingString(signedRequest))
 	h.state.TransactionMap.Set(prePrepareMessage.Digest, signedRequest)
-
-	request := signedRequest.Request
 
 	// Verify Digest
 	if !cmp.Equal(prePrepareMessage.Digest, crypto.Digest(signedRequest)) {
-		log.Warnf("Rejected: %s; invalid digest", utils.LoggingString(prePrepareMessage, request))
+		log.Warnf("Rejected: %s; invalid digest", utils.LoggingString(signedPrePrepareMessage))
 		return nil, status.Errorf(codes.InvalidArgument, "invalid digest")
 	}
 
@@ -51,14 +49,14 @@ func (h *ProtocolHandler) BackupPrePrepareRequestHandler(signedPrePrepareMessage
 
 	// Verify if previously accepted preprepare message with different digest for same view and sequence number
 	if h.state.StateLog.IsPrePrepared(sequenceNum) && !cmp.Equal(h.state.StateLog.GetDigest(sequenceNum), digest) {
-		log.Warnf("Rejected: %s; previously accepted %s", utils.LoggingString(prePrepareMessage, request), utils.LoggingString(h.state.TransactionMap.Get(h.state.StateLog.GetDigest(sequenceNum)).Request))
+		log.Warnf("Rejected: %s; previously accepted %s", utils.LoggingString(signedPrePrepareMessage), utils.LoggingString(h.state.TransactionMap.Get(h.state.StateLog.GetDigest(sequenceNum)).Request))
 		return nil, status.Errorf(codes.FailedPrecondition, "previously accepted preprepare message with different digest")
 	}
 
 	// Log the preprepare message in record
-	log.Infof("Logging preprepare message: %s", utils.LoggingString(prePrepareMessage))
+	log.Infof("Logging preprepare message: %s", utils.LoggingString(signedPrePrepareMessage))
 	status := h.state.StateLog.AddPrePrepareMessage(sequenceNum, signedPrePrepareMessage)
-	log.Infof("v: %d s: %d status: %s req: %s", prePrepareMessage.ViewNumber, prePrepareMessage.SequenceNum, status, utils.LoggingString(request))
+	log.Infof("v: %d s: %d status: %s req: %s", prePrepareMessage.ViewNumber, prePrepareMessage.SequenceNum, status, utils.LoggingString(signedRequest))
 
 	// Trigger execution if new request is committed
 	if h.state.StateLog.IsCommitted(sequenceNum) {
@@ -102,7 +100,7 @@ func (h *ProtocolHandler) BackupPrepareRequestHandler(signedPrepareMessage *pb.S
 	}
 
 	// Log the prepare messages in record
-	log.Infof("Logging prepare message: %s sbftVerified: %t", utils.LoggingString(prepareMessage), sbftVerified)
+	log.Infof("Logging prepare message: %s sbftVerified: %t", utils.LoggingString(signedPrepareMessage), sbftVerified)
 	status := h.state.StateLog.AddPrepareMessages(sequenceNum, signedPrepareMessage, sbftVerified)
 	log.Infof("v: %d s: %d status: %s", viewNumber, sequenceNum, status)
 
@@ -152,7 +150,7 @@ func (h *ProtocolHandler) BackupCommitRequestHandler(signedCommitMessage *pb.Sig
 	}
 
 	// Log the commit messages in record
-	log.Infof("Logging commit message: %s", utils.LoggingString(commitMessage))
+	log.Infof("Logging commit message: %s", utils.LoggingString(signedCommitMessage))
 	status := h.state.StateLog.AddCommitMessages(sequenceNum, signedCommitMessage)
 	log.Infof("v: %d s: %d status: %s", viewNumber, sequenceNum, status)
 

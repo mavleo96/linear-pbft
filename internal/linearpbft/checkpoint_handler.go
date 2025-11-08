@@ -17,7 +17,7 @@ func (c *CheckpointManager) CheckpointMessageHandler(signedCheckpointMessage *pb
 		log.Warnf("Check point message for sequence number %d is not in range (%d, %d)", sequenceNum, c.config.GetLowWaterMark(), c.config.GetHighWaterMark())
 		return
 	}
-	log.Infof("Logged: %s", utils.LoggingString(checkpointMessage))
+	log.Infof("Logged: %s", utils.LoggingString(signedCheckpointMessage))
 	c.AddMessage(sequenceNum, nodeID, signedCheckpointMessage)
 
 	// Signal the checkpoint routine if 2f + 1 or more check point messages are collected and self's check point message is included

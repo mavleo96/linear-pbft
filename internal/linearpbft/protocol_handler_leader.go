@@ -16,7 +16,7 @@ func (h *ProtocolHandler) LeaderTransactionRequestHandler(signedRequest *pb.Sign
 	sequenceNum, created := h.state.StateLog.AssignSequenceNumberAndCreateRecord(h.state.GetViewNumber(), crypto.Digest(signedRequest))
 
 	// Ignore if already preprepared in current view
-	if !created { //&& sequenceNum != 0 && h.state.StateLog.IsPrePrepared(sequenceNum) && h.state.StateLog.GetViewNumber(sequenceNum) == h.state.GetViewNumber() {
+	if !created {
 		log.Infof("Ignored: %s; already preprepared in current view", utils.LoggingString(signedRequest))
 		return nil
 	}
@@ -46,7 +46,7 @@ func (h *ProtocolHandler) LeaderTransactionRequestHandler(signedRequest *pb.Sign
 
 	// Preprepare the transaction
 	status := h.state.StateLog.AddPrePrepareMessage(sequenceNum, signedPreprepare)
-	log.Infof("v: %d s: %d status: %s req: %s", preprepare.ViewNumber, preprepare.SequenceNum, status, utils.LoggingString(signedRequest.Request))
+	log.Infof("v: %d s: %d status: %s req: %s", preprepare.ViewNumber, preprepare.SequenceNum, status, utils.LoggingString(signedRequest))
 
 	h.preprepareToRouteCh <- signedPreprepare
 
@@ -66,7 +66,7 @@ func (h *ProtocolHandler) LeaderTransactionRequestHandler(signedRequest *pb.Sign
 
 		// Preprepare the transaction
 		status := h.state.StateLog.AddPrePrepareMessage(sequenceNum+1, signedEquivocationPreprepare)
-		log.Infof("v: %d s: %d status: %s req: %s", equivocationPreprepare.ViewNumber, equivocationPreprepare.SequenceNum, status, utils.LoggingString(signedRequest.Request))
+		log.Infof("v: %d s: %d status: %s req: %s", equivocationPreprepare.ViewNumber, equivocationPreprepare.SequenceNum, status, utils.LoggingString(signedRequest))
 
 		// Route equivocation preprepare message to backup nodes
 		h.byzantineConfig.GetEquivocationPrePrepareToRouteChannel() <- signedEquivocationPreprepare
@@ -98,7 +98,7 @@ func (h *ProtocolHandler) LeaderPrepareMessageHandler(signedPrepareMessages []*p
 		ViewNumber:  h.state.GetViewNumber(),
 		SequenceNum: sequenceNum,
 		Digest:      digest,
-		NodeID:      h.id,
+		NodeID:      "agg",
 	}
 	signedPrepareMessage := &pb.SignedPrepareMessage{
 		Message:    prepareMessage,
@@ -114,7 +114,7 @@ func (h *ProtocolHandler) LeaderPrepareMessageHandler(signedPrepareMessages []*p
 
 	// Add prepare message to log record
 	// request := h.state.TransactionMap.Get(signedPrepareMessage.Message.Digest).Request/
-	log.Infof("Logging prepare message: %s sbftVerified: %t", utils.LoggingString(prepareMessage), sbftVerified)
+	log.Infof("Logging prepare message: %s sbftVerified: %t", utils.LoggingString(signedPrepareMessage), sbftVerified)
 	status := h.state.StateLog.AddPrepareMessages(sequenceNum, signedPrepareMessage, sbftVerified)
 	log.Infof("v: %d s: %d status: %s", prepareMessage.ViewNumber, prepareMessage.SequenceNum, status)
 
@@ -151,7 +151,7 @@ func (h *ProtocolHandler) LeaderCommitMessageHandler(signedCommitMessages []*pb.
 		ViewNumber:  h.state.GetViewNumber(),
 		SequenceNum: sequenceNum,
 		Digest:      digest,
-		NodeID:      h.id,
+		NodeID:      "agg",
 	}
 	signedCommitMessage := &pb.SignedCommitMessage{
 		Message:   commitMessage,
@@ -159,8 +159,7 @@ func (h *ProtocolHandler) LeaderCommitMessageHandler(signedCommitMessages []*pb.
 	}
 
 	// Add commit message to log record
-	// request := h.state.TransactionMap.Get(signedCommitMessage.Message.Digest).Request
-	log.Infof("Logging commit message: %s", utils.LoggingString(commitMessage))
+	log.Infof("Logging commit message: %s", utils.LoggingString(signedCommitMessage))
 	status := h.state.StateLog.AddCommitMessages(sequenceNum, signedCommitMessage)
 	log.Infof("v: %d s: %d status: %s", commitMessage.ViewNumber, commitMessage.SequenceNum, status)
 

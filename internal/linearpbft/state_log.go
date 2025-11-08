@@ -103,6 +103,14 @@ func (s *StateLog) CreateRecordIfNotExists(viewNumber int64, sequenceNum int64, 
 	return false
 }
 
+// Exists returns true if the log record exists for a given sequence number
+func (s *StateLog) Exists(sequenceNum int64) bool {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	_, exists := s.log[sequenceNum]
+	return exists
+}
+
 // Delete deletes the log record for a given sequence number
 func (s *StateLog) Delete(sequenceNum int64) {
 	s.mutex.Lock()
@@ -206,19 +214,14 @@ func (s *StateLog) AddPrePrepareMessage(sequenceNum int64, signedPrePrepareMessa
 		return ""
 	}
 	record.prePrepareMessage = signedPrePrepareMessage
-	status := updateLogState(record)
+	updateLogState(record)
 
 	// Byzantine node behavior: crash attack
 	if s.byzantineConfig.Byzantine && s.byzantineConfig.CrashAttack {
 		record.prepared = false
 		record.committed = false
-		if !record.prePrepared {
-			status = "X"
-		} else {
-			status = "PP"
-		}
 	}
-	return status
+	return statusString(record)
 }
 
 // AddPrepareMessages adds prepare messages to the log record
@@ -231,19 +234,14 @@ func (s *StateLog) AddPrepareMessages(sequenceNum int64, prepareMessage *pb.Sign
 	}
 	record.prepareMessage = prepareMessage
 	record.sbftVerified = sbftVerified
-	status := updateLogState(record)
+	updateLogState(record)
 
 	// Byzantine node behavior: crash attack
 	if s.byzantineConfig.Byzantine && s.byzantineConfig.CrashAttack {
 		record.prepared = false
 		record.committed = false
-		if !record.prePrepared {
-			status = "X"
-		} else {
-			status = "PP"
-		}
 	}
-	return status
+	return statusString(record)
 }
 
 // AddCommitMessages adds commit messages to the log record
@@ -255,19 +253,14 @@ func (s *StateLog) AddCommitMessages(sequenceNum int64, commitMessage *pb.Signed
 		return ""
 	}
 	record.commitMessage = commitMessage
-	status := updateLogState(record)
+	updateLogState(record)
 
 	// Byzantine node behavior: crash attack
 	if s.byzantineConfig.Byzantine && s.byzantineConfig.CrashAttack {
 		record.prepared = false
 		record.committed = false
-		if !record.prePrepared {
-			status = "X"
-		} else {
-			status = "PP"
-		}
 	}
-	return status
+	return statusString(record)
 }
 
 // GetPrepareProof returns the prepare proofs for all prepared log records
@@ -290,15 +283,16 @@ func (s *StateLog) GetPrepareProof() []*pb.PrepareProof {
 	return prepareProofs
 }
 
-// GetLogRecord returns the log record for a given sequence number
-func (s *StateLog) GetLogRecord(sequenceNum int64) *LogRecord {
+// GetLogString returns the log string for a given sequence number
+func (s *StateLog) GetLogString(sequenceNum int64) string {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 	record, exists := s.log[sequenceNum]
 	if !exists {
-		return nil
+		return fmt.Sprintf("S: %d, STATUS: X", sequenceNum)
 	}
-	return record
+	status := statusString(record)
+	return fmt.Sprintf("S: %d, STATUS: %s, V: %d, SBFT: %t", sequenceNum, status, record.viewNumber, record.sbftVerified)
 }
 
 // Reset resets the state log
@@ -306,6 +300,26 @@ func (s *StateLog) Reset() {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	s.log = make(map[int64]*LogRecord)
+}
+
+// statusString returns the status string for a given log record
+func statusString(record *LogRecord) string {
+	if record == nil {
+		return "X"
+	}
+	if record.executed {
+		return "E"
+	}
+	if record.committed {
+		return "C"
+	}
+	if record.prepared {
+		return "P"
+	}
+	if record.prePrepared {
+		return "PP"
+	}
+	return "X"
 }
 
 // CreateStateLog creates a new state log
@@ -336,23 +350,19 @@ func createLogRecord(viewNumber int64, sequenceNumber int64, digest []byte) *Log
 }
 
 // updateLogState updates the log state
-func updateLogState(record *LogRecord) string {
+func updateLogState(record *LogRecord) {
 	if record.prePrepareMessage == nil {
-		return "X"
+		return
 	}
 	record.prePrepared = true
 	if record.prepareMessage == nil {
-		return "PP"
+		return
 	}
 	record.prepared = true
 	if record.commitMessage == nil && !record.sbftVerified {
-		return "P"
+		return
 	}
 	record.committed = true
-	if !record.executed {
-		return "C"
-	}
-	return "E"
 }
 
 // ---------------------------------------------------------- //
@@ -401,7 +411,7 @@ func (t *TransactionMap) LogString() string {
 
 	transactionMapString := make([]string, 0)
 	for digest, signedRequest := range t.requestMap {
-		transactionMapString = append(transactionMapString, fmt.Sprintf("%s: %s", hex.EncodeToString(digest[:]), utils.LoggingString(signedRequest.Request)))
+		transactionMapString = append(transactionMapString, fmt.Sprintf("%s: %s", hex.EncodeToString(digest[:]), utils.LoggingString(signedRequest)))
 	}
 	return strings.Join(transactionMapString, "\n")
 }

@@ -48,16 +48,16 @@ func (p *Processor) ProcessTransaction(ctx context.Context, t *pb.Transaction) (
 	if t.Type == "read" {
 		result, err := p.processReadOnlyTransaction(ctx, signedRequest)
 		if err == nil {
-			log.Infof("%s: %s -> (v:%d, r:%d)", p.clientID, utils.LoggingString(signedRequest.Request), result.ViewNumber, result.Result)
+			log.Infof("%s: %s -> (v:%d, r:%d)", p.clientID, utils.LoggingString(signedRequest), result.ViewNumber, result.Result)
 			return result.Result, nil
 		}
 	}
 	result, err := p.processWriteTransaction(ctx, signedRequest)
 	if err == nil {
-		log.Infof("%s: %s -> (v:%d, r:%d)", p.clientID, utils.LoggingString(signedRequest.Request), result.ViewNumber, result.Result)
+		log.Infof("%s: %s -> (v:%d, r:%d)", p.clientID, utils.LoggingString(signedRequest), result.ViewNumber, result.Result)
 		return result.Result, nil
 	}
-	log.Warnf("%s: %s -> error: %s", p.clientID, utils.LoggingString(signedRequest.Request), err.Error())
+	log.Warnf("%s: %s -> error: %s", p.clientID, utils.LoggingString(signedRequest), err.Error())
 	return 0, err
 }
 
@@ -71,7 +71,7 @@ func (p *Processor) processWriteTransaction(ctx context.Context, signedRequest *
 			primaryID := utils.ViewNumberToPrimaryID(p.state.GetViewNumber(), p.nodes.N)
 			_, err := (*p.nodes.GetNode(primaryID).Client).TransferRequest(ctx, signedRequest)
 			if err != nil {
-				log.Warnf("%s -> %s: error sending transaction to %s: %s", p.clientID, utils.LoggingString(signedRequest.Request), primaryID, err.Error())
+				log.Warnf("%s -> %s: error sending transaction to %s: %s", p.clientID, utils.LoggingString(signedRequest), primaryID, err.Error())
 			}
 		} else {
 			// If not first attempt multicast to all nodes
@@ -79,7 +79,7 @@ func (p *Processor) processWriteTransaction(ctx context.Context, signedRequest *
 				go func(node *models.Node, signedRequest *pb.SignedTransactionRequest) {
 					_, err := (*node.Client).TransferRequest(ctx, signedRequest)
 					if err != nil {
-						log.Warnf("%s -> %s: error sending transaction to %s: %s", p.clientID, utils.LoggingString(signedRequest.Request), node.ID, err.Error())
+						log.Warnf("%s -> %s: error sending transaction to %s: %s", p.clientID, utils.LoggingString(signedRequest), node.ID, err.Error())
 					}
 				}(node, signedRequest)
 			}
@@ -91,14 +91,14 @@ func (p *Processor) processWriteTransaction(ctx context.Context, signedRequest *
 			return result, nil
 		// If timeout reached, retry
 		case <-time.After(clientTimeout):
-			log.Warnf("%s -> %s: retrying transaction (attempt %d)", p.clientID, utils.LoggingString(signedRequest.Request), attempt)
+			log.Warnf("%s -> %s: retrying transaction (attempt %d)", p.clientID, utils.LoggingString(signedRequest), attempt)
 		// If context done, return error
 		case <-ctx.Done():
 			log.Infof("%s: received exit signal on process write transaction", p.clientID)
 			return Result{}, ctx.Err()
 		}
 	}
-	log.Warnf("%s -> %s: transaction attempt limit reached", p.clientID, utils.LoggingString(signedRequest.Request))
+	log.Warnf("%s -> %s: transaction attempt limit reached", p.clientID, utils.LoggingString(signedRequest))
 	return Result{}, errors.New("transaction attempt limit reached")
 }
 
@@ -113,7 +113,7 @@ func (p *Processor) processReadOnlyTransaction(ctx context.Context, signedReques
 			defer wg.Done()
 			resp, err := (*node.Client).ReadOnlyRequest(ctx, signedRequest)
 			if err != nil {
-				log.Warnf("%s -> %s: error sending read-only request to %s: %s", p.clientID, utils.LoggingString(signedRequest.Request), node.ID, err.Error())
+				log.Warnf("%s -> %s: error sending read-only request to %s: %s", p.clientID, utils.LoggingString(signedRequest), node.ID, err.Error())
 				return
 			}
 			responseCh <- resp
@@ -135,7 +135,7 @@ func (p *Processor) processReadOnlyTransaction(ctx context.Context, signedReques
 		case signedResp, channelOpen := <-responseCh:
 			// If majority not reached yet and no more responses, return error
 			if !channelOpen {
-				log.Warnf("%s -> %s: no majority", p.clientID, utils.LoggingString(signedRequest.Request))
+				log.Warnf("%s -> %s: no majority", p.clientID, utils.LoggingString(signedRequest))
 				return Result{}, errors.New("no majority")
 			}
 
@@ -158,7 +158,7 @@ func (p *Processor) processReadOnlyTransaction(ctx context.Context, signedReques
 		// If timeout reached, return error
 		case <-time.After(clientTimeout):
 			// If timeout reached, return error
-			log.Warnf("%s -> %s: read-only transaction timed out", p.clientID, utils.LoggingString(signedRequest.Request))
+			log.Warnf("%s -> %s: read-only transaction timed out", p.clientID, utils.LoggingString(signedRequest))
 			return Result{}, errors.New("read-only transaction timed out")
 		// If context done, return error
 		case <-ctx.Done():

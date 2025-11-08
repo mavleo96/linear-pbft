@@ -27,19 +27,19 @@ func (n *LinearPBFTNode) PrePrepareRequest(ctx context.Context, signedMessage *p
 
 	// Ignore if already in view change
 	if n.state.InViewChangePhase() {
-		log.Infof("Ignored: %s; view change phase", utils.LoggingString(prePrepareMessage))
+		log.Infof("Ignored: %s; view change phase", utils.LoggingString(signedMessage))
 		return nil, status.Errorf(codes.Unavailable, "view change phase")
 	}
 
 	// Verify View Number
 	if prePrepareMessage.ViewNumber != n.state.GetViewNumber() {
-		log.Warnf("Rejected: %s; invalid view number (expected: %d)", utils.LoggingString(prePrepareMessage), n.state.GetViewNumber())
+		log.Warnf("Rejected: %s; invalid view number (expected: %d)", utils.LoggingString(signedMessage), n.state.GetViewNumber())
 		return nil, status.Errorf(codes.InvalidArgument, "invalid view number")
 	}
 
 	// Verify if sequence number is within low and high water mark
 	if !n.config.SequenceNumberInRange(prePrepareMessage.SequenceNum) {
-		log.Warnf("Rejected: %s; sequence number out of range (expected: %d to %d)", utils.LoggingString(prePrepareMessage), n.config.GetLowWaterMark(), n.config.GetHighWaterMark())
+		log.Warnf("Rejected: %s; sequence number out of range (expected: %d to %d)", utils.LoggingString(signedMessage), n.config.GetLowWaterMark(), n.config.GetHighWaterMark())
 		return nil, status.Errorf(codes.InvalidArgument, "sequence number out of range")
 	}
 
@@ -47,7 +47,7 @@ func (n *LinearPBFTNode) PrePrepareRequest(ctx context.Context, signedMessage *p
 	currentPrimaryID := utils.ViewNumberToPrimaryID(n.state.GetViewNumber(), n.config.N)
 	ok := crypto.Verify(prePrepareMessage, n.GetPublicKey1(currentPrimaryID), signedMessage.Signature)
 	if !ok {
-		log.Warnf("Rejected: %s; invalid signature", utils.LoggingString(prePrepareMessage))
+		log.Warnf("Rejected: %s; invalid signature", utils.LoggingString(signedMessage))
 		return nil, status.Errorf(codes.Unauthenticated, "invalid signature")
 	}
 
@@ -55,9 +55,12 @@ func (n *LinearPBFTNode) PrePrepareRequest(ctx context.Context, signedMessage *p
 	if signedRequest != nil && signedRequest.Request != nil &&
 		!cmp.Equal(prePrepareMessage.Digest, DigestNoOp) &&
 		!crypto.Verify(signedRequest.Request, n.clients[signedRequest.Request.Sender].PublicKey, signedRequest.Signature) {
-		log.Warnf("Rejected: %s; invalid signature on request", utils.LoggingString(signedRequest.Request))
+		log.Warnf("Rejected: %s; invalid signature on request", utils.LoggingString(signedRequest))
 		return nil, status.Errorf(codes.Unauthenticated, "invalid signature on request")
 	}
+
+	// Logger: add received preprepare message
+	n.logger.AddReceivedPrePrepareMessage(signedMessage)
 
 	// Handle preprepare message
 	signedPrepareMessage, err := n.handler.BackupPrePrepareRequestHandler(signedMessage)
@@ -72,6 +75,9 @@ func (n *LinearPBFTNode) PrePrepareRequest(ctx context.Context, signedMessage *p
 	if n.byzantineConfig.Byzantine && n.byzantineConfig.CrashAttack {
 		return nil, status.Errorf(codes.Unavailable, "node not alive")
 	}
+
+	// Logger: add sent prepare message
+	n.logger.AddSentPrepareMessage(signedPrepareMessage)
 
 	return signedPrepareMessage, err
 }
@@ -101,7 +107,7 @@ func (n *LinearPBFTNode) PrepareRequest(ctx context.Context, signedPrepareMessag
 
 	// Verify if sequence number is within low and high water mark
 	if !n.config.SequenceNumberInRange(prepareMessage.SequenceNum) {
-		log.Warnf("Rejected: %s; sequence number out of range (expected: %d to %d)", utils.LoggingString(prepareMessage), n.config.GetLowWaterMark(), n.config.GetHighWaterMark())
+		log.Warnf("Rejected: %s; sequence number out of range (expected: %d to %d)", utils.LoggingString(signedPrepareMessage), n.config.GetLowWaterMark(), n.config.GetHighWaterMark())
 		return nil, status.Errorf(codes.InvalidArgument, "sequence number out of range")
 	}
 
@@ -112,6 +118,9 @@ func (n *LinearPBFTNode) PrepareRequest(ctx context.Context, signedPrepareMessag
 		log.Warnf("Rejected: %s; invalid signature", utils.LoggingString(signedPrepareMessage))
 		return nil, status.Errorf(codes.Unauthenticated, "invalid signature")
 	}
+
+	// Logger: add received prepare message
+	n.logger.AddReceivedPrepareMessage(signedPrepareMessage)
 
 	// Handle prepare message
 	signedCommitMessage, err := n.handler.BackupPrepareRequestHandler(signedPrepareMessage, sbftVerified)
@@ -127,6 +136,10 @@ func (n *LinearPBFTNode) PrepareRequest(ctx context.Context, signedPrepareMessag
 		return nil, status.Errorf(codes.Unavailable, "node not alive")
 	}
 
+	// Logger: add sent commit message (ignore nil commit messages from sbft route)
+	if signedCommitMessage != nil {
+		n.logger.AddSentCommitMessage(signedCommitMessage)
+	}
 	return signedCommitMessage, err
 
 }
@@ -156,7 +169,7 @@ func (n *LinearPBFTNode) CommitRequest(ctx context.Context, signedCommitMessage 
 
 	// Verify if sequence number is within low and high water mark
 	if !n.config.SequenceNumberInRange(commitMessage.SequenceNum) {
-		log.Warnf("Rejected: %s; sequence number out of range (expected: %d to %d)", utils.LoggingString(commitMessage), n.config.GetLowWaterMark(), n.config.GetHighWaterMark())
+		log.Warnf("Rejected: %s; sequence number out of range (expected: %d to %d)", utils.LoggingString(signedCommitMessage), n.config.GetLowWaterMark(), n.config.GetHighWaterMark())
 		return nil, status.Errorf(codes.InvalidArgument, "sequence number out of range")
 	}
 
@@ -166,6 +179,9 @@ func (n *LinearPBFTNode) CommitRequest(ctx context.Context, signedCommitMessage 
 		log.Warnf("Rejected: %s; invalid signature", utils.LoggingString(signedCommitMessage))
 		return nil, status.Errorf(codes.Unauthenticated, "invalid signature")
 	}
+
+	// Logger: add received commit message
+	n.logger.AddReceivedCommitMessage(signedCommitMessage)
 
 	return n.handler.BackupCommitRequestHandler(signedCommitMessage)
 }
@@ -182,14 +198,14 @@ func (n *LinearPBFTNode) ViewChangeRequest(ctx context.Context, signedViewChange
 
 	// Verify view number
 	if viewNumber <= n.state.GetViewNumber() {
-		log.Warnf("Rejected: %s; lower view number (expected: %d)", utils.LoggingString(viewChangeMessage), n.state.GetViewNumber())
+		log.Warnf("Rejected: %s; lower view number (expected: %d)", utils.LoggingString(signedViewChangeMessage), n.state.GetViewNumber())
 		return nil, status.Errorf(codes.FailedPrecondition, "invalid view number")
 	}
 
 	// Verify signature
 	ok := crypto.Verify(viewChangeMessage, n.GetPublicKey1(viewChangeMessage.NodeID), signedViewChangeMessage.Signature)
 	if !ok {
-		log.Warnf("Rejected: %s; invalid signature", utils.LoggingString(viewChangeMessage))
+		log.Warnf("Rejected: %s; invalid signature", utils.LoggingString(signedViewChangeMessage))
 		return nil, status.Errorf(codes.Unauthenticated, "invalid signature")
 	}
 
@@ -199,7 +215,7 @@ func (n *LinearPBFTNode) ViewChangeRequest(ctx context.Context, signedViewChange
 		checkpointMessage := signedCheckpointMessage.Message
 		ok := crypto.Verify(checkpointMessage, n.GetPublicKey1(checkpointMessage.NodeID), signedCheckpointMessage.Signature)
 		if !ok {
-			log.Warnf("Rejected: %s; invalid signature on checkpoint message", utils.LoggingString(viewChangeMessage))
+			log.Warnf("Rejected: %s; invalid signature on checkpoint message", utils.LoggingString(signedViewChangeMessage))
 			return nil, status.Errorf(codes.FailedPrecondition, "invalid signature on checkpoint message")
 		}
 	}
@@ -215,14 +231,14 @@ func (n *LinearPBFTNode) ViewChangeRequest(ctx context.Context, signedViewChange
 		proposerID := utils.ViewNumberToPrimaryID(prePrepareMessage.ViewNumber, n.config.N)
 		ok := crypto.Verify(prePrepareMessage, n.GetPublicKey1(proposerID), signedPrePrepareMessage.Signature)
 		if !ok {
-			log.Warnf("Rejected: %s; invalid signature on preprepare message", utils.LoggingString(viewChangeMessage))
+			log.Warnf("Rejected: %s; invalid signature on preprepare message", utils.LoggingString(signedViewChangeMessage))
 			return nil, status.Errorf(codes.FailedPrecondition, "invalid signature on preprepare message")
 		}
 
 		// Verify prepare message signature
 		ok = crypto.Verify(prepareMessage, n.handler.masterPublicKey1, signedPrepareMessage.Signature)
 		if !ok {
-			log.Warnf("Rejected: %s; invalid signature on prepare message", utils.LoggingString(viewChangeMessage))
+			log.Warnf("Rejected: %s; invalid signature on prepare message", utils.LoggingString(signedViewChangeMessage))
 			return nil, status.Errorf(codes.FailedPrecondition, "invalid signature on prepare message")
 		}
 
@@ -230,10 +246,13 @@ func (n *LinearPBFTNode) ViewChangeRequest(ctx context.Context, signedViewChange
 		if prepareMessage.ViewNumber != prePrepareMessage.ViewNumber ||
 			prepareMessage.SequenceNum != prePrepareMessage.SequenceNum ||
 			!cmp.Equal(prepareMessage.Digest, prePrepareMessage.Digest) {
-			log.Warnf("Rejected: %s; invalid digest on prepare message for sequence number %d", utils.LoggingString(viewChangeMessage), prepareMessage.SequenceNum)
+			log.Warnf("Rejected: %s; invalid digest on prepare message for sequence number %d", utils.LoggingString(signedViewChangeMessage), prepareMessage.SequenceNum)
 			return nil, status.Errorf(codes.FailedPrecondition, "invalid digest on prepare message")
 		}
 	}
+
+	// Logger: add received view change message
+	n.logger.AddReceivedViewChangeMessage(signedViewChangeMessage)
 
 	go n.viewchanger.ViewChangeMessageHandler(signedViewChangeMessage)
 
@@ -256,7 +275,7 @@ func (n *LinearPBFTNode) NewViewRequest(signedNewViewMessage *pb.SignedNewViewMe
 
 	// Verify view number: must be greater than latest sent view change message view number
 	if viewNumber < n.state.GetViewChangeViewNumber() {
-		log.Warnf("Rejected: %s; view number is less than latest sent view change message view number", utils.LoggingString(newViewMessage))
+		log.Warnf("Rejected: %s; view number is less than latest sent view change message view number", utils.LoggingString(signedNewViewMessage))
 		return status.Errorf(codes.FailedPrecondition, "view number is less than latest sent view change message view number")
 	}
 
@@ -264,7 +283,7 @@ func (n *LinearPBFTNode) NewViewRequest(signedNewViewMessage *pb.SignedNewViewMe
 	primaryID := utils.ViewNumberToPrimaryID(viewNumber, n.config.N)
 	ok := crypto.Verify(newViewMessage, n.GetPublicKey1(primaryID), signedNewViewMessage.Signature)
 	if !ok {
-		log.Warnf("Rejected: %s; invalid signature", utils.LoggingString(newViewMessage))
+		log.Warnf("Rejected: %s; invalid signature", utils.LoggingString(signedNewViewMessage))
 		return status.Errorf(codes.Unauthenticated, "invalid signature")
 	}
 
@@ -273,7 +292,7 @@ func (n *LinearPBFTNode) NewViewRequest(signedNewViewMessage *pb.SignedNewViewMe
 		viewChangeMessage := signedViewChangeMessage.Message
 		ok := crypto.Verify(viewChangeMessage, n.GetPublicKey1(viewChangeMessage.NodeID), signedViewChangeMessage.Signature)
 		if !ok {
-			log.Warnf("Rejected: %s; invalid signature on view change message", utils.LoggingString(newViewMessage))
+			log.Warnf("Rejected: %s; invalid signature on view change message", utils.LoggingString(signedNewViewMessage))
 			return status.Errorf(codes.FailedPrecondition, "invalid signature on view change message")
 		}
 	}
@@ -283,10 +302,13 @@ func (n *LinearPBFTNode) NewViewRequest(signedNewViewMessage *pb.SignedNewViewMe
 		prePrepareMessage := signedPrePrepareMessage.Message
 		ok := crypto.Verify(prePrepareMessage, n.GetPublicKey1(primaryID), signedPrePrepareMessage.Signature)
 		if !ok {
-			log.Warnf("Rejected: %s; invalid signature on preprepare message", utils.LoggingString(newViewMessage))
+			log.Warnf("Rejected: %s; invalid signature on preprepare message", utils.LoggingString(signedNewViewMessage))
 			return status.Errorf(codes.FailedPrecondition, "invalid signature on preprepare message")
 		}
 	}
+
+	// Logger: add received new view message
+	n.logger.AddReceivedNewViewMessage(signedNewViewMessage)
 
 	// Stop view timer
 	n.handler.timer.StopViewTimer()
@@ -294,7 +316,7 @@ func (n *LinearPBFTNode) NewViewRequest(signedNewViewMessage *pb.SignedNewViewMe
 	// Transfer control to new view handler
 	err := n.viewchanger.BackupNewViewRequestHandler(signedNewViewMessage)
 	if err != nil {
-		log.Warnf("New view request %s could not be handled: %s", utils.LoggingString(newViewMessage), err)
+		log.Warnf("New view request %s could not be handled: %s", utils.LoggingString(signedNewViewMessage), err)
 		return status.Errorf(codes.Internal, "new view request could not be handled")
 	}
 
@@ -320,6 +342,9 @@ func (n *LinearPBFTNode) NewViewRequest(signedNewViewMessage *pb.SignedNewViewMe
 			continue
 		}
 
+		// Logger: add sent prepare message
+		n.logger.AddSentPrepareMessage(signedPrepareMessage)
+
 		if err := stream.Send(signedPrepareMessage); err != nil {
 			log.Warnf("Prepare message %s could not be sent to primary in stream: %s", utils.LoggingString(signedPrepareMessage), err)
 		}
@@ -342,9 +367,12 @@ func (n *LinearPBFTNode) CheckpointRequest(ctx context.Context, signedCheckpoint
 	// Verify signature
 	ok := crypto.Verify(checkpointMessage, n.GetPublicKey1(checkpointMessage.NodeID), signedCheckpointMessage.Signature)
 	if !ok {
-		log.Warnf("Rejected: %s; invalid signature", utils.LoggingString(checkpointMessage))
+		log.Warnf("Rejected: %s; invalid signature", utils.LoggingString(signedCheckpointMessage))
 		return nil, status.Errorf(codes.Unauthenticated, "invalid signature")
 	}
+
+	// Logger: add received checkpoint message
+	n.logger.AddReceivedCheckpointMessage(signedCheckpointMessage)
 
 	go n.executor.checkpointer.CheckpointMessageHandler(signedCheckpointMessage)
 	return &emptypb.Empty{}, nil
@@ -370,7 +398,7 @@ func (n *LinearPBFTNode) GetRequest(ctx context.Context, getRequestMessage *pb.G
 		return nil, status.Errorf(codes.NotFound, "request not found in transaction map")
 	}
 
-	log.Infof("Get request: %s: request %s", utils.LoggingString(getRequestMessage), utils.LoggingString(signedRequest.Request))
+	log.Infof("Get request: %s: request %s", utils.LoggingString(getRequestMessage), utils.LoggingString(signedRequest))
 	return signedRequest, nil
 }
 

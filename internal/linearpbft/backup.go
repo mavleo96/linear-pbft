@@ -59,13 +59,13 @@ func (n *LinearPBFTNode) SendGetRequest(digest []byte) (*pb.SignedTransactionReq
 		// Verify client signature
 		if !cmp.Equal(crypto.Digest(signedRequest), DigestNoOp) &&
 			!crypto.Verify(request, n.clients[request.Sender].PublicKey, signedRequest.Signature) {
-			log.Warnf("Rejected: %s; invalid signature on request", utils.LoggingString(request))
+			log.Warnf("Rejected: %s; invalid signature on request", utils.LoggingString(signedRequest))
 			continue
 		}
 
 		// Verify if digest is same as in log record
 		if !cmp.Equal(crypto.Digest(signedRequest), digest) {
-			log.Warnf("Rejected: %s; invalid digest on request", utils.LoggingString(request))
+			log.Warnf("Rejected: %s; invalid digest on request", utils.LoggingString(signedRequest))
 			continue
 		}
 

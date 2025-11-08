@@ -23,6 +23,6 @@ func NodeIDToBLSMaskID(nodeID string) bls.ID {
 
 // Remove key from json marshalled string
 func RegexRemoveKey(data string, key string) string {
-	re := regexp.MustCompile(fmt.Sprintf("\"%s\":\"n\\d+\"", key))
+	re := regexp.MustCompile(fmt.Sprintf("\"%s\":\"\\w+\"", key))
 	return re.ReplaceAllString(data, "")
 }

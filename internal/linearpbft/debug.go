@@ -6,27 +6,123 @@ import (
 	"sort"
 
 	"github.com/mavleo96/bft-mavleo96/internal/utils"
+	"github.com/mavleo96/bft-mavleo96/pb"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 // PrintLog prints the log
-func (n *LinearPBFTNode) PrintLog(ctx context.Context, req *emptypb.Empty) (*emptypb.Empty, error) {
+func (n *LinearPBFTNode) PrintLog(ctx context.Context, req *wrapperspb.Int64Value) (*emptypb.Empty, error) {
 	log.Infof("Print log command received")
-	fmt.Println("Printing log records:")
-	maxSequenceNum := n.state.StateLog.MaxSequenceNum()
-	for i := int64(1); i <= maxSequenceNum; i++ {
-		record := n.state.StateLog.GetLogRecord(i)
-		if record == nil {
-			continue
-		}
-		signedRequest := n.state.TransactionMap.Get(record.digest)
-		fmt.Printf(
-			"%s, v: %d, s: %d, %s\n",
-			utils.LoggingString(signedRequest.Request),
-			record.viewNumber, record.sequenceNum,
-			recordStatus(record))
+
+	fmt.Println("LOGS FOR TEST SET:", req.Value)
+
+	fmt.Println("Sent preprepare messages:")
+	for _, signedPrePrepareMessage := range n.logger.GetSentPrePrepareMessages() {
+		fmt.Println(utils.FormattedLoggingString(signedPrePrepareMessage))
+	}
+	fmt.Println("")
+
+	fmt.Println("Received preprepare messages:")
+	for _, signedPrePrepareMessage := range n.logger.GetReceivedPrePrepareMessages() {
+		fmt.Println(utils.FormattedLoggingString(signedPrePrepareMessage))
+	}
+	fmt.Println("")
+
+	fmt.Println("Sent prepare messages:")
+	for _, signedPrepareMessage := range n.logger.GetSentPrepareMessages() {
+		fmt.Println(utils.FormattedLoggingString(signedPrepareMessage))
+	}
+	fmt.Println("")
+
+	fmt.Println("Received prepare messages:")
+	for _, signedPrepareMessage := range n.logger.GetReceivedPrepareMessages() {
+		fmt.Println(utils.FormattedLoggingString(signedPrepareMessage))
+	}
+	fmt.Println("")
+
+	fmt.Println("Collected prepare messages:")
+	for _, signedPrepareMessage := range n.logger.GetCollectedPrepareMessages() {
+		fmt.Println(utils.FormattedLoggingString(signedPrepareMessage))
+	}
+	fmt.Println("")
+
+	fmt.Println("Sent aggregated prepare messages:")
+	for _, signedPrepareMessage := range n.logger.GetSentAggregatedPrepareMessages() {
+		fmt.Println(utils.FormattedLoggingString(signedPrepareMessage))
+	}
+	fmt.Println("")
+
+	fmt.Println("Sent commit messages:")
+	for _, signedCommitMessage := range n.logger.GetSentCommitMessages() {
+		fmt.Println(utils.FormattedLoggingString(signedCommitMessage))
+	}
+	fmt.Println("")
+
+	fmt.Println("Received commit messages:")
+	for _, signedCommitMessage := range n.logger.GetReceivedCommitMessages() {
+		fmt.Println(utils.FormattedLoggingString(signedCommitMessage))
+	}
+	fmt.Println("")
+
+	fmt.Println("Collected commit messages:")
+	for _, signedCommitMessage := range n.logger.GetCollectedCommitMessages() {
+		fmt.Println(utils.FormattedLoggingString(signedCommitMessage))
+	}
+	fmt.Println("")
+
+	fmt.Println("Sent aggregated commit messages:")
+	for _, signedCommitMessage := range n.logger.GetSentAggregatedCommitMessages() {
+		fmt.Println(utils.FormattedLoggingString(signedCommitMessage))
+	}
+	fmt.Println("")
+
+	fmt.Println("Sent view change messages:")
+	for _, signedViewChangeMessage := range n.logger.GetSentViewChangeMessages() {
+		fmt.Println(utils.FormattedLoggingString(signedViewChangeMessage))
+	}
+	fmt.Println("")
+
+	fmt.Println("Received view change messages:")
+	for _, signedViewChangeMessage := range n.logger.GetReceivedViewChangeMessages() {
+		fmt.Println(utils.FormattedLoggingString(signedViewChangeMessage))
+	}
+	fmt.Println("")
+
+	fmt.Println("Sent Checkpoint messages:")
+	for _, signedCheckpointMessage := range n.logger.GetSentCheckpointMessages() {
+		fmt.Println(utils.FormattedLoggingString(signedCheckpointMessage))
+	}
+	fmt.Println("")
+
+	fmt.Println("Received Checkpoint messages:")
+	for _, signedCheckpointMessage := range n.logger.GetReceivedCheckpointMessages() {
+		fmt.Println(utils.FormattedLoggingString(signedCheckpointMessage))
+	}
+	fmt.Println("")
+
+	fmt.Println("Received Transaction requests:")
+	for _, signedTransactionRequest := range n.logger.GetReceivedTransactionRequests() {
+		fmt.Println(utils.FormattedLoggingString(signedTransactionRequest))
+	}
+	fmt.Println("")
+
+	fmt.Println("Forwarded Transaction requests:")
+	for _, signedTransactionRequest := range n.logger.GetForwardedTransactionRequests() {
+		fmt.Println(utils.FormattedLoggingString(signedTransactionRequest))
+	}
+	fmt.Println("")
+
+	fmt.Println("Sent Transaction responses:")
+	for _, signedTransactionResponse := range n.logger.GetSentTransactionResponses() {
+		fmt.Println(utils.FormattedLoggingString(signedTransactionResponse))
+	}
+	fmt.Println("")
+
+	fmt.Println("Sent Read-only responses:")
+	for _, signedReadOnlyResponse := range n.logger.GetSentReadOnlyResponses() {
+		fmt.Println(utils.FormattedLoggingString(signedReadOnlyResponse))
 	}
 	fmt.Println("")
 
@@ -34,9 +130,10 @@ func (n *LinearPBFTNode) PrintLog(ctx context.Context, req *emptypb.Empty) (*emp
 }
 
 // PrintDB prints the database
-func (n *LinearPBFTNode) PrintDB(ctx context.Context, req *emptypb.Empty) (*emptypb.Empty, error) {
+func (n *LinearPBFTNode) PrintDB(ctx context.Context, req *wrapperspb.Int64Value) (*emptypb.Empty, error) {
 	log.Infof("Print database command received")
-	fmt.Println("Printing database:")
+
+	fmt.Println("DATABASE FOR TEST SET:", req.Value)
 	db_state, err := n.executor.db.GetDBState()
 	if err != nil {
 		log.Fatal(err)
@@ -55,36 +152,45 @@ func (n *LinearPBFTNode) PrintDB(ctx context.Context, req *emptypb.Empty) (*empt
 }
 
 // PrintStatus prints the status of a sequence number
-func (n *LinearPBFTNode) PrintStatus(ctx context.Context, req *wrapperspb.Int64Value) (*emptypb.Empty, error) {
+func (n *LinearPBFTNode) PrintStatus(ctx context.Context, req *pb.StatusRequest) (*emptypb.Empty, error) {
 	log.Infof("Print status command received")
-	fmt.Println("Printing status:")
+	fmt.Println("STATUS FOR TEST SET:", req.TestSet)
 
-	sequenceNum := req.Value
-	record := n.state.StateLog.GetLogRecord(sequenceNum)
-	if record == nil {
-		fmt.Printf("Sequence Number: %d, Status: X\n", sequenceNum)
-		return &emptypb.Empty{}, nil
-	}
+	digest := n.state.StateLog.GetDigest(req.SequenceNum)
+	signedRequest := n.state.TransactionMap.Get(digest)
+	fmt.Println(n.state.StateLog.GetLogString(req.SequenceNum), utils.LoggingString(signedRequest))
 
-	signedRequest := n.state.TransactionMap.Get(record.digest)
-	if signedRequest == nil {
-		fmt.Printf("Request not found in transaction map for sequence number %d\n", sequenceNum)
-		return &emptypb.Empty{}, nil
+	fmt.Println("Printing log records with status:")
+	maxSequenceNum := n.state.StateLog.MaxSequenceNum()
+	for i := int64(1); i <= maxSequenceNum; i++ {
+		if !n.state.StateLog.Exists(i) {
+			continue
+		}
+		digest := n.state.StateLog.GetDigest(i)
+		fmt.Println(n.state.StateLog.GetLogString(i), utils.LoggingString(n.state.TransactionMap.Get(digest)))
 	}
-	fmt.Printf("Sequence Number: %d, Status: %s, Message: %s\n", sequenceNum, recordStatus(record), utils.LoggingString(signedRequest.Request))
 	fmt.Println("")
+
 	return &emptypb.Empty{}, nil
 }
 
-// recordStatus returns the status of a log record
-func recordStatus(record *LogRecord) string {
-	if record.executed {
-		return "E"
-	} else if record.committed {
-		return "C"
-	} else if record.prepared {
-		return "P"
-	} else {
-		return "PP"
+// PrintView prints the new view message
+func (n *LinearPBFTNode) PrintView(ctx context.Context, req *wrapperspb.Int64Value) (*emptypb.Empty, error) {
+	log.Infof("Print view command received")
+
+	fmt.Println("NEW VIEW MESSAGES FOR TEST SET:", req.Value)
+
+	fmt.Println("Sent new view messages:")
+	for _, signedNewViewMessage := range n.logger.GetSentNewViewMessages() {
+		fmt.Println(utils.FormattedLoggingString(signedNewViewMessage))
 	}
+	fmt.Println("")
+
+	fmt.Println("Received new view messages:")
+	for _, signedNewViewMessage := range n.logger.GetReceivedNewViewMessages() {
+		fmt.Println(utils.FormattedLoggingString(signedNewViewMessage))
+	}
+	fmt.Println("")
+
+	return &emptypb.Empty{}, nil
 }

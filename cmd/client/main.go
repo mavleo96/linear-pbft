@@ -132,13 +132,13 @@ interactionLoop:
 			log.Infof("Skipping test set %d", testSets[nextTestSet].SetNumber)
 			continue interactionLoop
 		case "print log":
-			clientapp.SendPrintLogCommand(nodeMap)
+			clientapp.SendPrintLogCommand(nodeMap, int64(nextTestSet+1))
 		case "print db":
-			clientapp.SendPrintDBCommand(nodeMap)
+			clientapp.SendPrintDBCommand(nodeMap, int64(nextTestSet+1))
 		case "print status":
-			clientapp.SendPrintStatusCommand(nodeMap, int64(arg))
+			clientapp.SendPrintStatusCommand(nodeMap, int64(nextTestSet+1), int64(arg))
 		case "print view":
-			clientapp.SendPrintViewCommand(nodeMap)
+			clientapp.SendPrintViewCommand(nodeMap, int64(nextTestSet+1))
 		case "reset":
 			log.Info("Resetting clients...")
 			for clientID := range cfg.Clients {

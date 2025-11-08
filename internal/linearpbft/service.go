@@ -26,20 +26,20 @@ func (n *LinearPBFTNode) TransferRequest(ctx context.Context, signedRequest *pb.
 
 	// Ignore request if in view change phase
 	if n.state.InViewChangePhase() {
-		log.Infof("Ignored: %s; view change phase", utils.LoggingString(request))
+		log.Infof("Ignored: %s; view change phase", utils.LoggingString(signedRequest))
 		return &emptypb.Empty{}, status.Errorf(codes.Unavailable, "view change phase")
 	}
 
 	// Verify client signature
 	if !cmp.Equal(crypto.Digest(signedRequest), DigestNoOp) &&
 		!crypto.Verify(request, n.clients[request.Sender].PublicKey, signedRequest.Signature) {
-		log.Warnf("Invalid client signature for request %s", utils.LoggingString(request))
+		log.Warnf("Invalid client signature for request %s", utils.LoggingString(signedRequest))
 		return &emptypb.Empty{}, status.Errorf(codes.Unauthenticated, "invalid signature")
 	}
 
 	// Send reply to client if duplicate request
 	if n.state.LastReply.Get(request.Sender) != nil && request.Timestamp == n.state.LastReply.Get(request.Sender).Timestamp {
-		log.Infof("Received duplicate request from client %s for request %s, sending reply", request.Sender, utils.LoggingString(request))
+		log.Infof("Received duplicate request from client %s for request %s, sending reply", request.Sender, utils.LoggingString(signedRequest))
 		go n.SendReply(signedRequest, n.state.LastReply.Get(request.Sender).Result)
 		return &emptypb.Empty{}, nil
 	}
@@ -56,16 +56,19 @@ func (n *LinearPBFTNode) TransferRequest(ctx context.Context, signedRequest *pb.
 		// Check if request is already in forward request log
 		digest := crypto.Digest(signedRequest)
 		if n.state.InForwardedRequestsLog(digest) {
-			log.Infof("Ignored: %s; already forwarded", utils.LoggingString(request))
+			log.Infof("Ignored: %s; already forwarded", utils.LoggingString(signedRequest))
 			return &emptypb.Empty{}, nil
 		}
 
 		// Check if already preprepared in current view number
 		sequenceNum := n.state.StateLog.GetSequenceNumberByDigest(digest)
 		if sequenceNum != 0 && n.state.StateLog.IsPrePrepared(sequenceNum) && n.state.StateLog.GetViewNumber(sequenceNum) == n.state.GetViewNumber() {
-			log.Infof("Ignored: %s; already preprepared", utils.LoggingString(request))
+			log.Infof("Ignored: %s; already preprepared", utils.LoggingString(signedRequest))
 			return &emptypb.Empty{}, nil
 		}
+
+		// Logger: add received transaction request
+		n.logger.AddReceivedTransactionRequest(signedRequest)
 
 		n.handler.timer.IncrementWaitCountOrStart()
 		ctx := n.handler.timer.GetContext()
@@ -78,9 +81,12 @@ func (n *LinearPBFTNode) TransferRequest(ctx context.Context, signedRequest *pb.
 	digest := crypto.Digest(signedRequest)
 	sequenceNum := n.state.StateLog.GetSequenceNumberByDigest(digest)
 	if sequenceNum != 0 && n.state.StateLog.IsPrePrepared(sequenceNum) {
-		log.Infof("Ignored: %s; already preprepared", utils.LoggingString(request))
+		log.Infof("Ignored: %s; already preprepared", utils.LoggingString(signedRequest))
 		return &emptypb.Empty{}, nil
 	}
+
+	// Logger: add received transaction request
+	n.logger.AddReceivedTransactionRequest(signedRequest)
 
 	go n.handler.LeaderTransactionRequestHandler(signedRequest)
 	return &emptypb.Empty{}, nil
@@ -100,7 +106,7 @@ func (n *LinearPBFTNode) ReadOnlyRequest(ctx context.Context, signedRequest *pb.
 
 	// Ignore request if in view change phase
 	if n.state.InViewChangePhase() {
-		log.Infof("Ignored: %s; view change phase", utils.LoggingString(request))
+		log.Infof("Ignored: %s; view change phase", utils.LoggingString(signedRequest))
 		return nil, status.Errorf(codes.Unavailable, "view change phase")
 	}
 
@@ -112,7 +118,7 @@ func (n *LinearPBFTNode) ReadOnlyRequest(ctx context.Context, signedRequest *pb.
 	// Verify client signature
 	ok := crypto.Verify(request, n.clients[request.Sender].PublicKey, signedRequest.Signature)
 	if !ok {
-		log.Warnf("Invalid client signature for request %s", utils.LoggingString(request))
+		log.Warnf("Invalid client signature for request %s", utils.LoggingString(signedRequest))
 		return nil, status.Errorf(codes.Unauthenticated, "invalid signature")
 	}
 
@@ -140,7 +146,10 @@ func (n *LinearPBFTNode) ReadOnlyRequest(ctx context.Context, signedRequest *pb.
 		signedMessage.Signature = []byte("invalid signature")
 	}
 
-	log.Infof("Node %s: Read only request %s -> %d", n.ID, utils.LoggingString(request), balance)
+	// Logger: add sent read only response
+	n.logger.AddSentReadOnlyResponse(signedMessage)
+
+	log.Infof("Node %s: Read only request %s -> %d", n.ID, utils.LoggingString(signedRequest), balance)
 	return signedMessage, nil
 }
 
@@ -168,6 +177,9 @@ func (n *LinearPBFTNode) SendReply(signedRequest *pb.SignedTransactionRequest, r
 	// Update last reply
 	n.state.LastReply.Update(request.Sender, reply)
 
+	// Logger: add sent transaction response
+	n.logger.AddSentTransactionResponse(signedReply)
+
 	// Send reply to client
 	_, err := (*n.clients[request.Sender].Client).ReceiveReply(context.Background(), signedReply)
 	if err != nil {
@@ -186,9 +198,12 @@ func (n *LinearPBFTNode) ForwardRequest(ctx context.Context, signedRequest *pb.S
 		return
 	}
 
-	log.Infof("Forwarding to primary %s: %s", primaryID, utils.LoggingString(signedRequest.Request))
+	// Logger: add forwarded transaction request
+	n.logger.AddForwardedTransactionRequest(signedRequest)
+
+	log.Infof("Forwarding to primary %s: %s", primaryID, utils.LoggingString(signedRequest))
 	_, err := (*n.handler.peers[primaryID].Client).TransferRequest(context.Background(), signedRequest)
 	if err != nil {
-		log.Warnf("Forwarding Failed: %s; %s", utils.LoggingString(signedRequest.Request), err.Error())
+		log.Warnf("Forwarding failed: %s; %s", utils.LoggingString(signedRequest), err.Error())
 	}
 }
