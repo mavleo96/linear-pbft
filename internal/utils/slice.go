@@ -38,6 +38,15 @@ func Min[T cmp.Ordered](slice []T) T {
 	return min
 }
 
+// Range returns a slice of integers from start to end
+func Range(start, end int64) []int64 {
+	slice := make([]int64, end-start)
+	for i := range slice {
+		slice[i] = start + int64(i)
+	}
+	return slice
+}
+
 // Keys returns the keys of a map
 func Keys[K comparable, V any](m map[K]V) []K {
 	keys := make([]K, 0)

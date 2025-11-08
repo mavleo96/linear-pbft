@@ -32,15 +32,15 @@ func (v *ViewChangeManager) ViewChangeRoutine(ctx context.Context) {
 			log.Infof("View change routine: Timer expired at v %d vc %d", v.state.GetViewNumber(), v.state.GetViewChangeViewNumber())
 
 			// Get smallest view number of the logged view change messages which is higher than latest sent view change message view number
-			viewNumber := v.state.GetViewChangeViewNumber() + 1
-			maxViewNumber := utils.Max(utils.Keys(v.viewChangeLog))
-			for i := viewNumber; i <= maxViewNumber; i++ {
-				if _, ok := v.viewChangeLog[i]; ok {
+			currentViewChangeNumber := v.state.GetViewChangeViewNumber()
+			viewNumber := currentViewChangeNumber + 1
+			for _, i := range v.GetViewChangeLogKeys() {
+				if i > currentViewChangeNumber && (viewNumber == currentViewChangeNumber+1 || i < viewNumber) {
 					viewNumber = i
-					break
 				}
 			}
-			log.Infof("VCN: %d, NEW VCN: %d, Key of VC log: %d", v.state.GetViewChangeViewNumber(), viewNumber, utils.Keys(v.viewChangeLog))
+
+			log.Infof("VCN: %d, NEW VCN: %d, Key of VC log: %d", v.state.GetViewChangeViewNumber(), viewNumber, v.GetViewChangeLogKeys())
 			log.Infof("Node %s is entering view change phase and updated vc to %d", v.id, viewNumber)
 			v.state.SetViewChangeViewNumber(viewNumber)
 			v.state.SetViewChangePhase(true)

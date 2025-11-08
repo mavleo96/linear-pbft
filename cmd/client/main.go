@@ -92,13 +92,17 @@ interactionLoop:
 			var err error
 			n := strings.TrimPrefix(cmd, "print status")
 			n = strings.TrimSpace(n)
-			arg, err = strconv.Atoi(n)
+			if n == "all" {
+				arg = 0
+			} else {
+				arg, err = strconv.Atoi(n)
+			}
 			if err != nil {
 				log.Warn(err)
 				continue interactionLoop
 			}
 			cmd = "print status"
-			if arg <= 0 {
+			if arg < 0 {
 				log.Warn("Invalid argument for print status")
 				continue interactionLoop
 			}

@@ -39,7 +39,11 @@ func SendPrintDBCommand(nodeMap map[string]*models.Node, testSet int64) error {
 
 // SendPrintStatusCommand sends a print status command to all nodes
 func SendPrintStatusCommand(nodeMap map[string]*models.Node, testSet int64, sequenceNum int64) error {
-	log.Infof("Print status command received for %d", sequenceNum)
+	if sequenceNum == 0 {
+		log.Infof("Print status command received for all sequence numbers")
+	} else {
+		log.Infof("Print status command received for %d", sequenceNum)
+	}
 	for _, node := range nodeMap {
 		go func() {
 			_, err := (*node.Client).PrintStatus(context.Background(), &pb.StatusRequest{TestSet: testSet, SequenceNum: sequenceNum})

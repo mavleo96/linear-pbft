@@ -72,6 +72,13 @@ func (v *ViewChangeManager) AddNewViewMessage(signedNewViewMessage *pb.SignedNew
 	v.newViewLog[viewNumber] = signedNewViewMessage
 }
 
+// GetViewChangeLogKeys returns the keys of the view change log
+func (v *ViewChangeManager) GetViewChangeLogKeys() []int64 {
+	v.mutex.RLock()
+	defer v.mutex.RUnlock()
+	return utils.Keys(v.viewChangeLog)
+}
+
 // Reset resets the view change manager
 func (v *ViewChangeManager) Reset() {
 	v.mutex.Lock()

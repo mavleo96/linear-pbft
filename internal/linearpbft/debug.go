@@ -156,14 +156,13 @@ func (n *LinearPBFTNode) PrintStatus(ctx context.Context, req *pb.StatusRequest)
 	log.Infof("Print status command received")
 	fmt.Println("STATUS FOR TEST SET:", req.TestSet)
 
-	digest := n.state.StateLog.GetDigest(req.SequenceNum)
-	signedRequest := n.state.TransactionMap.Get(digest)
-	fmt.Println(n.state.StateLog.GetLogString(req.SequenceNum), utils.LoggingString(signedRequest))
-
-	fmt.Println("Printing log records with status:")
-	maxSequenceNum := n.state.StateLog.MaxSequenceNum()
-	for i := int64(1); i <= maxSequenceNum; i++ {
+	printRange := []int64{req.SequenceNum}
+	if req.SequenceNum == 0 {
+		printRange = utils.Range(n.config.GetLowWaterMark()+1, n.state.StateLog.MaxSequenceNum()+1)
+	}
+	for _, i := range printRange {
 		if !n.state.StateLog.Exists(i) {
+			fmt.Println(n.state.StateLog.GetLogString(i), "nil")
 			continue
 		}
 		digest := n.state.StateLog.GetDigest(i)
