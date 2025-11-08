@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"slices"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/mavleo96/bft-mavleo96/internal/crypto"
@@ -18,10 +19,10 @@ func (n *LinearPBFTNode) SendPrePrepareToNode(signedPreprepareMessage *pb.Signed
 	// request := n.State.TransactionMap.Get(prePrepareMessage.Digest)
 
 	// Byzantine node behavior: dark attack
-	// if n.Byzantine && n.DarkAttack && slices.Contains(n.DarkAttackNodes, peer.ID) {
-	// 	// log.Infof("Node %s is Byzantine and is performing dark attack on node %s", n.ID, peer.ID)
-	// 	return
-	// }
+	if n.byzantineConfig.Byzantine && n.byzantineConfig.DarkAttack && slices.Contains(n.byzantineConfig.DarkAttackNodes, nodeID) {
+		return nil, errors.New("byzantine node is performing dark attack")
+	}
+
 	// // Byzantine node behavior: time attack
 	// if n.Byzantine && n.TimeAttack {
 	// 	// log.Infof("Node %s is Byzantine and is performing time attack", peer.ID)
@@ -62,11 +63,12 @@ func (n *LinearPBFTNode) SendPrepareToNode(signedPrepareMessage *pb.SignedPrepar
 	prepareMessage := signedPrepareMessage.Message
 
 	// request := n.State.TransactionMap.Get(prepareMessage.Digest)
+
 	// Byzantine node behavior: dark attack
-	// if n.Byzantine && n.DarkAttack && slices.Contains(n.DarkAttackNodes, peer.ID) {
-	// 	// log.Infof("Node %s is Byzantine and is performing dark attack on node %s", n.ID, peer.ID)
-	// 	return
-	// }
+	if n.byzantineConfig.Byzantine && n.byzantineConfig.DarkAttack && slices.Contains(n.byzantineConfig.DarkAttackNodes, nodeID) {
+		return nil, errors.New("byzantine node is performing dark attack")
+	}
+
 	// // Byzantine node behavior: time attack
 	// if n.Byzantine && n.TimeAttack {
 	// 	// log.Infof("Node %s is Byzantine and is performing time attack", peer.ID)
@@ -101,11 +103,12 @@ func (n *LinearPBFTNode) SendPrepareToNode(signedPrepareMessage *pb.SignedPrepar
 // SendCommitToNode sends a commit message to a node
 func (n *LinearPBFTNode) SendCommitToNode(signedCommitMessage *pb.SignedCommitMessage, nodeID string) error {
 	// request := n.State.TransactionMap.Get(commitMessage.Digest)
+
 	// Byzantine node behavior: dark attack
-	// if n.Byzantine && n.DarkAttack && slices.Contains(n.DarkAttackNodes, peer.ID) {
-	// 	// log.Infof("Node %s is Byzantine and is performing dark attack on node %s", n.ID, peer.ID)
-	// 	return
-	// }
+	if n.byzantineConfig.Byzantine && n.byzantineConfig.DarkAttack && slices.Contains(n.byzantineConfig.DarkAttackNodes, nodeID) {
+		return errors.New("byzantine node is performing dark attack")
+	}
+
 	// // Byzantine node behavior: time attack
 	// if n.Byzantine && n.TimeAttack {
 	// 	// log.Infof("Node %s is Byzantine and is performing time attack", peer.ID)
@@ -124,6 +127,11 @@ func (n *LinearPBFTNode) SendCommitToNode(signedCommitMessage *pb.SignedCommitMe
 // SendViewChangeMessageToNode sends a view change message to a node
 func (n *LinearPBFTNode) SendViewChangeMessageToNode(signedViewChangeMessage *pb.SignedViewChangeMessage, nodeID string) error {
 
+	// Byzantine node behavior: dark attack
+	if n.byzantineConfig.Byzantine && n.byzantineConfig.DarkAttack && slices.Contains(n.byzantineConfig.DarkAttackNodes, nodeID) {
+		return errors.New("byzantine node is performing dark attack")
+	}
+
 	_, err := (*n.handler.peers[nodeID].Client).ViewChangeRequest(context.Background(), signedViewChangeMessage)
 	if err != nil {
 		return err
@@ -138,6 +146,11 @@ func (n *LinearPBFTNode) SendNewViewMessageToNode(signedNewViewMessage *pb.Signe
 	lowerWatermark := n.config.GetLowWaterMark()
 	if len(signedPrePrepareMessages) > 0 {
 		lowerWatermark = signedPrePrepareMessages[0].Message.SequenceNum
+	}
+
+	// Byzantine node behavior: dark attack
+	if n.byzantineConfig.Byzantine && n.byzantineConfig.DarkAttack && slices.Contains(n.byzantineConfig.DarkAttackNodes, nodeID) {
+		return errors.New("byzantine node is performing dark attack")
 	}
 
 	stream, err := (*n.handler.peers[nodeID].Client).NewViewRequest(context.Background(), signedNewViewMessage)
@@ -186,6 +199,12 @@ func (n *LinearPBFTNode) SendNewViewMessageToNode(signedNewViewMessage *pb.Signe
 
 // SendCheckpointMessageToNode sends a check point message to a node
 func (n *LinearPBFTNode) SendCheckpointMessageToNode(signedCheckpointMessage *pb.SignedCheckpointMessage, nodeID string) error {
+
+	// Byzantine node behavior: dark attack
+	if n.byzantineConfig.Byzantine && n.byzantineConfig.DarkAttack && slices.Contains(n.byzantineConfig.DarkAttackNodes, nodeID) {
+		return errors.New("byzantine node is performing dark attack")
+	}
+
 	_, err := (*n.handler.peers[nodeID].Client).CheckpointRequest(context.Background(), signedCheckpointMessage)
 	if err != nil {
 		return err

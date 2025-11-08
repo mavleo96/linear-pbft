@@ -71,7 +71,7 @@ func CreateLinearPBFTNode(selfNode *models.Node, peerNodes map[string]*models.No
 	viewchanger := CreateViewChangeManager(selfNode.ID, timer, serverState, serverConfig)
 	checkpointer := CreateCheckpointManager(selfNode.ID, serverState, serverConfig)
 	executor := CreateExecutor(serverState, serverConfig, bankDB, checkpointer, timer, executionTriggerChannel)
-	handler := CreateProtocolHandler(selfNode.ID, serverState, serverConfig, privateKey1, masterPublicKey1, peerNodes, executionTriggerChannel)
+	handler := CreateProtocolHandler(selfNode.ID, serverState, serverConfig, byzantineConfig, privateKey1, masterPublicKey1, peerNodes, executionTriggerChannel)
 
 	server := &LinearPBFTNode{
 		Node:            selfNode,

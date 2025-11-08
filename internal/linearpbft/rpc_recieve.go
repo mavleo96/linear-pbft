@@ -59,7 +59,16 @@ func (n *LinearPBFTNode) PrePrepareRequest(ctx context.Context, signedMessage *p
 		return nil, status.Errorf(codes.Unauthenticated, "invalid signature on request")
 	}
 
-	return n.handler.BackupPrePrepareRequestHandler(signedMessage)
+	// Handle preprepare message
+	signedPrepareMessage, err := n.handler.BackupPrePrepareRequestHandler(signedMessage)
+
+	// Byzantine node behavior: dark attack
+	primaryID := utils.ViewNumberToPrimaryID(prePrepareMessage.ViewNumber, n.config.N)
+	if n.byzantineConfig.Byzantine && n.byzantineConfig.DarkAttack && slices.Contains(n.byzantineConfig.DarkAttackNodes, primaryID) {
+		return nil, status.Errorf(codes.Unavailable, "node not alive")
+	}
+
+	return signedPrepareMessage, err
 }
 
 // PrepareRequest validates incoming prepare messages and routes it to the protocol handler
@@ -98,7 +107,16 @@ func (n *LinearPBFTNode) PrepareRequest(ctx context.Context, signedPrepareMessag
 		return nil, status.Errorf(codes.Unauthenticated, "invalid signature")
 	}
 
-	return n.handler.BackupPrepareRequestHandler(signedPrepareMessage)
+	// Handle prepare message
+	signedCommitMessage, err := n.handler.BackupPrepareRequestHandler(signedPrepareMessage)
+
+	// Byzantine node behavior: dark attack
+	primaryID := utils.ViewNumberToPrimaryID(prepareMessage.ViewNumber, n.config.N)
+	if n.byzantineConfig.Byzantine && n.byzantineConfig.DarkAttack && slices.Contains(n.byzantineConfig.DarkAttackNodes, primaryID) {
+		return nil, status.Errorf(codes.Unavailable, "node not alive")
+	}
+	return signedCommitMessage, err
+
 }
 
 // CommitRequest validates incoming commit messages and routes it to the protocol handler
@@ -200,7 +218,7 @@ func (n *LinearPBFTNode) ViewChangeRequest(ctx context.Context, signedViewChange
 		if prepareMessage.ViewNumber != prePrepareMessage.ViewNumber ||
 			prepareMessage.SequenceNum != prePrepareMessage.SequenceNum ||
 			!cmp.Equal(prepareMessage.Digest, prePrepareMessage.Digest) {
-			log.Warnf("Rejected: %s; invalid digest on prepare message", utils.LoggingString(viewChangeMessage))
+			log.Warnf("Rejected: %s; invalid digest on prepare message for sequence number %d", utils.LoggingString(viewChangeMessage), prepareMessage.SequenceNum)
 			return nil, status.Errorf(codes.FailedPrecondition, "invalid digest on prepare message")
 		}
 	}
@@ -275,6 +293,13 @@ func (n *LinearPBFTNode) NewViewRequest(signedNewViewMessage *pb.SignedNewViewMe
 			log.Warnf("Prepare request %s could not be sent to primary: %s", utils.LoggingString(signedPrePrepareMessage), err)
 			continue
 		}
+
+		// Byzantine node behavior: dark attack
+		primaryID := utils.ViewNumberToPrimaryID(signedPrepareMessage.Message.ViewNumber, n.config.N)
+		if n.byzantineConfig.Byzantine && n.byzantineConfig.DarkAttack && slices.Contains(n.byzantineConfig.DarkAttackNodes, primaryID) {
+			continue
+		}
+
 		if err := stream.Send(signedPrepareMessage); err != nil {
 			log.Warnf("Prepare message %s could not be sent to primary in stream: %s", utils.LoggingString(signedPrepareMessage), err)
 		}
@@ -315,7 +340,6 @@ func (n *LinearPBFTNode) GetRequest(ctx context.Context, getRequestMessage *pb.G
 
 	// Byzantine node behavior: dark attack
 	if n.byzantineConfig.Byzantine && n.byzantineConfig.DarkAttack && slices.Contains(n.byzantineConfig.DarkAttackNodes, getRequestMessage.NodeID) {
-		// log.Infof("Node %s is Byzantine and is performing dark attack on node %s", n.ID, getRequestMessage.NodeID)
 		return nil, status.Errorf(codes.Unavailable, "node not alive")
 	}
 
@@ -332,6 +356,17 @@ func (n *LinearPBFTNode) GetRequest(ctx context.Context, getRequestMessage *pb.G
 
 // GetCheckpoint returns a checkpoint for a given sequence number
 func (n *LinearPBFTNode) GetCheckpoint(ctx context.Context, getCheckpointMessage *pb.GetCheckpointMessage) (*pb.Checkpoint, error) {
+	// Ignore if not alive
+	if !n.byzantineConfig.Alive {
+		log.Infof("Node %s is not alive", n.ID)
+		return nil, status.Errorf(codes.Unavailable, "node not alive")
+	}
+
+	// Byzantine node behavior: dark attack
+	if n.byzantineConfig.Byzantine && n.byzantineConfig.DarkAttack && slices.Contains(n.byzantineConfig.DarkAttackNodes, getCheckpointMessage.NodeID) {
+		return nil, status.Errorf(codes.Unavailable, "node not alive")
+	}
+
 	sequenceNum := getCheckpointMessage.SequenceNum
 	checkpoint := n.executor.checkpointer.GetCheckpoint(sequenceNum)
 	if checkpoint == nil {

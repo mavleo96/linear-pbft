@@ -2,6 +2,7 @@ package linearpbft
 
 import (
 	"context"
+	"slices"
 	"sync"
 
 	"github.com/google/go-cmp/cmp"
@@ -29,11 +30,12 @@ func (n *LinearPBFTNode) SendGetRequest(digest []byte) (*pb.SignedTransactionReq
 		wg.Add(1)
 		go func(peer *models.Node) {
 			defer wg.Done()
-			// // Byzantine node behavior: dark attack
-			// if n.Byzantine && n.DarkAttack && slices.Contains(n.DarkAttackNodes, peer.ID) {
-			// 	// log.Infof("Node %s is Byzantine and is performing dark attack on node %s", n.ID, peer.ID)
-			// 	return
-			// }
+
+			// Byzantine node behavior: dark attack
+			if n.byzantineConfig.Byzantine && n.byzantineConfig.DarkAttack && slices.Contains(n.byzantineConfig.DarkAttackNodes, peer.ID) {
+				return
+			}
+
 			signedRequest, err := (*peer.Client).GetRequest(context.Background(), getRequestMessage)
 			if err != nil {
 				return
@@ -87,11 +89,12 @@ func (n *LinearPBFTNode) SendGetCheckpoint(sequenceNum int64) (*pb.Checkpoint, e
 		wg.Add(1)
 		go func(peer *models.Node) {
 			defer wg.Done()
-			// // Byzantine node behavior: dark attack
-			// if n.Byzantine && n.DarkAttack && slices.Contains(n.DarkAttackNodes, peer.ID) {
-			// 	// log.Infof("Node %s is Byzantine and is performing dark attack on node %s", n.ID, peer.ID)
-			// 	return
-			// }
+
+			// Byzantine node behavior: dark attack
+			if n.byzantineConfig.Byzantine && n.byzantineConfig.DarkAttack && slices.Contains(n.byzantineConfig.DarkAttackNodes, peer.ID) {
+				return
+			}
+
 			checkpoint, err := (*peer.Client).GetCheckpoint(context.Background(), getCheckpointMessage)
 			if err != nil {
 				return

@@ -11,6 +11,7 @@ type ProtocolHandler struct {
 	id               string
 	state            *ServerState
 	config           *ServerConfig
+	byzantineConfig  *ByzantineConfig
 	privateKey1      *bls.SecretKey
 	masterPublicKey1 *bls.PublicKey
 	peers            map[string]*models.Node
@@ -47,11 +48,12 @@ func (h *ProtocolHandler) GetCommitToRouteChannel() <-chan *pb.SignedCommitMessa
 }
 
 // CreateProtocolHandler creates a new protocol handler
-func CreateProtocolHandler(id string, state *ServerState, config *ServerConfig, privateKey1 *bls.SecretKey, masterPublicKey1 *bls.PublicKey, peers map[string]*models.Node, executionTriggerCh chan int64) *ProtocolHandler {
+func CreateProtocolHandler(id string, state *ServerState, config *ServerConfig, byzantineConfig *ByzantineConfig, privateKey1 *bls.SecretKey, masterPublicKey1 *bls.PublicKey, peers map[string]*models.Node, executionTriggerCh chan int64) *ProtocolHandler {
 	return &ProtocolHandler{
 		id:                  id,
 		state:               state,
 		config:              config,
+		byzantineConfig:     byzantineConfig,
 		privateKey1:         privateKey1,
 		masterPublicKey1:    masterPublicKey1,
 		peers:               peers,

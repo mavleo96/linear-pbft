@@ -81,21 +81,13 @@ func (h *ProtocolHandler) BackupPrePrepareRequestHandler(signedPrePrepareMessage
 		Message:   prepareMessage,
 		Signature: crypto.Sign(prepareMessage, h.privateKey1),
 	}
-	// // Byzantine node behavior: sign attack
-	// if n.Byzantine && n.SignAttack {
-	// 	// log.Infof("Node %s is Byzantine and is performing sign attack", n.ID)
-	// 	signedPrepareMessage.Signature = []byte("invalid signature")
-	// }
 
-	// // Byzantine node behavior: dark attack
-	// if n.Byzantine && n.DarkAttack && slices.Contains(n.DarkAttackNodes, prepareMessage.NodeID) {
-	// 	// log.Infof("Node %s is Byzantine and is performing dark attack on node %s", n.ID, prepareMessage.NodeID)
-	// 	return nil, status.Errorf(codes.Unavailable, "node not alive")
-	// }
+	// Byzantine node behavior: sign attack
+	if h.byzantineConfig.Byzantine && h.byzantineConfig.SignAttack {
+		signedPrepareMessage.Signature = []byte("invalid signature")
+	}
 
 	return signedPrepareMessage, nil
-	// return nil, nil
-
 }
 
 // BackupPrepareRequestHandler handles the prepare request backup
@@ -139,19 +131,13 @@ func (h *ProtocolHandler) BackupPrepareRequestHandler(signedPrepareMessage *pb.S
 		Message:   commitMessage,
 		Signature: crypto.Sign(commitMessage, h.privateKey1),
 	}
-	// // Byzantine node behavior: sign attack
-	// if n.Byzantine && n.SignAttack {
-	// 	// log.Infof("Node %s is Byzantine and is performing sign attack", n.ID)
-	// 	signedCommitMessage.Signature = []byte("invalid signature")
-	// }
-	// Byzantine node behavior: dark attack
-	// if n.Byzantine && n.DarkAttack && slices.Contains(n.DarkAttackNodes, commitMessage.NodeID) {
-	// 	// log.Infof("Node %s is Byzantine and is performing dark attack on node %s", n.ID, commitMessage.NodeID)
-	// 	return nil, status.Errorf(codes.Unavailable, "node not alive")
-	// }
+
+	// Byzantine node behavior: sign attack
+	if h.byzantineConfig.Byzantine && h.byzantineConfig.SignAttack {
+		signedCommitMessage.Signature = []byte("invalid signature")
+	}
 
 	return signedCommitMessage, nil
-
 }
 
 // BackupCommitRequestHandler handles the commit request backup

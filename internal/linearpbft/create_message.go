@@ -27,11 +27,10 @@ func (n *LinearPBFTNode) CreateViewChangeMessage(viewNumber int64) *pb.SignedVie
 		Message:   viewChangeMessage,
 		Signature: crypto.Sign(viewChangeMessage, n.handler.privateKey1),
 	}
-	// // Byzantine node behavior: sign attack
-	// if n.Byzantine && n.SignAttack {
-	// 	// log.Infof("Node %s is Byzantine and is performing sign attack", n.ID)
-	// 	signedViewChangeMessage.Signature = []byte("invalid signature")
-	// }
+	// Byzantine node behavior: sign attack
+	if n.byzantineConfig.Byzantine && n.byzantineConfig.SignAttack {
+		signedViewChangeMessage.Signature = []byte("invalid signature")
+	}
 	return signedViewChangeMessage
 }
 
@@ -87,11 +86,11 @@ func (n *LinearPBFTNode) CreateNewViewMessage(viewNumber int64) *pb.SignedNewVie
 				Message:   newPrePrepareMessage,
 				Signature: crypto.Sign(newPrePrepareMessage, n.handler.privateKey1),
 			}
-			// // Byzantine node behavior: sign attack
-			// if n.Byzantine && n.SignAttack {
-			// 	// log.Infof("Node %s is Byzantine and is performing sign attack", n.ID)
-			// 	signedPrePrepareMessagesMap[sequenceNum].Signature = []byte("invalid signature")
-			// }
+			// Byzantine node behavior: sign attack
+			if n.byzantineConfig.Byzantine && n.byzantineConfig.SignAttack {
+				signedPrePrepareMessages.Signature = []byte("invalid signature")
+			}
+
 			signedPrePrepareMessagesMap[sequenceNum] = signedPrePrepareMessages
 		}
 	}
@@ -110,6 +109,12 @@ func (n *LinearPBFTNode) CreateNewViewMessage(viewNumber int64) *pb.SignedNewVie
 				Message:   NoOpPrePrepareMessage,
 				Signature: crypto.Sign(NoOpPrePrepareMessage, n.handler.privateKey1),
 			}
+
+			// Byzantine node behavior: sign attack
+			if n.byzantineConfig.Byzantine && n.byzantineConfig.SignAttack {
+				SignedNoOpPrePrepareMessage.Signature = []byte("invalid signature")
+			}
+
 			signedPrePrepareMessages = append(signedPrePrepareMessages, SignedNoOpPrePrepareMessage)
 		} else {
 			signedPrePrepareMessages = append(signedPrePrepareMessages, signedPrePrepareMessage)
@@ -126,11 +131,12 @@ func (n *LinearPBFTNode) CreateNewViewMessage(viewNumber int64) *pb.SignedNewVie
 		Message:   newViewMessage,
 		Signature: crypto.Sign(newViewMessage, n.handler.privateKey1),
 	}
-	// // Byzantine node behavior: sign attack
-	// if n.Byzantine && n.SignAttack {
-	// 	// log.Infof("Node %s is Byzantine and is performing sign attack", n.ID)
-	// 	signedNewViewMessage.Signature = []byte("invalid signature")
-	// }
+
+	// Byzantine node behavior: sign attack
+	if n.byzantineConfig.Byzantine && n.byzantineConfig.SignAttack {
+		signedNewViewMessage.Signature = []byte("invalid signature")
+	}
+
 	return signedNewViewMessage
 }
 
@@ -146,5 +152,11 @@ func (n *LinearPBFTNode) CreateCheckpointMessage(sequenceNum int64) *pb.SignedCh
 		Message:   checkpointMessage,
 		Signature: crypto.Sign(checkpointMessage, n.handler.privateKey1),
 	}
+
+	// Byzantine node behavior: sign attack
+	if n.byzantineConfig.Byzantine && n.byzantineConfig.SignAttack {
+		signedCheckpointMessage.Signature = []byte("invalid signature")
+	}
+
 	return signedCheckpointMessage
 }

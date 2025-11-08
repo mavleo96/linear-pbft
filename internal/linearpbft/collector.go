@@ -42,6 +42,12 @@ func (n *LinearPBFTNode) CollectPrepareMessages(responseCh <-chan *pb.SignedPrep
 				Message:   prepareMessage,
 				Signature: crypto.Sign(prepareMessage, n.handler.privateKey1),
 			}
+
+			// Byzantine node behavior: sign attack
+			if n.byzantineConfig.Byzantine && n.byzantineConfig.SignAttack {
+				signedPrepareMessage.Signature = []byte("invalid signature")
+			}
+
 			signedPrepareMessages = append(signedPrepareMessages, signedPrepareMessage)
 			go n.handler.LeaderPrepareMessageHandler(signedPrepareMessages)
 		}
@@ -74,6 +80,12 @@ func (n *LinearPBFTNode) CollectCommitMessages(responseCh <-chan *pb.SignedCommi
 				Message:   commitMessage,
 				Signature: crypto.Sign(commitMessage, n.handler.privateKey1),
 			}
+
+			// Byzantine node behavior: sign attack
+			if n.byzantineConfig.Byzantine && n.byzantineConfig.SignAttack {
+				signedCommitMessage.Signature = []byte("invalid signature")
+			}
+
 			signedCommitMessageMap[sequenceNum][n.ID] = signedCommitMessage
 		}
 

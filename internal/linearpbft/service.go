@@ -127,11 +127,12 @@ func (n *LinearPBFTNode) ReadOnlyRequest(ctx context.Context, signedRequest *pb.
 		Message:   message,
 		Signature: crypto.Sign(message, n.handler.privateKey1),
 	}
+
 	// Byzantine node behavior: sign attack
 	if n.byzantineConfig.Byzantine && n.byzantineConfig.SignAttack {
-		// log.Infof("Node %s is Byzantine and is performing sign attack", n.ID)
 		signedMessage.Signature = []byte("invalid signature")
 	}
+
 	log.Infof("Node %s: Read only request %s -> %d", n.ID, utils.LoggingString(request), balance)
 	return signedMessage, nil
 }
@@ -151,11 +152,12 @@ func (n *LinearPBFTNode) SendReply(signedRequest *pb.SignedTransactionRequest, r
 		Message:   reply,
 		Signature: crypto.Sign(reply, n.handler.privateKey1),
 	}
+
 	// Byzantine node behavior: sign attack
 	if n.byzantineConfig.Byzantine && n.byzantineConfig.SignAttack {
-		// log.Infof("Node %s is Byzantine and is performing sign attack", n.ID)
 		signedReply.Signature = []byte("invalid signature")
 	}
+
 	// Update last reply
 	n.state.LastReply.Update(request.Sender, reply)
 
@@ -170,11 +172,13 @@ func (n *LinearPBFTNode) SendReply(signedRequest *pb.SignedTransactionRequest, r
 func (n *LinearPBFTNode) ForwardRequest(ctx context.Context, signedRequest *pb.SignedTransactionRequest) {
 	// Forward request to primary
 	primaryID := utils.ViewNumberToPrimaryID(n.state.GetViewNumber(), n.config.N)
+
 	// Byzantine node behavior: dark attack
 	if n.byzantineConfig.Byzantine && n.byzantineConfig.DarkAttack && slices.Contains(n.byzantineConfig.DarkAttackNodes, primaryID) {
 		log.Infof("Node %s is Byzantine and is performing dark attack on node %s", n.ID, primaryID)
 		return
 	}
+
 	log.Infof("Forwarding to primary %s: %s", primaryID, utils.LoggingString(signedRequest.Request))
 	_, err := (*n.handler.peers[primaryID].Client).TransferRequest(context.Background(), signedRequest)
 	if err != nil {

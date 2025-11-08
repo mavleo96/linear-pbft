@@ -39,11 +39,10 @@ func (h *ProtocolHandler) LeaderTransactionRequestHandler(signedRequest *pb.Sign
 		Request:   signedRequest,
 	}
 
-	// // Byzantine node behavior: sign attack
-	// if n.Byzantine && n.SignAttack {
-	// 	// log.Infof("Node %s is Byzantine and is performing sign attack", n.ID)
-	// 	signedPreprepare.Signature = []byte("invalid signature")
-	// }
+	// Byzantine node behavior: sign attack
+	if h.byzantineConfig.Byzantine && h.byzantineConfig.SignAttack {
+		signedPreprepare.Signature = []byte("invalid signature")
+	}
 
 	// Preprepare the transaction
 	status := h.state.StateLog.AddPrePrepareMessage(sequenceNum, signedPreprepare)
