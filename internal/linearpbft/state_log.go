@@ -371,6 +371,7 @@ func createLogRecord(viewNumber int64, sequenceNumber int64, digest []byte) *Log
 		prepared:          false,
 		committed:         false,
 		executed:          false,
+		result:            -1,
 		sbftVerified:      make(map[int64]bool),
 		prePrepareMessage: make(map[int64]*pb.SignedPrePrepareMessage),
 		prepareMessage:    make(map[int64]*pb.SignedPrepareMessage),
