@@ -80,10 +80,16 @@ func viewChangeMessageString(v *pb.ViewChangeMessage) string {
 }
 
 func commitMessageString(c *pb.CommitMessage, request *pb.TransactionRequest) string {
+	if request == nil {
+		return fmt.Sprintf("<COMMIT, %d, %d, D(message), %s>", c.ViewNumber, c.SequenceNum, c.NodeID)
+	}
 	return fmt.Sprintf("<COMMIT, %d, %d, D(%s), %s>", c.ViewNumber, c.SequenceNum, transactionRequestString(request), c.NodeID)
 }
 
 func prepareMessageString(p *pb.PrepareMessage, request *pb.TransactionRequest) string {
+	if request == nil {
+		return fmt.Sprintf("<PREPARE, %d, %d, D(message), %s>", p.ViewNumber, p.SequenceNum, p.NodeID)
+	}
 	return fmt.Sprintf("<PREPARE, %d, %d, D(%s), %s>", p.ViewNumber, p.SequenceNum, transactionRequestString(request), p.NodeID)
 }
 

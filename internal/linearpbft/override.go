@@ -64,7 +64,7 @@ func (n *LinearPBFTNode) ResetNode(ctx context.Context, req *emptypb.Empty) (*em
 	n.ViewChangeMessageLog = make(map[int64]map[string]*pb.SignedViewChangeMessage)
 	n.ForwardedRequestsLog = make([]*pb.SignedTransactionRequest, 0)
 	n.CheckPointManager.log = make(map[int64]map[string]*pb.SignedCheckPointMessage)
-	n.CheckPointManager.digestMap = make(map[int64][]byte)
+	n.CheckPointManager.checkpoints = make(map[int64]*pb.CheckPoint)
 
 	// Reset DB
 	n.Executor.db.ResetDB(10)

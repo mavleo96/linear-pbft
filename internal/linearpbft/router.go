@@ -11,6 +11,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// TODO: router should not be responsible for collecting messages; it should only route them
 func (n *LinearPBFTNode) RouteAndCollectRoutine(ctx context.Context) {
 	log.Infof("Router routine started")
 	for {
@@ -168,7 +169,24 @@ func (n *LinearPBFTNode) RouteAndCollectRoutine(ctx context.Context) {
 				go n.SendCheckPointMessageToNode(signedCheckPointMessage, peer.ID)
 			}
 
+		// Route install check point message from view change manager to executor
+		case sequenceNum := <-n.ViewChangeManager.GetInstallCheckPointChannel():
+			// If checkpoint is missing then get it from all nodes
+			checkPoint, err := n.SendGetCheckPoint(sequenceNum)
+			if err != nil {
+				log.Fatalf("Failed to get check point for sequence number %d", sequenceNum)
+			}
+			if checkPoint == nil || checkPoint.Snapshot == nil {
+				log.Fatalf("Check point not found or snapshot is nil for sequence number %d", sequenceNum)
+			}
+			n.Executor.CheckPointManager.AddCheckpoint(sequenceNum, checkPoint.Snapshot)
+
+			// Signal the executor to install the checkpoint
+			n.Executor.GetInstallCheckPointChannel() <- sequenceNum
+
 		}
+
+		// Route get check point message from router to all nodes
 
 		// NOTE: The executor is signalled everytime may be redundant; but it is safe to do so
 		// TODO: need to check if calling only in commit message handler or in router routine is sufficient
@@ -196,7 +214,7 @@ func (n *LinearPBFTNode) CollectPrepareMessages(responseCh chan *pb.SignedPrepar
 		// Log the prepare message in collection map
 		signedPrepareMessageMap[sequenceNum][prepareMessage.NodeID] = signedPrepareMessage
 
-		// If we have 2f + 1 prepare messages for a sequence number, send to handler
+		// If we have 2f prepare messages for a sequence number, send to handler
 		if len(signedPrepareMessageMap[sequenceNum]) == int(2*n.config.F) {
 			log.Infof("New view prepare collector: Collected 2f prepare messages for sequence number %d", sequenceNum)
 			// Convert map to slice of signed prepare messages and add self's prepare message

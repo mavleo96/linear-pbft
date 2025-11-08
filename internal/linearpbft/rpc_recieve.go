@@ -37,6 +37,12 @@ func (n *LinearPBFTNode) PrePrepareRequest(ctx context.Context, signedMessage *p
 		return nil, status.Errorf(codes.InvalidArgument, "invalid view number")
 	}
 
+	// Verify if sequence number is within low and high water mark
+	if prePrepareMessage.SequenceNum <= n.config.LowWaterMark || prePrepareMessage.SequenceNum > n.config.HighWaterMark {
+		log.Warnf("Rejected: %s; sequence number out of range (expected: %d to %d)", utils.LoggingString(prePrepareMessage), n.config.LowWaterMark, n.config.HighWaterMark)
+		return nil, status.Errorf(codes.InvalidArgument, "sequence number out of range")
+	}
+
 	// Verify Node's signature
 	currentPrimaryID := utils.ViewNumberToPrimaryID(n.State.GetViewNumber(), n.config.N)
 	ok := crypto.Verify(prePrepareMessage, n.GetPublicKey1(currentPrimaryID), signedMessage.Signature)
@@ -79,6 +85,12 @@ func (n *LinearPBFTNode) PrepareRequest(ctx context.Context, signedPrepareMessag
 		return nil, status.Errorf(codes.InvalidArgument, "invalid view number")
 	}
 
+	// Verify if sequence number is within low and high water mark
+	if prepareMessage.SequenceNum <= n.config.LowWaterMark || prepareMessage.SequenceNum > n.config.HighWaterMark {
+		log.Warnf("Rejected: %s; sequence number out of range (expected: %d to %d)", utils.LoggingString(prepareMessage), n.config.LowWaterMark, n.config.HighWaterMark)
+		return nil, status.Errorf(codes.InvalidArgument, "sequence number out of range")
+	}
+
 	// Verify Signature
 	ok := crypto.Verify(prepareMessage, n.Handler.masterPublicKey1, signedPrepareMessage.Signature)
 	if !ok {
@@ -110,6 +122,12 @@ func (n *LinearPBFTNode) CommitRequest(ctx context.Context, signedCommitMessage 
 	if viewNumber != n.State.GetViewNumber() {
 		log.Warnf("Rejected: %s; invalid view number (expected: %d)", utils.LoggingString(signedCommitMessage), n.State.GetViewNumber())
 		return nil, status.Errorf(codes.InvalidArgument, "invalid view number")
+	}
+
+	// Verify if sequence number is within low and high water mark
+	if commitMessage.SequenceNum <= n.config.LowWaterMark || commitMessage.SequenceNum > n.config.HighWaterMark {
+		log.Warnf("Rejected: %s; sequence number out of range (expected: %d to %d)", utils.LoggingString(commitMessage), n.config.LowWaterMark, n.config.HighWaterMark)
+		return nil, status.Errorf(codes.InvalidArgument, "sequence number out of range")
 	}
 
 	// Verify Signature
@@ -267,6 +285,12 @@ func (n *LinearPBFTNode) NewViewRequest(signedNewViewMessage *pb.SignedNewViewMe
 func (n *LinearPBFTNode) CheckPointRequest(ctx context.Context, signedCheckPointMessage *pb.SignedCheckPointMessage) (*emptypb.Empty, error) {
 	checkPointMessage := signedCheckPointMessage.Message
 
+	// Ignore if not alive
+	if !n.Alive {
+		log.Infof("Node %s is not alive", n.ID)
+		return nil, status.Errorf(codes.Unavailable, "node not alive")
+	}
+
 	// Verify signature
 	ok := crypto.Verify(checkPointMessage, n.GetPublicKey1(checkPointMessage.NodeID), signedCheckPointMessage.Signature)
 	if !ok {
@@ -297,11 +321,22 @@ func (n *LinearPBFTNode) GetRequest(ctx context.Context, getRequestMessage *pb.G
 
 	digest := getRequestMessage.Digest
 	signedRequest := n.State.TransactionMap.Get(digest)
-	if signedRequest == nil {
+	if signedRequest == nil || signedRequest.Request == nil {
 		log.Warnf("Rejected: %s; request not found in transaction map", utils.LoggingString(getRequestMessage))
 		return nil, status.Errorf(codes.NotFound, "request not found in transaction map")
 	}
 
 	log.Infof("Get request: %s: request %s", utils.LoggingString(getRequestMessage), utils.LoggingString(signedRequest.Request))
 	return signedRequest, nil
+}
+
+// GetCheckPoint returns a checkpoint for a given sequence number
+func (n *LinearPBFTNode) GetCheckPoint(ctx context.Context, getCheckPointMessage *pb.GetCheckPointMessage) (*pb.CheckPoint, error) {
+	sequenceNum := getCheckPointMessage.SequenceNum
+	checkpoint := n.CheckPointManager.GetCheckpoint(sequenceNum)
+	if checkpoint == nil {
+		log.Warnf("Rejected: %s; checkpoint not found for sequence number %d", utils.LoggingString(getCheckPointMessage), sequenceNum)
+		return nil, status.Errorf(codes.NotFound, "checkpoint not found for sequence number %d", sequenceNum)
+	}
+	return checkpoint, nil
 }

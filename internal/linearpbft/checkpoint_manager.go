@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/mavleo96/bft-mavleo96/internal/crypto"
 	"github.com/mavleo96/bft-mavleo96/internal/utils"
 	"github.com/mavleo96/bft-mavleo96/pb"
 	log "github.com/sirupsen/logrus"
@@ -12,9 +13,10 @@ import (
 
 // CheckPointManager is responsible for managing check point messages
 type CheckPointManager struct {
-	mutex     sync.RWMutex
-	log       map[int64]map[string]*pb.SignedCheckPointMessage // s -> (id -> msg)
-	digestMap map[int64][]byte                                 // s -> digest
+	mutex       sync.RWMutex
+	id          string
+	log         map[int64]map[string]*pb.SignedCheckPointMessage // s -> (id -> msg)
+	checkpoints map[int64]*pb.CheckPoint
 
 	state  *ServerState
 	config *ServerConfig
@@ -53,25 +55,29 @@ func (c *CheckPointManager) DeleteMessages(sequenceNum int64) {
 	delete(c.log, sequenceNum)
 }
 
-// AddDigest adds a digest for a given sequence number to the digest map
-func (c *CheckPointManager) AddDigest(sequenceNum int64, digest []byte) {
+// AddCheckpoint adds a checkpoint for a given sequence number
+func (c *CheckPointManager) AddCheckpoint(sequenceNum int64, snapshot map[string]int64) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
-	c.digestMap[sequenceNum] = digest
+	digest := crypto.DigestAny(snapshot)
+	c.checkpoints[sequenceNum] = &pb.CheckPoint{
+		Digest:   digest,
+		Snapshot: snapshot,
+	}
 }
 
-// GetDigest gets the digest for a given sequence number
-func (c *CheckPointManager) GetDigest(sequenceNum int64) []byte {
+// GetCheckpoint gets the checkpoint for a given sequence number
+func (c *CheckPointManager) GetCheckpoint(sequenceNum int64) *pb.CheckPoint {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
-	return c.digestMap[sequenceNum]
+	return c.checkpoints[sequenceNum]
 }
 
-// DeleteDigests deletes the digests for a given sequence number
-func (c *CheckPointManager) DeleteDigests(sequenceNum int64) {
+// DeleteCheckpoint deletes the checkpoint for a given sequence number
+func (c *CheckPointManager) DeleteCheckpoint(sequenceNum int64) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
-	delete(c.digestMap, sequenceNum)
+	delete(c.checkpoints, sequenceNum)
 }
 
 // CheckPointRoutine is the routine that handles check point messages
@@ -87,7 +93,8 @@ checkPointingLoop:
 			log.Infof("Received signal to start check point routine for sequence number %d", sequenceNum)
 
 			// Create checkpoint digest and verify the digest on check point messages
-			checkpointDigest := c.GetDigest(sequenceNum)
+			checkpoint := c.GetCheckpoint(sequenceNum)
+			checkpointDigest := checkpoint.Digest
 			verifiedCount := 0
 			for _, checkPointMessage := range c.GetMessages(sequenceNum) {
 				if cmp.Equal(checkPointMessage.Message.Digest, checkpointDigest) {
@@ -101,23 +108,23 @@ checkPointingLoop:
 
 			// Update low and high water mark and purge log records
 			log.Infof("Purging logs for sequence number %d", sequenceNum)
-			for i := c.config.LowWaterMark; i <= sequenceNum; i++ {
-				c.state.StateLog.Delete(i)
-			}
 			delta := sequenceNum - c.config.LowWaterMark
 			c.config.LowWaterMark += delta
 			c.config.HighWaterMark += delta
+			for i := c.config.LowWaterMark - delta + 1; i <= c.config.LowWaterMark; i++ {
+				c.state.StateLog.Delete(i)
+			}
 			log.Infof("Updated low and high water mark to %d and %d", c.config.LowWaterMark, c.config.HighWaterMark)
 
-			// Delete check point messages, digests, and snapshots older than low water mark
+			// Delete check point messages and checkpoints older than low water mark
 			for i := range c.log {
 				if i < c.config.LowWaterMark {
 					c.DeleteMessages(i)
 				}
 			}
-			for i := range c.digestMap {
+			for i := range c.checkpoints {
 				if i < c.config.LowWaterMark {
-					c.DeleteDigests(i)
+					c.DeleteCheckpoint(i)
 				}
 			}
 		}

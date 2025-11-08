@@ -20,6 +20,7 @@ service LinearPBFTNode {
     rpc ViewChangeRequest (SignedViewChangeMessage) returns (google.protobuf.Empty);
     rpc NewViewRequest (SignedNewViewMessage) returns (stream SignedPrepareMessage);
     rpc GetRequest (GetRequestMessage) returns (SignedTransactionRequest);
+    rpc GetCheckPoint (GetCheckPointMessage) returns (CheckPoint);
 
     rpc PrintLog (google.protobuf.Empty) returns (google.protobuf.Empty);
     rpc PrintDB (google.protobuf.Empty) returns (google.protobuf.Empty);
@@ -124,6 +125,16 @@ message CheckPointMessage {
 message SignedCheckPointMessage {
     CheckPointMessage message = 1;
     bytes signature = 2;
+}
+
+message GetCheckPointMessage {
+    int64 sequenceNum = 1;
+    string nodeID = 2;
+}
+
+message CheckPoint {
+    bytes digest = 1;
+    map<string, int64> snapshot = 2;
 }
 
 // -------------- ViewChange --------------

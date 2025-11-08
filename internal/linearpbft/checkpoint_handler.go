@@ -24,12 +24,12 @@ func (c *CheckPointManager) CheckPointMessageHandler(signedCheckPointMessage *pb
 	// Signal the checkpoint routine if 2f + 1 or more check point messages are collected and self's check point message is included
 	hasSelfCheckPointMessage := false
 	for _, checkPointMessage := range c.GetMessages(sequenceNum) {
-		if checkPointMessage.Message.NodeID == nodeID {
+		if checkPointMessage.Message.NodeID == c.id {
 			hasSelfCheckPointMessage = true
 			break
 		}
 	}
-	if len(c.GetMessages(sequenceNum)) >= int(2*c.config.F+1) && hasSelfCheckPointMessage {
+	if len(c.GetMessages(sequenceNum)) >= int(2*c.config.F+1) && hasSelfCheckPointMessage && sequenceNum > c.config.LowWaterMark {
 		log.Infof("Received 2f + 1 check point messages for sequence number %d", sequenceNum)
 		c.checkPointRequestCh <- sequenceNum
 	}
@@ -37,10 +37,10 @@ func (c *CheckPointManager) CheckPointMessageHandler(signedCheckPointMessage *pb
 
 // CreateCheckPointMessage creates a check point message for a given sequence number
 func (n *LinearPBFTNode) CreateCheckPointMessage(sequenceNum int64) *pb.SignedCheckPointMessage {
-	digest := n.CheckPointManager.GetDigest(sequenceNum)
+	checkpoint := n.CheckPointManager.GetCheckpoint(sequenceNum)
 	checkPointMessage := &pb.CheckPointMessage{
 		SequenceNum: sequenceNum,
-		Digest:      digest,
+		Digest:      checkpoint.Digest,
 		NodeID:      n.ID,
 	}
 	signedCheckPointMessage := &pb.SignedCheckPointMessage{

@@ -73,3 +73,52 @@ func (n *LinearPBFTNode) SendGetRequest(digest []byte) (*pb.SignedTransactionReq
 	log.Warnf("Missing request: %s; could not be retrieved from any node", utils.LoggingString(getRequestMessage))
 	return nil, status.Errorf(codes.NotFound, "request not found")
 }
+
+// SendGetCheckPoint sends a get check point request to all nodes for a given sequence number
+func (n *LinearPBFTNode) SendGetCheckPoint(sequenceNum int64) (*pb.CheckPoint, error) {
+	getCheckPointMessage := &pb.GetCheckPointMessage{
+		SequenceNum: sequenceNum,
+		NodeID:      n.ID,
+	}
+
+	responseCh := make(chan *pb.CheckPoint, len(n.Handler.peers))
+	wg := sync.WaitGroup{}
+	log.Infof("Sending get check point request: %s", utils.LoggingString(getCheckPointMessage))
+	for _, peer := range n.Handler.peers {
+		wg.Add(1)
+		go func(peer *models.Node) {
+			defer wg.Done()
+			// Byzantine node behavior: dark attack
+			if n.Byzantine && n.DarkAttack && slices.Contains(n.DarkAttackNodes, peer.ID) {
+				// log.Infof("Node %s is Byzantine and is performing dark attack on node %s", n.ID, peer.ID)
+				return
+			}
+			checkPoint, err := (*peer.Client).GetCheckPoint(context.Background(), getCheckPointMessage)
+			if err != nil {
+				return
+			}
+			responseCh <- checkPoint
+		}(peer)
+	}
+	go func() {
+		wg.Wait()
+		close(responseCh)
+	}()
+
+	// Return the first valid response
+	for checkPoint := range responseCh {
+		if checkPoint == nil || checkPoint.Snapshot == nil {
+			continue
+		}
+
+		// Verify check point digest
+		if !cmp.Equal(crypto.DigestAny(checkPoint.Snapshot), checkPoint.Digest) {
+			log.Warnf("Rejected: %s; invalid check point digest", utils.LoggingString(getCheckPointMessage))
+			continue
+		}
+
+		return checkPoint, nil
+	}
+	log.Warnf("Missing check point: %s; could not be retrieved from any node", utils.LoggingString(getCheckPointMessage))
+	return nil, status.Errorf(codes.NotFound, "check point not found")
+}

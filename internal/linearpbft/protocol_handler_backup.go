@@ -25,7 +25,7 @@ func (h *ProtocolHandler) BackupPrePrepareRequestHandler(signedPrePrepareMessage
 	// if not in transaction map then send a get request to all nodes; if still nil then return error
 	if signedRequest == nil {
 		response, err := h.SendGetRequest(prePrepareMessage.Digest)
-		if err != nil || response == nil {
+		if err != nil || response == nil || response.Request == nil {
 			return nil, status.Errorf(codes.FailedPrecondition, "request could not be retrieved from any node")
 		}
 		signedRequest = response

@@ -2,8 +2,8 @@ package linearpbft
 
 import (
 	"context"
+	"sync"
 
-	"github.com/mavleo96/bft-mavleo96/internal/crypto"
 	"github.com/mavleo96/bft-mavleo96/internal/database"
 	"github.com/mavleo96/bft-mavleo96/internal/utils"
 	"github.com/mavleo96/bft-mavleo96/pb"
@@ -11,17 +11,23 @@ import (
 )
 
 type Executor struct {
-	db                *database.Database
-	safeTimer         *SafeTimer
-	state             *ServerState
-	config            *ServerConfig
-	executeCh         chan int64
-	sendReply         func(signedRequest *pb.SignedTransactionRequest, result int64)
-	CheckPointManager *CheckPointManager
+	mutex               sync.Mutex
+	db                  *database.Database
+	safeTimer           *SafeTimer
+	state               *ServerState
+	config              *ServerConfig
+	executeCh           chan int64
+	installCheckPointCh chan int64
+	sendReply           func(signedRequest *pb.SignedTransactionRequest, result int64)
+	CheckPointManager   *CheckPointManager
 }
 
 func (e *Executor) GetExecuteChannel() chan<- int64 {
 	return e.executeCh
+}
+
+func (e *Executor) GetInstallCheckPointChannel() chan<- int64 {
+	return e.installCheckPointCh
 }
 
 func (e *Executor) ExecuteRoutine(ctx context.Context) {
@@ -84,12 +90,21 @@ func (e *Executor) ExecuteRoutine(ctx context.Context) {
 					if err != nil {
 						log.Fatal(err)
 					}
-					checkpointDigest := crypto.DigestAny(dbState)
-					e.CheckPointManager.AddDigest(i, checkpointDigest)
+					e.CheckPointManager.AddCheckpoint(i, dbState)
 					log.Infof("Signal to create check point message for sequence number %d", i)
 					e.CheckPointManager.GetCheckPointCreateChannel() <- i
 				}
 			}
+		case sequenceNum := <-e.installCheckPointCh:
+			checkpoint := e.CheckPointManager.GetCheckpoint(sequenceNum)
+			if checkpoint == nil || checkpoint.Snapshot == nil {
+				log.Fatalf("Checkpoint not found or snapshot is nil for sequence number %d", sequenceNum)
+			}
+			for clientID, balance := range checkpoint.Snapshot {
+				e.db.SetBalance(clientID, balance)
+			}
+			e.state.SetLastExecutedSequenceNum(sequenceNum)
+			log.Infof("Installed snapshot for sequence number %d", sequenceNum)
 		}
 	}
 }

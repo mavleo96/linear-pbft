@@ -1,6 +1,9 @@
 package linearpbft
 
 import (
+	"encoding/hex"
+	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/google/go-cmp/cmp"
@@ -10,8 +13,9 @@ import (
 
 // StateLog represents the state log of the server
 type StateLog struct {
-	mutex sync.RWMutex
-	log   map[int64]*LogRecord
+	mutex  sync.RWMutex
+	log    map[int64]*LogRecord
+	config *ServerConfig
 }
 
 // LogRecord represents a log record for a transaction
@@ -44,7 +48,10 @@ func (s *StateLog) AssignSequenceNumberAndCreateRecord(viewNumber int64, digest 
 	}
 
 	// If request is not in log record, assign new sequence number
-	sequenceNum := utils.Max(utils.Keys(s.log)) + 1
+	sequenceNum := s.config.LowWaterMark + 1
+	if utils.Max(utils.Keys(s.log)) != 0 {
+		sequenceNum = utils.Max(utils.Keys(s.log)) + 1
+	}
 	// TODO: -1 is a placeholder for view number, need to change this later
 	s.log[sequenceNum] = CreateLogRecord(viewNumber, sequenceNum, digest)
 	return sequenceNum, true
@@ -77,6 +84,9 @@ func (s *StateLog) Delete(sequenceNum int64) {
 func (s *StateLog) MaxSequenceNum() int64 {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
+	if utils.Max(utils.Keys(s.log)) == 0 {
+		return s.config.LowWaterMark
+	}
 	return utils.Max(utils.Keys(s.log))
 }
 
@@ -212,23 +222,6 @@ func (s *StateLog) GetLogRecord(sequenceNum int64) *LogRecord {
 	return record
 }
 
-// // Reset resets the log record
-// func (l *LogRecord) Reset(viewNumber int64, digest []byte) error {
-// 	l.viewNumber = viewNumber
-// 	l.prePrepared = false
-// 	l.prepared = false
-// 	l.committed = false
-// 	l.prePrepareMessage = nil
-// 	l.prepareMessage = nil
-// 	l.commitMessage = nil
-
-// 	if l.executed && !cmp.Equal(l.digest, digest) {
-// 		return errors.New("resetting log record with different digest that is already executed")
-// 	}
-// 	l.digest = digest
-// 	return nil
-// }
-
 // CreateLogRecord creates a new log record
 func CreateLogRecord(viewNumber int64, sequenceNumber int64, digest []byte) *LogRecord {
 	return &LogRecord{
@@ -295,6 +288,17 @@ func CreateTransactionMap() *TransactionMap {
 	}
 	transactionMap.Set(DigestNoOp, NoOpTransactionRequest)
 	return transactionMap
+}
+
+func (t *TransactionMap) LogString() string {
+	t.Mutex.RLock()
+	defer t.Mutex.RUnlock()
+
+	transactionMapString := make([]string, 0)
+	for digest, signedRequest := range t.Map {
+		transactionMapString = append(transactionMapString, fmt.Sprintf("%s: %s", hex.EncodeToString(digest[:]), utils.LoggingString(signedRequest.Request)))
+	}
+	return strings.Join(transactionMapString, "\n")
 }
 
 // ---------------------------------------------------------- //

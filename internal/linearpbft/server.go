@@ -99,30 +99,34 @@ func CreateLinearPBFTNode(selfNode *models.Node, peerNodes map[string]*models.No
 		viewChangePhase:         false,
 		viewChangeViewNumber:    0,
 		lastExecutedSequenceNum: 0,
-		StateLog:                &StateLog{mutex: sync.RWMutex{}, log: make(map[int64]*LogRecord)},
+		StateLog:                &StateLog{mutex: sync.RWMutex{}, log: make(map[int64]*LogRecord), config: serverConfig},
 		TransactionMap:          CreateTransactionMap(),
+		config:                  serverConfig,
 	}
 
 	executeChannel := make(chan int64, 20)
 
 	CheckPointManager := &CheckPointManager{
+		id:                  selfNode.ID,
 		mutex:               sync.RWMutex{},
 		log:                 make(map[int64]map[string]*pb.SignedCheckPointMessage),
-		digestMap:           make(map[int64][]byte),
-		f:                   int64(len(peerNodes) / 3),
+		checkpoints:         make(map[int64]*pb.CheckPoint),
 		state:               serverState,
 		config:              serverConfig,
 		checkPointCreateCh:  make(chan int64, 5),
 		checkPointRequestCh: make(chan int64, 5),
+		// installCheckPointCh: make(chan int64, 5),
 	}
 
 	executor := &Executor{
-		db:                bankDB,
-		safeTimer:         timer,
-		state:             serverState,
-		config:            serverConfig,
-		executeCh:         executeChannel,
-		CheckPointManager: CheckPointManager,
+		mutex:               sync.Mutex{},
+		db:                  bankDB,
+		safeTimer:           timer,
+		state:               serverState,
+		config:              serverConfig,
+		executeCh:           executeChannel,
+		installCheckPointCh: make(chan int64),
+		CheckPointManager:   CheckPointManager,
 	}
 
 	handler := &ProtocolHandler{
@@ -152,6 +156,7 @@ func CreateLinearPBFTNode(selfNode *models.Node, peerNodes map[string]*models.No
 		newViewRequestCh:    make(chan bool, 5),
 		viewChangeRouterCh:  make(chan int64, 5),
 		newViewRouterCh:     make(chan int64, 5),
+		installCheckPointCh: make(chan int64, 5),
 	}
 
 	server := &LinearPBFTNode{

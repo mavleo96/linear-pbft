@@ -13,6 +13,7 @@ type ServerState struct {
 	// Self managed components
 	StateLog       *StateLog
 	TransactionMap *TransactionMap
+	config         *ServerConfig
 }
 
 // GetViewNumber returns the current view number

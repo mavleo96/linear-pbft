@@ -135,7 +135,10 @@ func (n *LinearPBFTNode) SendViewChangeMessageToNode(signedViewChangeMessage *pb
 func (n *LinearPBFTNode) SendNewViewMessageToNode(signedNewViewMessage *pb.SignedNewViewMessage, nodeID string, responseCh chan *pb.SignedPrepareMessage) error {
 	newViewMessage := signedNewViewMessage.Message
 	signedPrePrepareMessages := newViewMessage.SignedPrePrepareMessages
-	lowerWatermark := signedPrePrepareMessages[0].Message.SequenceNum
+	lowerWatermark := n.config.LowWaterMark
+	if len(signedPrePrepareMessages) > 0 {
+		lowerWatermark = signedPrePrepareMessages[0].Message.SequenceNum
+	}
 
 	stream, err := (*n.Handler.peers[nodeID].Client).NewViewRequest(context.Background(), signedNewViewMessage)
 	if err != nil {

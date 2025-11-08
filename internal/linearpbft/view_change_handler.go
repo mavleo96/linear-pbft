@@ -70,7 +70,19 @@ func (v *ViewChangeManager) BackupNewViewRequestHandler(signedNewViewMessage *pb
 	// 	return status.Errorf(codes.Unavailable, "node not alive")
 	// }
 
-	// TODO: Install latest stable checkpoint
+	// Determine the lower watermark sequence number from highest sequence number in view change messages
+	lowerWatermark := int64(0)
+	for _, signedViewChangeMessage := range v.viewChangeLog[viewNumber] {
+		viewChangeMessage := signedViewChangeMessage.Message
+		if viewChangeMessage.SequenceNum > lowerWatermark {
+			lowerWatermark = viewChangeMessage.SequenceNum
+		}
+	}
+	if lowerWatermark > v.config.LowWaterMark {
+		v.installCheckPointCh <- lowerWatermark
+		log.Infof("Signalling install check point channel with lower watermark sequence number: %d", lowerWatermark)
+	}
+
 	return nil
 }
 
@@ -89,7 +101,20 @@ func (v *ViewChangeManager) LeaderNewViewRequestHandler(signedNewViewMessage *pb
 	v.state.SetViewChangePhase(false) // TODO: maybe not safe before updating the logs
 	log.Infof("Accepted %s", utils.LoggingString(newViewMessage))
 
-	// TODO: Install latest stable checkpoint for lower watermark sequence number
+	// Determine the lower watermark sequence number and digest from view change messages
+	lowerWatermark := int64(0)
+	for _, signedViewChangeMessage := range v.viewChangeLog[viewNumber] {
+		viewChangeMessage := signedViewChangeMessage.Message
+		if viewChangeMessage.SequenceNum > lowerWatermark {
+			lowerWatermark = viewChangeMessage.SequenceNum
+		}
+	}
+
+	// Install latest stable checkpoint for lower watermark sequence number
+	if lowerWatermark > v.config.LowWaterMark {
+		v.installCheckPointCh <- lowerWatermark
+		log.Infof("Signalling install check point channel with lower watermark sequence number: %d", lowerWatermark)
+	}
 
 	// Primary needs to first preprepare the requests in its own log record
 	maxSequenceNum := int64(0)
@@ -165,7 +190,7 @@ func (n *LinearPBFTNode) CreateNewViewMessage(viewNumber int64) *pb.SignedNewVie
 		preparedSet := viewChangeMessage.PreparedSet
 
 		// Update lower watermark sequence number from view change messages sequence numbers
-		if viewChangeMessage.SequenceNum < lowerWatermark {
+		if viewChangeMessage.SequenceNum > lowerWatermark {
 			lowerWatermark = viewChangeMessage.SequenceNum
 		}
 
@@ -177,6 +202,7 @@ func (n *LinearPBFTNode) CreateNewViewMessage(viewNumber int64) *pb.SignedNewVie
 			}
 		}
 	}
+	log.Infof("Creating new view message for view number %d with lower watermark sequence number: %d, max sequence number: %d", viewNumber, lowerWatermark, maxSequenceNum)
 
 	// Aggregate preprepare messages from view change messages and create preprepare message with current view number
 	signedPrePrepareMessagesMap := make(map[int64]*pb.SignedPrePrepareMessage)

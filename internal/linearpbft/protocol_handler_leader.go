@@ -51,6 +51,7 @@ func (h *ProtocolHandler) LeaderTransactionRequestHandler(signedRequest *pb.Sign
 // LeaderPrepareMessageHandler handles the prepare message for the leader
 func (h *ProtocolHandler) LeaderPrepareMessageHandler(signedPrepareMessages []*pb.SignedPrepareMessage) error {
 	sequenceNum := signedPrepareMessages[0].Message.SequenceNum
+	digest := signedPrepareMessages[0].Message.Digest
 	// h.state.StateLog.CreateRecordIfNotExists(h.state.GetViewNumber(), sequenceNum, signedPrepareMessages[0].Message.Digest)
 
 	// Aggregate signatures
@@ -64,7 +65,7 @@ func (h *ProtocolHandler) LeaderPrepareMessageHandler(signedPrepareMessages []*p
 	prepareMessage := &pb.PrepareMessage{
 		ViewNumber:  h.state.GetViewNumber(),
 		SequenceNum: sequenceNum,
-		Digest:      h.state.StateLog.GetDigest(sequenceNum),
+		Digest:      digest,
 		NodeID:      h.id,
 	}
 	signedPrepareMessage := &pb.SignedPrepareMessage{
@@ -92,6 +93,7 @@ func (h *ProtocolHandler) LeaderPrepareMessageHandler(signedPrepareMessages []*p
 // LeaderCommitMessageHandler handles the commit message for the leader
 func (h *ProtocolHandler) LeaderCommitMessageHandler(signedCommitMessages []*pb.SignedCommitMessage) error {
 	sequenceNum := signedCommitMessages[0].Message.SequenceNum
+	digest := signedCommitMessages[0].Message.Digest
 	// h.state.StateLog.CreateRecordIfNotExists(h.state.GetViewNumber(), sequenceNum, signedCommitMessages[0].Message.Digest)
 
 	// Aggregate signatures
@@ -105,7 +107,7 @@ func (h *ProtocolHandler) LeaderCommitMessageHandler(signedCommitMessages []*pb.
 	commitMessage := &pb.CommitMessage{
 		ViewNumber:  h.state.GetViewNumber(),
 		SequenceNum: sequenceNum,
-		Digest:      h.state.StateLog.GetDigest(sequenceNum),
+		Digest:      digest,
 		NodeID:      h.id,
 	}
 	signedCommitMessage := &pb.SignedCommitMessage{

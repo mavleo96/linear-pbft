@@ -24,6 +24,10 @@ type ViewChangeManager struct {
 	newViewRequestCh    chan bool
 	viewChangeRouterCh  chan int64
 	newViewRouterCh     chan int64
+	installCheckPointCh chan int64
+
+	// Functions
+	SendGetCheckPoint func(sequenceNum int64) (*pb.CheckPoint, error)
 }
 
 // GetViewChangeChannel returns the channel to receive view change messages in router routine
@@ -34,6 +38,11 @@ func (v *ViewChangeManager) GetViewChangeChannel() <-chan int64 {
 // GetNewViewChannel returns the channel to receive new view messages in router routine
 func (v *ViewChangeManager) GetNewViewChannel() <-chan int64 {
 	return v.newViewRouterCh
+}
+
+// GetInstallCheckPointChannel returns the channel to receive install check point messages in router routine
+func (v *ViewChangeManager) GetInstallCheckPointChannel() <-chan int64 {
+	return v.installCheckPointCh
 }
 
 // AddViewChangeMessage adds a signed view change message to the view change log
