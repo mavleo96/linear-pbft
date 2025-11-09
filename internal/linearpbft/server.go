@@ -3,7 +3,6 @@ package linearpbft
 import (
 	"context"
 	"sync"
-	"time"
 
 	"github.com/herumi/bls-eth-go-binary/bls"
 	"github.com/mavleo96/bft-mavleo96/internal/database"
