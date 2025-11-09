@@ -299,8 +299,12 @@ func (s *StateLog) GetPrepareProof() []*pb.PrepareProof {
 			continue
 		}
 		if record.prepared {
-			// max view number of prepare messages
-			maxViewNumber := utils.Max(utils.Keys(record.prepareMessage))
+			// max view number where preprepare and prepare messages are both available
+			viewNumber1 := utils.Keys(record.prepareMessage)
+			viewNumber2 := utils.Keys(record.prePrepareMessage)
+			viewNumberIntersection := utils.Intersection(viewNumber1, viewNumber2)
+			maxViewNumber := utils.Max(viewNumberIntersection)
+
 			prePrepareMessage := record.prePrepareMessage[maxViewNumber]
 			prepareMessage := record.prepareMessage[maxViewNumber]
 			prepareProofs = append(prepareProofs, &pb.PrepareProof{

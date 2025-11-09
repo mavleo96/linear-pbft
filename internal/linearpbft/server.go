@@ -12,10 +12,12 @@ import (
 )
 
 const (
-	ExecutionTimeout  = 350 * time.Millisecond
-	ViewChangeTimeout = 600 * time.Millisecond
+	ExecutionTimeout  = 300 * time.Millisecond
+	ViewChangeTimeout = 500 * time.Millisecond
 	TimeAttackDelay   = 100 * time.Millisecond
 	SBFTTimeout       = 50 * time.Millisecond
+	K                 = 20
+	L                 = 100
 )
 
 // LinearPBFTNode represents a LinearPBFT node
@@ -61,7 +63,7 @@ func (n *LinearPBFTNode) Start(ctx context.Context) {
 func CreateLinearPBFTNode(selfNode *models.Node, peerNodes map[string]*models.Node, clientMap map[string]*models.Client, bankDB *database.Database, privateKey1 *bls.SecretKey, privateKey2 *bls.SecretKey, masterPublicKey1 *bls.PublicKey, masterPublicKey2 *bls.PublicKey) *LinearPBFTNode {
 
 	timer := CreateSafeTimer(ExecutionTimeout, ViewChangeTimeout)
-	serverConfig := CreateServerConfig(int64(len(peerNodes)+1), 10, 100)
+	serverConfig := CreateServerConfig(int64(len(peerNodes)+1), K, L)
 	byzantineConfig := CreateByzantineConfig()
 	serverState := CreateServerState(serverConfig, byzantineConfig)
 

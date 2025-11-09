@@ -47,7 +47,7 @@ func (n *LinearPBFTNode) ReconfigureNode(ctx context.Context, changeStatusMessag
 // ResetNode resets the server state and database
 func (n *LinearPBFTNode) ResetNode(ctx context.Context, req *emptypb.Empty) (*emptypb.Empty, error) {
 	// Reset configuration
-	n.config.Reset(100)
+	n.config.Reset(L)
 	n.byzantineConfig.Reset()
 
 	// Reset server state

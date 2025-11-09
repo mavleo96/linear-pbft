@@ -158,11 +158,6 @@ func (n *LinearPBFTNode) SendNewViewMessageToNode(signedNewViewMessage *pb.Signe
 		return errors.New("byzantine node is performing dark attack")
 	}
 
-	// Byzantine node behavior: crash attack
-	if n.byzantineConfig.Byzantine && n.byzantineConfig.CrashAttack {
-		return errors.New("byzantine node is performing crash attack")
-	}
-
 	// Byzantine node behavior: time attack
 	if n.byzantineConfig.Byzantine && n.byzantineConfig.TimeAttack {
 		time.Sleep(TimeAttackDelay)

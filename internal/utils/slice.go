@@ -1,6 +1,9 @@
 package utils
 
-import "cmp"
+import (
+	"cmp"
+	"slices"
+)
 
 // LastElement returns the pointer to the last element of a slice of any type
 func LastElement[T any](slice []T) *T {
@@ -45,6 +48,17 @@ func Range(start, end int64) []int64 {
 		slice[i] = start + int64(i)
 	}
 	return slice
+}
+
+// Intersection returns the intersection of two slices
+func Intersection[T comparable](slice1, slice2 []T) []T {
+	intersection := make([]T, 0)
+	for _, v := range slice1 {
+		if slices.Contains(slice2, v) {
+			intersection = append(intersection, v)
+		}
+	}
+	return intersection
 }
 
 // Keys returns the keys of a map

@@ -162,6 +162,11 @@ func (n *LinearPBFTNode) RouterRoutine(ctx context.Context) {
 		case viewNumber := <-n.viewchanger.GetNewViewToRouteChannel():
 			// Create new view message and route it to the leader handler
 			signedNewViewMessage := n.CreateNewViewMessage(viewNumber)
+
+			// Byzantine node behavior: crash attack
+			if n.byzantineConfig.Byzantine && n.byzantineConfig.CrashAttack {
+				continue
+			}
 			err := n.viewchanger.LeaderNewViewRequestHandler(signedNewViewMessage)
 			if err != nil {
 				log.Warnf("Failed to handle new view message: %s", err.Error())
