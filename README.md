@@ -1,5 +1,7 @@
 # BFT-Mavleo96
 
+<!-- Submission 1: 09/11/2025 17:44 EST -->
+
 A Byzantine Fault Tolerant distributed system implementation using Linear PBFT (Practical Byzantine Fault Tolerance) consensus protocol.
 
 ## Overview
