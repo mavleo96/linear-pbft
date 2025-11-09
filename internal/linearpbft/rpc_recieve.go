@@ -314,7 +314,7 @@ func (n *LinearPBFTNode) NewViewRequest(signedNewViewMessage *pb.SignedNewViewMe
 				return status.Errorf(codes.FailedPrecondition, "request could not be retrieved from any node")
 			}
 			signedRequest = response
-			n.state.TransactionMap.Set(prePrepareMessage.Digest, signedRequest)
+			n.state.TransactionMap.Set(crypto.Digest(signedRequest), signedRequest)
 		}
 
 		// Verify Digest

@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/mavleo96/bft-mavleo96/pb"
-	log "github.com/sirupsen/logrus"
 )
 
 func FormattedLoggingString(t any) string {
@@ -62,6 +61,8 @@ func LoggingString(t any) string {
 		return getCheckpointMessageString(v)
 	case *pb.Checkpoint:
 		return checkpointString(v)
+	case *pb.Transaction:
+		return transactionString(v)
 	default:
 		return fmt.Sprintf("%v", v)
 	}
@@ -89,7 +90,6 @@ func prepareMessageString(p *pb.SignedPrepareMessage, short bool) string {
 
 func commitMessageString(c *pb.SignedCommitMessage, short bool) string {
 	msg := c.Message
-	log.Warnf("Commit message: %s", msg.String())
 	if short {
 		return fmt.Sprintf("<COMMIT, %d, %d, D, %s>", msg.ViewNumber, msg.SequenceNum, msg.NodeID)
 	}

@@ -80,8 +80,15 @@ func Values[K comparable, V any](m map[K]V) []V {
 }
 
 // MaxByValue returns the key and value of the maximum value in a map
+// Returns zero values if the map is empty
 func MaxByValue[K comparable, V cmp.Ordered](m map[K]V) (K, V) {
-	maxKey := Keys(m)[0]
+	if len(m) == 0 {
+		var zeroK K
+		var zeroV V
+		return zeroK, zeroV
+	}
+	keys := Keys(m)
+	maxKey := keys[0]
 	maxValue := m[maxKey]
 	for k, v := range m {
 		if cmp.Compare(v, maxValue) > 0 {

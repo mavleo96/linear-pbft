@@ -1,6 +1,7 @@
 package linearpbft
 
 import (
+	"github.com/mavleo96/bft-mavleo96/internal/crypto"
 	"github.com/mavleo96/bft-mavleo96/internal/utils"
 	"github.com/mavleo96/bft-mavleo96/pb"
 	log "github.com/sirupsen/logrus"
@@ -121,7 +122,7 @@ func (v *ViewChangeManager) LeaderNewViewRequestHandler(signedNewViewMessage *pb
 				return status.Errorf(codes.FailedPrecondition, "request could not be retrieved from any node")
 			}
 			signedRequest = response
-			v.state.TransactionMap.Set(prePrepareMessage.Digest, signedRequest)
+			v.state.TransactionMap.Set(crypto.Digest(signedRequest), signedRequest)
 		}
 
 		// Update state log

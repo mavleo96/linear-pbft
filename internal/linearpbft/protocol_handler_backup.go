@@ -31,7 +31,8 @@ func (h *ProtocolHandler) BackupPrePrepareRequestHandler(signedPrePrepareMessage
 		signedRequest = response
 	}
 	log.Infof("Adding request to transaction map: %s", utils.LoggingString(signedRequest))
-	h.state.TransactionMap.Set(prePrepareMessage.Digest, signedRequest)
+	h.state.TransactionMap.Set(crypto.Digest(signedRequest), signedRequest)
+	signedPrePrepareMessage.Request = nil
 
 	// Verify Digest
 	if !cmp.Equal(prePrepareMessage.Digest, crypto.Digest(signedRequest)) {
@@ -49,7 +50,7 @@ func (h *ProtocolHandler) BackupPrePrepareRequestHandler(signedPrePrepareMessage
 
 	// Verify if previously accepted preprepare message with different digest for same view and sequence number
 	if h.state.StateLog.IsPrePrepared(sequenceNum) && !cmp.Equal(h.state.StateLog.GetDigest(sequenceNum), digest) {
-		log.Warnf("Rejected: %s; previously accepted %s", utils.LoggingString(signedPrePrepareMessage), utils.LoggingString(h.state.TransactionMap.Get(h.state.StateLog.GetDigest(sequenceNum)).Request))
+		log.Warnf("Rejected: %s; previously accepted %s", utils.LoggingString(signedPrePrepareMessage), utils.LoggingString(h.state.TransactionMap.Get(h.state.StateLog.GetDigest(sequenceNum))))
 		return nil, status.Errorf(codes.FailedPrecondition, "previously accepted preprepare message with different digest")
 	}
 

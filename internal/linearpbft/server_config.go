@@ -1,6 +1,18 @@
 package linearpbft
 
-import "sync"
+import (
+	"sync"
+	"time"
+)
+
+const (
+	ExecutionTimeout  = 350 * time.Millisecond
+	ViewChangeTimeout = 500 * time.Millisecond
+	TimeAttackDelay   = 100 * time.Millisecond
+	SBFTTimeout       = 50 * time.Millisecond
+	K                 = 20
+	L                 = 100
+)
 
 // ServerConfig is the configuration for the server
 type ServerConfig struct {

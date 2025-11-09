@@ -21,11 +21,9 @@ func (h *ProtocolHandler) LeaderTransactionRequestHandler(signedRequest *pb.Sign
 		return nil
 	}
 
-	// // Add request to transaction map
-	// if n.State.TransactionMap.Get(crypto.Digest(signedRequest)) == nil {
-	// 	log.Infof("Adding request to transaction map: %s", utils.LoggingString(request))
-	// 	n.State.TransactionMap.Set(crypto.Digest(signedRequest), signedRequest)
-	// }
+	// Add request to transaction map
+	log.Infof("Adding request to transaction map: %s", utils.LoggingString(signedRequest))
+	h.state.TransactionMap.Set(crypto.Digest(signedRequest), signedRequest)
 
 	// Create signed preprepare message
 	preprepare := &pb.PrePrepareMessage{

@@ -11,15 +11,6 @@ import (
 	"github.com/mavleo96/bft-mavleo96/pb"
 )
 
-const (
-	ExecutionTimeout  = 300 * time.Millisecond
-	ViewChangeTimeout = 500 * time.Millisecond
-	TimeAttackDelay   = 100 * time.Millisecond
-	SBFTTimeout       = 50 * time.Millisecond
-	K                 = 20
-	L                 = 100
-)
-
 // LinearPBFTNode represents a LinearPBFT node
 type LinearPBFTNode struct {
 	// Node information
