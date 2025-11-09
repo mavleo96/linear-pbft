@@ -29,6 +29,8 @@ service LinearPBFTNode {
 
     rpc ReconfigureNode (ChangeStatusMessage) returns (google.protobuf.Empty);
     rpc ResetNode (google.protobuf.Empty) returns (google.protobuf.Empty);
+
+    rpc BenchmarkRPC (SignedTransactionRequest) returns (SignedTransactionResponse);
 }
 
 service LinearPBFTClientApp {
@@ -48,6 +50,16 @@ message TransactionResponse {
     string sender = 3;
     string nodeID = 4;
     int64 result = 5;
+    
+    // For compatibality with ycsb benchmarking
+    map<string, bytes> resultData = 6;         // Field-value map for read operations
+    repeated ScanResult scanResults = 7;       // Multiple results for scan operations
+    string error = 8;                          // Error message if operation failed
+}
+
+// ScanResult represents a single scan result
+message ScanResult {
+    map<string, bytes> fields = 1;
 }
 
 message SignedTransactionResponse {
@@ -75,6 +87,14 @@ message Transaction {
     string sender = 2;
     string receiver = 3;
     int64 amount = 4;
+
+    // For compatibality with ycsb benchmarking
+    string table = 5;
+    string key = 6;
+    map<string, bytes> values = 7;
+    repeated string fields = 8;
+    string startKey = 9;
+    int64 scanCount = 10;
 }
 
 // -------------- PrePrepare --------------

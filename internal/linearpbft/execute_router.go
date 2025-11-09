@@ -44,6 +44,9 @@ executeLoop:
 					var success bool
 					success, err = e.db.UpdateDB(request.Transaction)
 					result = utils.BoolToInt64(success)
+				case "ycsb_read", "ycsb_scan", "ycsb_write", "ycsb_update", "ycsb_delete":
+					e.benchmarkExecutionTriggerCh <- i
+					continue executeLoop
 				default:
 					log.Infof("Null transaction type at sequence number %d", i)
 				}

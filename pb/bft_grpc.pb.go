@@ -37,6 +37,7 @@ const (
 	LinearPBFTNode_PrintView_FullMethodName         = "/pb.LinearPBFTNode/PrintView"
 	LinearPBFTNode_ReconfigureNode_FullMethodName   = "/pb.LinearPBFTNode/ReconfigureNode"
 	LinearPBFTNode_ResetNode_FullMethodName         = "/pb.LinearPBFTNode/ResetNode"
+	LinearPBFTNode_BenchmarkRPC_FullMethodName      = "/pb.LinearPBFTNode/BenchmarkRPC"
 )
 
 // LinearPBFTNodeClient is the client API for LinearPBFTNode service.
@@ -59,6 +60,7 @@ type LinearPBFTNodeClient interface {
 	PrintView(ctx context.Context, in *wrapperspb.Int64Value, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	ReconfigureNode(ctx context.Context, in *ChangeStatusMessage, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	ResetNode(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	BenchmarkRPC(ctx context.Context, in *SignedTransactionRequest, opts ...grpc.CallOption) (*SignedTransactionResponse, error)
 }
 
 type linearPBFTNodeClient struct {
@@ -236,6 +238,15 @@ func (c *linearPBFTNodeClient) ResetNode(ctx context.Context, in *emptypb.Empty,
 	return out, nil
 }
 
+func (c *linearPBFTNodeClient) BenchmarkRPC(ctx context.Context, in *SignedTransactionRequest, opts ...grpc.CallOption) (*SignedTransactionResponse, error) {
+	out := new(SignedTransactionResponse)
+	err := c.cc.Invoke(ctx, LinearPBFTNode_BenchmarkRPC_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // LinearPBFTNodeServer is the server API for LinearPBFTNode service.
 // All implementations must embed UnimplementedLinearPBFTNodeServer
 // for forward compatibility
@@ -256,6 +267,7 @@ type LinearPBFTNodeServer interface {
 	PrintView(context.Context, *wrapperspb.Int64Value) (*emptypb.Empty, error)
 	ReconfigureNode(context.Context, *ChangeStatusMessage) (*emptypb.Empty, error)
 	ResetNode(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
+	BenchmarkRPC(context.Context, *SignedTransactionRequest) (*SignedTransactionResponse, error)
 	mustEmbedUnimplementedLinearPBFTNodeServer()
 }
 
@@ -310,6 +322,9 @@ func (UnimplementedLinearPBFTNodeServer) ReconfigureNode(context.Context, *Chang
 }
 func (UnimplementedLinearPBFTNodeServer) ResetNode(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ResetNode not implemented")
+}
+func (UnimplementedLinearPBFTNodeServer) BenchmarkRPC(context.Context, *SignedTransactionRequest) (*SignedTransactionResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method BenchmarkRPC not implemented")
 }
 func (UnimplementedLinearPBFTNodeServer) mustEmbedUnimplementedLinearPBFTNodeServer() {}
 
@@ -615,6 +630,24 @@ func _LinearPBFTNode_ResetNode_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
+func _LinearPBFTNode_BenchmarkRPC_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SignedTransactionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LinearPBFTNodeServer).BenchmarkRPC(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LinearPBFTNode_BenchmarkRPC_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LinearPBFTNodeServer).BenchmarkRPC(ctx, req.(*SignedTransactionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // LinearPBFTNode_ServiceDesc is the grpc.ServiceDesc for LinearPBFTNode service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -681,6 +714,10 @@ var LinearPBFTNode_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ResetNode",
 			Handler:    _LinearPBFTNode_ResetNode_Handler,
+		},
+		{
+			MethodName: "BenchmarkRPC",
+			Handler:    _LinearPBFTNode_BenchmarkRPC_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{
