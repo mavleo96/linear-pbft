@@ -95,7 +95,6 @@ func (s *StateLog) CreateRecordIfNotExists(viewNumber int64, sequenceNum int64, 
 		return true
 	}
 	if s.log[sequenceNum].viewNumber < viewNumber {
-		// TODO: need to assert that digest is not different if status is > PP
 		s.log[sequenceNum].viewNumber = viewNumber
 		s.log[sequenceNum].digest = digest
 		return true

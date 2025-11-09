@@ -12,9 +12,9 @@ func (c *CheckpointManager) CheckpointMessageHandler(signedCheckpointMessage *pb
 	sequenceNum := checkpointMessage.SequenceNum
 	nodeID := checkpointMessage.NodeID
 
-	// Add check point message to check point log if higher than low water mark
-	if !c.config.SequenceNumberInRange(sequenceNum) {
-		log.Warnf("Check point message for sequence number %d is not in range (%d, %d)", sequenceNum, c.config.GetLowWaterMark(), c.config.GetHighWaterMark())
+	// Add check point message to check point log if higher or equal to low water mark
+	if sequenceNum < c.config.GetLowWaterMark() {
+		log.Warnf("Check point message for sequence number %d is below low water mark (%d)", sequenceNum, c.config.GetLowWaterMark())
 		return
 	}
 	log.Infof("Logged: %s", utils.LoggingString(signedCheckpointMessage))

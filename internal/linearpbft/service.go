@@ -44,13 +44,6 @@ func (n *LinearPBFTNode) TransferRequest(ctx context.Context, signedRequest *pb.
 		return &emptypb.Empty{}, nil
 	}
 
-	// TODO: this does not belong here, it should be part of the request handler
-	// Add request to transaction map
-	if n.state.TransactionMap.Get(crypto.Digest(signedRequest)) == nil {
-		// log.Infof("Adding request to transaction map: %s", utils.LoggingString(request))
-		n.state.TransactionMap.Set(crypto.Digest(signedRequest), signedRequest)
-	}
-
 	// Forward request to primary if not primary
 	if n.ID != utils.ViewNumberToPrimaryID(n.state.GetViewNumber(), n.config.N) {
 		// Check if request is already in forward request log
