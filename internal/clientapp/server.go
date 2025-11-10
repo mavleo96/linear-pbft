@@ -50,7 +50,6 @@ func (s *ClientAppServer) StartServer(mainCtx context.Context) {
 	if err != nil {
 		log.Fatalf("Failed to listen: %v", err)
 	}
-	defer lis.Close()
 
 	// Create gRPC server and register service
 	s.grpcServer = grpc.NewServer()
@@ -67,7 +66,8 @@ func (s *ClientAppServer) StartServer(mainCtx context.Context) {
 		// Stop coordinator first
 		s.coordinator.Stop()
 
-		// Then stop gRPC server
+		// Stop gRPC server gracefully (waits for existing RPCs to complete)
+		// This will cause Serve() to return gracefully
 		log.Infof("%s stopping gRPC server", s.ID)
 		s.grpcServer.GracefulStop()
 		log.Infof("%s gRPC server stopped", s.ID)
@@ -75,8 +75,11 @@ func (s *ClientAppServer) StartServer(mainCtx context.Context) {
 
 	// Start serving (this blocks until server stops)
 	log.Infof("%s gRPC server listening on %s", s.ID, s.Client.Address)
-	if err := s.grpcServer.Serve(lis); err != nil {
-		log.Warnf("%s gRPC server error: %v", s.ID, err)
+	serveErr := s.grpcServer.Serve(lis)
+
+	// Only log error if it's not from closing the listener
+	if serveErr != nil && serveErr.Error() != "use of closed network connection" {
+		log.Warnf("%s gRPC server error: %v", s.ID, serveErr)
 	}
 }
 

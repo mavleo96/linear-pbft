@@ -173,4 +173,21 @@ interactionLoop:
 
 	mainCancel()
 	log.Info("Client main routine exiting...")
+
+	// Cleanup: close all node and client connections
+	log.Info("Closing node connections...")
+	for _, node := range nodeMap {
+		if err := node.Close(); err != nil {
+			log.Warnf("Error closing node connection %s: %v", node.ID, err)
+		}
+	}
+
+	log.Info("Closing client connections...")
+	for _, client := range clientMap {
+		if err := client.Close(); err != nil {
+			log.Warnf("Error closing client connection %s: %v", client.ID, err)
+		}
+	}
+
+	log.Info("Client shutdown complete")
 }

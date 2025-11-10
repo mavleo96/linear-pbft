@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"net"
 	"path/filepath"
+	"strings"
+	"sync"
 
 	"github.com/magiconair/properties"
 	"github.com/mavleo96/bft-mavleo96/internal/config"
@@ -28,6 +30,10 @@ type LinearPBFTDB struct {
 	clientMap map[string]*models.Client
 	r         *util.RowCodec
 	bufPool   *util.BufPool
+	// Track servers for cleanup in Close()
+	mu        sync.Mutex
+	servers   []*grpc.Server
+	listeners []net.Listener
 }
 
 // LinearPBFTDBCreator implements ycsb.DBCreator
@@ -62,6 +68,8 @@ func (c *LinearPBFTDBCreator) Create(props *properties.Properties) (ycsb.DB, err
 		clientMap: clientMap,
 		r:         util.NewRowCodec(props),
 		bufPool:   util.NewBufPool(),
+		servers:   make([]*grpc.Server, 0),
+		listeners: make([]net.Listener, 0),
 	}
 
 	return db, nil
@@ -120,44 +128,90 @@ func (p *LinearPBFTDB) InitThread(ctx context.Context, threadID int, threadCount
 	ctx = context.WithValue(ctx, listenerKey, lis)
 	ctx = context.WithValue(ctx, grpcServerKey, grpcServer)
 
+	// Track servers and listeners for cleanup in Close()
+	p.mu.Lock()
+	p.servers = append(p.servers, grpcServer)
+	p.listeners = append(p.listeners, lis)
+	p.mu.Unlock()
+
+	// Start server in goroutine
+	// The server will run until CleanupThread or Close() is called
 	go func() {
-		defer grpcServer.GracefulStop()
-		defer lis.Close()
-		// log.Infof("%s: Receiving server listening on %s", clientID, lis.Addr().String())
-		if err := grpcServer.Serve(lis); err != nil {
-			log.Errorf("%s: gRPC server error: %v", clientID, err)
+		serveErr := grpcServer.Serve(lis)
+		// Serve() returns when:
+		// 1. GracefulStop() is called (normal shutdown) - may return nil or an error
+		// 2. Stop() is called (immediate shutdown)
+		// 3. Listener is closed externally (may cause error)
+		//
+		// IMPORTANT: Errors from normal shutdown (like "use of closed network connection")
+		// are expected and should not be logged. These occur when the listener is closed
+		// as part of graceful shutdown, which is a normal operation.
+		if serveErr != nil {
+			// Check if error is from normal shutdown (any variation)
+			// These errors are expected when the server is shut down gracefully
+			errStr := serveErr.Error()
+			isShutdownError := strings.Contains(errStr, "use of closed network connection") ||
+				strings.Contains(errStr, "server has been stopped") ||
+				strings.Contains(errStr, "grpc: the server has been stopped")
+
+			// Only log if it's not a shutdown error
+			// Shutdown errors are expected and should be silently ignored
+			if !isShutdownError {
+				log.Errorf("%s: gRPC server error: %v", clientID, serveErr)
+			}
 		}
 	}()
 
 	return ctx
 }
 
-// Close closes all connections
+// Close closes all connections and stops all servers
 func (p *LinearPBFTDB) Close() error {
+	// Stop all gRPC servers gracefully
+	for _, grpcServer := range p.servers {
+		if grpcServer != nil {
+			grpcServer.GracefulStop()
+		}
+	}
+
+	// Close all listeners
+	for _, lis := range p.listeners {
+		if lis != nil {
+			lis.Close()
+		}
+	}
+
+	// Close node connections
 	for _, node := range p.nodeMap {
 		node.Close()
 	}
+
+	// Close client connections
 	for _, client := range p.clientMap {
 		client.Close()
 	}
+
 	return nil
 }
 
 // CleanupThread cleans up thread-specific state
+// This is called when a YCSB thread finishes its work.
+// We shut down the server here so it can be recreated in the next phase if needed.
 func (p *LinearPBFTDB) CleanupThread(cx context.Context) {
-	// Close response channel
-	if responseCh, ok := cx.Value(responseChKey).(chan *pb.SignedTransactionResponse); ok {
-		close(responseCh)
-	}
+	// Get gRPC server and response channel from context
+	grpcServer, hasServer := cx.Value(grpcServerKey).(*grpc.Server)
+	responseCh, hasChannel := cx.Value(responseChKey).(chan *pb.SignedTransactionResponse)
 
-	// Stop gRPC server gracefully
-	if grpcServer, ok := cx.Value(grpcServerKey).(*grpc.Server); ok {
+	// Stop gRPC server gracefully - this stops accepting new connections
+	// and waits for existing RPCs to complete, causing Serve() to return
+	// GracefulStop() handles closing the listener internally
+	if hasServer && grpcServer != nil {
 		grpcServer.GracefulStop()
 	}
 
-	// Close listener
-	if lis, ok := cx.Value(listenerKey).(net.Listener); ok {
-		lis.Close()
+	// Close response channel after server has stopped
+	if hasChannel && responseCh != nil {
+		close(responseCh)
 	}
 }
 
