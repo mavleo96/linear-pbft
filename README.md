@@ -44,6 +44,8 @@ The system consists of multiple nodes (replicas) that maintain a distributed led
 - Communicates via gRPC
 - Provides BenchmarkRPC endpoint for performance testing with key-value operations
 - Supports both banking transactions (transfer/read) and generic key-value operations (benchmarking)
+- Read-only requests bypass consensus for improved performance
+- Graceful shutdown with proper cleanup of resources
 
 ### 2. **Client Application** (`cmd/client/main.go`)
 - Loads transactions from CSV test files
@@ -63,9 +65,16 @@ The system consists of multiple nodes (replicas) that maintain a distributed led
 ### 4. **Benchmark Application** (`cmd/benchmark/ycsb/main.go`)
 - YCSB (Yahoo Cloud Serving Benchmark) integration for performance testing
 - Supports standard YCSB workloads (core, workloada, workloadb, etc.)
-- Benchmarks key-value operations (read, write, update, scan, delete)
+- Benchmarks key-value operations:
+  - **Read**: Read a record by key
+  - **Write/Insert**: Create a new record
+  - **Update**: Update an existing record
+  - **Scan**: Read multiple consecutive records
+  - **Delete**: Delete a record by key
 - Configurable record counts, operation counts, and thread counts
 - Uses LinearPBFT database driver for benchmarking the BFT system
+- Thread-safe client management with graceful cleanup
+- Requires f+1 matching responses for consensus verification
 
 ### 5. **Internal Packages**
 
@@ -114,9 +123,11 @@ The system consists of multiple nodes (replicas) that maintain a distributed led
 
 The client application is responsible for:
 1. **Transaction Submission**: Sends transfer and read-only transactions to the BFT nodes
-2. **Response Collection**: Receives and verifies responses from nodes
+2. **Response Collection**: Receives and verifies responses from nodes (requires f+1 matching responses)
 3. **Test Management**: Processes test sets from CSV files with different configurations
 4. **Interactive Control**: Provides commands to control test execution
+5. **Node Reconfiguration**: Dynamically configures node behavior (alive, byzantine, attack types) per test set
+6. **Signature Verification**: Verifies node signatures on all received responses
 
 ### Client Commands
 
@@ -185,7 +196,13 @@ init_balance: 10        # Initial balance for each client account
 
 ### Prerequisites
 
-1. **Generate Keys**: First, generate cryptographic keys for nodes and clients
+1. **Install Dependencies**:
+   - **Go**: Version 1.21 or later (see `go.mod` for exact version requirements)
+   - **yq**: Required for parsing YAML configuration files in launch script
+     - Install via: `brew install yq` (macOS) or `sudo apt-get install yq` (Linux)
+     - Or download from: https://github.com/mikefarah/yq
+
+2. **Generate Keys**: First, generate cryptographic keys for nodes and clients
    ```bash
    ./scripts/generate_keys.sh
    ```
@@ -205,9 +222,12 @@ Launch all BFT nodes using the launch script:
 
 This script:
 - Cleans up previous logs and data directories
-- Starts each node defined in `config.yaml`
+- Starts each node defined in `config.yaml` (requires `yq` to be installed)
 - Redirects output to `logs/out/{node_id}.out`
 - Redirects errors to `logs/err/{node_id}.err`
+- Supports graceful shutdown via SIGTERM/SIGINT signals
+
+**Note**: The launch script requires `yq` to parse the YAML configuration file. Install it before running the script.
 
 Alternatively, start nodes individually:
 ```bash
@@ -215,6 +235,11 @@ go run cmd/server/main.go --id n1 --config ./configs/config.yaml
 go run cmd/server/main.go --id n2 --config ./configs/config.yaml
 # ... for each node
 ```
+
+Each node supports graceful shutdown:
+- Send SIGTERM or SIGINT (Ctrl+C) to stop the node gracefully
+- The node will complete existing RPCs before shutting down
+- Database connections and gRPC servers are closed cleanly
 
 #### 2. Run Client Application
 
@@ -228,6 +253,7 @@ The client will:
 - Start client gRPC servers for each client (A-J)
 - Provide an interactive command prompt
 - Execute test sets based on user commands
+- Support graceful shutdown and cleanup of connections
 
 #### 3. Run Benchmark
 
@@ -244,10 +270,17 @@ The benchmark will:
 
 **Benchmark Configuration:**
 You can modify benchmark parameters in `cmd/benchmark/ycsb/main.go`:
-- `RecordCount`: Number of records to load
-- `OperationCount`: Number of operations to perform
-- `ThreadCount`: Number of concurrent threads
-- `Workload`: YCSB workload type (core, workloada, workloadb, etc.)
+- `RecordCount`: Number of records to load (default: 500)
+- `OperationCount`: Number of operations to perform (default: 5000)
+- `ThreadCount`: Number of concurrent threads (default: 10)
+- `Workload`: YCSB workload type (core, workloada, workloadb, etc., default: core)
+
+**Benchmark Execution:**
+The benchmark runs in two phases:
+1. **Load Phase**: Initializes the database with the specified number of records
+2. **Run Phase**: Executes the workload operations and measures performance
+
+Benchmark results include throughput and latency metrics, which are output after completion.
 
 ### Test Data Format
 
@@ -308,23 +341,48 @@ bft-mavleo96/
 
 ## Dependencies
 
+### Go Dependencies (managed via `go.mod`)
 - **gRPC**: For inter-node and client-node communication
-- **BLS-ETH-Go-Binary**: For BLS threshold signatures
-- **BoltDB**: For persistent storage
-- **Logrus**: For logging
-- **YAML**: For configuration parsing
+- **BLS-ETH-Go-Binary**: For BLS threshold signatures (Boneh-Lynn-Shacham)
+- **BoltDB**: For persistent key-value storage
+- **Logrus**: For structured logging
+- **YAML** (gopkg.in/yaml.v3): For configuration file parsing
 - **go-ycsb**: For performance benchmarking (Yahoo Cloud Serving Benchmark)
 - **properties**: For property file handling in benchmarks
+- **go-cmp**: For value comparisons and testing utilities
+
+### System Dependencies
+- **yq**: YAML processor required for the launch script
+  - Install: `brew install yq` (macOS) or `sudo apt-get install yq` (Linux)
+- **Go**: Version 1.21 or later (see `go.mod` for exact requirements)
+
+All Go dependencies are automatically downloaded when you run `go mod download` or build the project.
 
 ## Notes
 
-- The system requires at least 3f+1 nodes to tolerate f Byzantine failures
-- Default configuration uses 7 nodes (can tolerate 2 Byzantine failures)
+### System Requirements
+- The system requires at least **3f+1 nodes** to tolerate **f Byzantine failures**
+- Default configuration uses **7 nodes** (can tolerate **2 Byzantine failures**)
 - Each node maintains its own database file in the `data/` directory
-- Client applications listen on ports 6001-6010 by default
-- Node servers listen on ports 5001-5007 by default
-- The benchmark feature supports generic key-value operations (not just banking transactions)
-- The system supports both transaction-based operations (banking) and key-value operations (benchmarking)
+- Client applications listen on ports **6001-6010** by default
+- Node servers listen on ports **5001-5007** by default
+
+### Operation Modes
+- **Banking Transactions**: Transfer and read-only operations for account management
+- **Key-Value Operations**: Generic key-value operations for benchmarking (read, write, update, scan, delete)
+
+### Features
+- **Graceful Shutdown**: All components support graceful shutdown via SIGTERM/SIGINT
+- **Connection Management**: Automatic cleanup of gRPC connections and database handles
+- **Duplicate Request Handling**: Clients receive cached replies for duplicate requests
+- **Request Forwarding**: Backup nodes automatically forward requests to the primary
+- **View Change Support**: System can recover from primary failures through view changes
+- **Checkpointing**: State checkpoints for efficient state management and recovery
+
+### Benchmarking
+- Benchmark operations require **f+1 matching responses** for consensus verification
+- Thread-safe client management with per-thread gRPC servers
+- Supports both load and run phases for comprehensive performance testing
 
 
 ## AI Usage
