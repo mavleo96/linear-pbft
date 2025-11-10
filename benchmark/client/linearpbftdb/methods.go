@@ -3,7 +3,6 @@ package linearpbftdb
 import (
 	"context"
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/herumi/bls-eth-go-binary/bls"
@@ -11,6 +10,7 @@ import (
 	"github.com/mavleo96/bft-mavleo96/internal/models"
 	"github.com/mavleo96/bft-mavleo96/internal/utils"
 	"github.com/mavleo96/bft-mavleo96/pb"
+	log "github.com/sirupsen/logrus"
 )
 
 // Read reads a record from PBFT
@@ -18,6 +18,7 @@ func (p *LinearPBFTDB) Read(ctx context.Context, table string, key string, field
 	tx := &pb.Transaction{
 		Type:   "ycsb_read",
 		Sender: ctx.Value(clientIDKey).(string),
+		Table:  table,
 		Key:    key,
 		Fields: fields,
 	}
@@ -32,31 +33,24 @@ func (p *LinearPBFTDB) Read(ctx context.Context, table string, key string, field
 	}
 
 	// Send request to all nodes
-	responseCh := make(chan *pb.SignedTransactionResponse, len(p.nodeMap))
-	wg := sync.WaitGroup{}
 	for _, node := range p.nodeMap {
-		wg.Add(1)
 		go func(n *models.Node) {
-			defer wg.Done()
-			response, err := (*n.Client).BenchmarkRPC(ctx, signedRequest)
-			if err == nil && response != nil {
-				responseCh <- response
-			}
+			(*n.Client).BenchmarkRPC(ctx, signedRequest)
 		}(node)
 	}
-	go func() {
-		wg.Wait()
-		close(responseCh)
-	}()
+
+	responseCh := ctx.Value(responseChKey).(chan *pb.SignedTransactionResponse)
 
 	// Check for f+1 matching values
 	// Use hashable keys (map keys) instead of maps directly
 	responseMap := make(map[[32]byte]int64)
 	valueMap := make(map[[32]byte]map[string][]byte)
-	for response := range responseCh {
+	for range len(p.nodeMap) {
+		response := <-responseCh
 		if response != nil && response.Message != nil {
 			if response.Message.Error != "" {
 				// return nil, fmt.Errorf("PBFT error: %s", response.Message.Error)
+				log.Warnf("%s: Read PBFT error: %s", ctx.Value(clientIDKey).(string), response.Message.Error)
 				continue
 			}
 			key := mapKey(response.Message.ResultData)
@@ -66,13 +60,14 @@ func (p *LinearPBFTDB) Read(ctx context.Context, table string, key string, field
 		}
 	}
 	if len(responseMap) == 0 {
-		return nil, fmt.Errorf("no responses received from nodes")
+		return nil, fmt.Errorf("%d; no responses received from nodes", request.Timestamp)
 	}
 	maxKey, maxCnt := utils.MaxByValue(responseMap)
 	if maxCnt >= p.f+1 {
+		// log.Infof("%s: %d; Read majority reached (got %d matching responses, need %d)", ctx.Value(clientIDKey).(string), request.Timestamp, maxCnt, p.f+1)
 		return valueMap[maxKey], nil
 	}
-	return nil, fmt.Errorf("no majority reached (got %d matching responses, need %d)", maxCnt, p.f+1)
+	return nil, fmt.Errorf("%d; no majority reached (got %d matching responses, need %d)", request.Timestamp, maxCnt, p.f+1)
 }
 
 // Scan scans records from PBFT
@@ -81,6 +76,7 @@ func (p *LinearPBFTDB) Scan(ctx context.Context, table string, startKey string, 
 	tx := &pb.Transaction{
 		Type:      "ycsb_scan",
 		Sender:    ctx.Value(clientIDKey).(string),
+		Table:     table,
 		StartKey:  startKey,
 		ScanCount: int64(count),
 		Fields:    fields,
@@ -96,31 +92,24 @@ func (p *LinearPBFTDB) Scan(ctx context.Context, table string, startKey string, 
 	}
 
 	// Send request to all nodes
-	responseCh := make(chan *pb.SignedTransactionResponse, len(p.nodeMap))
-	wg := sync.WaitGroup{}
 	for _, node := range p.nodeMap {
-		wg.Add(1)
 		go func(n *models.Node) {
-			defer wg.Done()
-			response, err := (*n.Client).BenchmarkRPC(ctx, signedRequest)
-			if err == nil && response != nil {
-				responseCh <- response
-			}
+			(*n.Client).BenchmarkRPC(ctx, signedRequest)
 		}(node)
 	}
-	go func() {
-		wg.Wait()
-		close(responseCh)
-	}()
+
+	responseCh := ctx.Value(responseChKey).(chan *pb.SignedTransactionResponse)
 
 	// Check for f+1 matching values
 	// Use hashable keys instead of slices directly
 	responseMap := make(map[[32]byte]int64)
 	valueMap := make(map[[32]byte][]map[string][]byte)
-	for response := range responseCh {
+	for range len(p.nodeMap) {
+		response := <-responseCh
 		if response != nil && response.Message != nil {
 			if response.Message.Error != "" {
 				// return nil, fmt.Errorf("PBFT error: %s", response.Message.Error)
+				log.Warnf("%s: %d; Scan PBFT error: %s", ctx.Value(clientIDKey).(string), request.Timestamp, response.Message.Error)
 				continue
 			}
 			// Convert []*pb.ScanResult to []map[string][]byte
@@ -137,13 +126,14 @@ func (p *LinearPBFTDB) Scan(ctx context.Context, table string, startKey string, 
 		}
 	}
 	if len(responseMap) == 0 {
-		return nil, fmt.Errorf("no responses received from nodes")
+		return nil, fmt.Errorf("%d; no responses received from nodes", request.Timestamp)
 	}
 	maxKey, maxCnt := utils.MaxByValue(responseMap)
 	if maxCnt >= p.f+1 {
+		// log.Infof("%s: %d; Scan majority reached (got %d matching responses, need %d)", ctx.Value(clientIDKey).(string), request.Timestamp, maxCnt, p.f+1)
 		return valueMap[maxKey], nil
 	}
-	return nil, fmt.Errorf("no majority reached (got %d matching responses, need %d)", maxCnt, p.f+1)
+	return nil, fmt.Errorf("%d; no majority reached (got %d matching responses, need %d)", request.Timestamp, maxCnt, p.f+1)
 }
 
 // Insert inserts a record through PBFT consensus
@@ -156,7 +146,7 @@ func (p *LinearPBFTDB) Insert(ctx context.Context, table string, key string, val
 
 	encoded, err := p.r.Encode(buf, values)
 	if err != nil {
-		return fmt.Errorf("failed to encode values: %v", err)
+		return fmt.Errorf("%s: failed to encode values: %v", ctx.Value(clientIDKey).(string), err)
 	}
 
 	// Create transaction
@@ -180,42 +170,36 @@ func (p *LinearPBFTDB) Insert(ctx context.Context, table string, key string, val
 	}
 
 	// Send request to all nodes
-	responseCh := make(chan *pb.SignedTransactionResponse, len(p.nodeMap))
-	wg := sync.WaitGroup{}
 	for _, node := range p.nodeMap {
-		wg.Add(1)
 		go func(n *models.Node) {
-			defer wg.Done()
-			response, err := (*n.Client).BenchmarkRPC(ctx, signedRequest)
-			if err == nil && response != nil {
-				responseCh <- response
-			}
+			(*n.Client).BenchmarkRPC(ctx, signedRequest)
 		}(node)
 	}
-	go func() {
-		wg.Wait()
-		close(responseCh)
-	}()
+
+	responseCh := ctx.Value(responseChKey).(chan *pb.SignedTransactionResponse)
 
 	// Check for f+1 matching values
 	responseMap := make(map[any]int64)
-	for response := range responseCh {
+	for range len(p.nodeMap) {
+		response := <-responseCh
 		if response != nil && response.Message != nil {
 			if response.Message.Error != "" {
 				// return fmt.Errorf("PBFT error: %s", response.Message.Error)
+				log.Warnf("%s: %d; Insert PBFT error: %s", ctx.Value(clientIDKey).(string), request.Timestamp, response.Message.Error)
 				continue
 			}
 			responseMap[response.Message.Result]++
 		}
 	}
 	if len(responseMap) == 0 {
-		return fmt.Errorf("no responses received from nodes")
+		return fmt.Errorf("%d; no responses received from nodes", request.Timestamp)
 	}
 	_, maxCnt := utils.MaxByValue(responseMap)
 	if maxCnt >= p.f+1 {
+		// log.Infof("%s: %d; Insert majority reached (got %d responses, need %d)", ctx.Value(clientIDKey).(string), request.Timestamp, maxCnt, p.f+1)
 		return nil
 	}
-	return fmt.Errorf("no majority reached (got %d responses, need %d)", maxCnt, p.f+1)
+	return fmt.Errorf("%d; no majority reached (got %d responses, need %d)", request.Timestamp, maxCnt, p.f+1)
 }
 
 // Update updates a record through PBFT consensus
@@ -251,42 +235,36 @@ func (p *LinearPBFTDB) Update(ctx context.Context, table string, key string, val
 	}
 
 	// Send request to all nodes
-	responseCh := make(chan *pb.SignedTransactionResponse, len(p.nodeMap))
-	wg := sync.WaitGroup{}
 	for _, node := range p.nodeMap {
-		wg.Add(1)
 		go func(n *models.Node) {
-			defer wg.Done()
-			response, err := (*n.Client).BenchmarkRPC(ctx, signedRequest)
-			if err == nil && response != nil {
-				responseCh <- response
-			}
+			(*n.Client).BenchmarkRPC(ctx, signedRequest)
 		}(node)
 	}
-	go func() {
-		wg.Wait()
-		close(responseCh)
-	}()
+
+	responseCh := ctx.Value(responseChKey).(chan *pb.SignedTransactionResponse)
 
 	// Check for f+1 matching values
 	responseMap := make(map[any]int64)
-	for response := range responseCh {
+	for range len(p.nodeMap) {
+		response := <-responseCh
 		if response != nil && response.Message != nil {
 			if response.Message.Error != "" {
 				// return fmt.Errorf("PBFT error: %s", response.Message.Error)
+				log.Warnf("%s: %d; Update PBFT error: %s", ctx.Value(clientIDKey).(string), request.Timestamp, response.Message.Error)
 				continue
 			}
 			responseMap[response.Message.Result]++
 		}
 	}
 	if len(responseMap) == 0 {
-		return fmt.Errorf("no responses received from nodes")
+		return fmt.Errorf("%d; no responses received from nodes", request.Timestamp)
 	}
 	_, maxCnt := utils.MaxByValue(responseMap)
 	if maxCnt >= p.f+1 {
+		// log.Infof("%s: %d; Update majority reached (got %d responses, need %d)", ctx.Value(clientIDKey).(string), request.Timestamp, maxCnt, p.f+1)
 		return nil
 	}
-	return fmt.Errorf("no majority reached (got %d responses, need %d)", maxCnt, p.f+1)
+	return fmt.Errorf("%d; no majority reached (got %d responses, need %d)", request.Timestamp, maxCnt, p.f+1)
 }
 
 // Delete deletes a record through PBFT consensus
@@ -310,40 +288,34 @@ func (p *LinearPBFTDB) Delete(ctx context.Context, table string, key string) err
 	}
 
 	// Send request to all nodes
-	responseCh := make(chan *pb.SignedTransactionResponse, len(p.nodeMap))
-	wg := sync.WaitGroup{}
 	for _, node := range p.nodeMap {
-		wg.Add(1)
 		go func(n *models.Node) {
-			defer wg.Done()
-			response, err := (*n.Client).BenchmarkRPC(ctx, signedRequest)
-			if err == nil && response != nil {
-				responseCh <- response
-			}
+			(*n.Client).BenchmarkRPC(ctx, signedRequest)
 		}(node)
 	}
-	go func() {
-		wg.Wait()
-		close(responseCh)
-	}()
+
+	responseCh := ctx.Value(responseChKey).(chan *pb.SignedTransactionResponse)
 
 	// Check for f+1 matching values
 	responseMap := make(map[any]int64)
-	for response := range responseCh {
+	for range len(p.nodeMap) {
+		response := <-responseCh
 		if response != nil && response.Message != nil {
 			if response.Message.Error != "" {
 				// return fmt.Errorf("PBFT error: %s", response.Message.Error)
+				log.Warnf("%s: %d; Delete PBFT error: %s", ctx.Value(clientIDKey).(string), request.Timestamp, response.Message.Error)
 				continue
 			}
 			responseMap[response.Message.Result]++
 		}
 	}
 	if len(responseMap) == 0 {
-		return fmt.Errorf("no responses received from nodes")
+		return fmt.Errorf("%d; no responses received from nodes", request.Timestamp)
 	}
 	_, maxCnt := utils.MaxByValue(responseMap)
 	if maxCnt >= p.f+1 {
+		// log.Infof("%s: %d; Delete majority reached (got %d responses, need %d)", ctx.Value(clientIDKey).(string), request.Timestamp, maxCnt, p.f+1)
 		return nil
 	}
-	return fmt.Errorf("no majority reached (got %d responses, need %d)", maxCnt, p.f+1)
+	return fmt.Errorf("%d; no majority reached (got %d responses, need %d)", request.Timestamp, maxCnt, p.f+1)
 }

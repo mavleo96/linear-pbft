@@ -30,7 +30,7 @@ service LinearPBFTNode {
     rpc ReconfigureNode (ChangeStatusMessage) returns (google.protobuf.Empty);
     rpc ResetNode (google.protobuf.Empty) returns (google.protobuf.Empty);
 
-    rpc BenchmarkRPC (SignedTransactionRequest) returns (SignedTransactionResponse);
+    rpc BenchmarkRPC (SignedTransactionRequest) returns (google.protobuf.Empty);
 }
 
 service LinearPBFTClientApp {

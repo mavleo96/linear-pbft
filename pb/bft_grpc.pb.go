@@ -60,7 +60,7 @@ type LinearPBFTNodeClient interface {
 	PrintView(ctx context.Context, in *wrapperspb.Int64Value, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	ReconfigureNode(ctx context.Context, in *ChangeStatusMessage, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	ResetNode(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	BenchmarkRPC(ctx context.Context, in *SignedTransactionRequest, opts ...grpc.CallOption) (*SignedTransactionResponse, error)
+	BenchmarkRPC(ctx context.Context, in *SignedTransactionRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
 type linearPBFTNodeClient struct {
@@ -238,8 +238,8 @@ func (c *linearPBFTNodeClient) ResetNode(ctx context.Context, in *emptypb.Empty,
 	return out, nil
 }
 
-func (c *linearPBFTNodeClient) BenchmarkRPC(ctx context.Context, in *SignedTransactionRequest, opts ...grpc.CallOption) (*SignedTransactionResponse, error) {
-	out := new(SignedTransactionResponse)
+func (c *linearPBFTNodeClient) BenchmarkRPC(ctx context.Context, in *SignedTransactionRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, LinearPBFTNode_BenchmarkRPC_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -267,7 +267,7 @@ type LinearPBFTNodeServer interface {
 	PrintView(context.Context, *wrapperspb.Int64Value) (*emptypb.Empty, error)
 	ReconfigureNode(context.Context, *ChangeStatusMessage) (*emptypb.Empty, error)
 	ResetNode(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
-	BenchmarkRPC(context.Context, *SignedTransactionRequest) (*SignedTransactionResponse, error)
+	BenchmarkRPC(context.Context, *SignedTransactionRequest) (*emptypb.Empty, error)
 	mustEmbedUnimplementedLinearPBFTNodeServer()
 }
 
@@ -323,7 +323,7 @@ func (UnimplementedLinearPBFTNodeServer) ReconfigureNode(context.Context, *Chang
 func (UnimplementedLinearPBFTNodeServer) ResetNode(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ResetNode not implemented")
 }
-func (UnimplementedLinearPBFTNodeServer) BenchmarkRPC(context.Context, *SignedTransactionRequest) (*SignedTransactionResponse, error) {
+func (UnimplementedLinearPBFTNodeServer) BenchmarkRPC(context.Context, *SignedTransactionRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method BenchmarkRPC not implemented")
 }
 func (UnimplementedLinearPBFTNodeServer) mustEmbedUnimplementedLinearPBFTNodeServer() {}

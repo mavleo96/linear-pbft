@@ -2,6 +2,7 @@ package linearpbft
 
 import (
 	"context"
+	"strings"
 
 	"github.com/mavleo96/bft-mavleo96/internal/utils"
 	log "github.com/sirupsen/logrus"
@@ -35,6 +36,7 @@ executeLoop:
 				signedRequest := e.state.TransactionMap.Get(e.state.StateLog.GetDigest(i))
 				request := signedRequest.Request
 				var result int64
+				var benchmarkResult any
 				var err error
 				switch request.Transaction.Type {
 				case "read":
@@ -45,8 +47,8 @@ executeLoop:
 					success, err = e.db.UpdateDB(request.Transaction)
 					result = utils.BoolToInt64(success)
 				case "ycsb_read", "ycsb_scan", "ycsb_write", "ycsb_update", "ycsb_delete":
-					e.benchmarkExecutionTriggerCh <- i
-					continue executeLoop
+					log.Infof("Executing benchmark transaction for sequence number %d", i)
+					benchmarkResult, err = e.ExecuteBenchmarkTransaction(signedRequest)
 				default:
 					log.Infof("Null transaction type at sequence number %d", i)
 				}
@@ -60,8 +62,10 @@ executeLoop:
 				// TODO: make this elegant since primary doesn't have a safe timer running
 				e.timer.DecrementWaitCountAndResetOrStopIfZero()
 				log.Infof("Executed (v: %d, s: %d): %s", e.state.GetViewNumber(), i, utils.LoggingString(request.Transaction))
-				if request.Transaction.Type != "null" {
-					// e.sendReplyCh <- i
+
+				if strings.HasPrefix(request.Transaction.Type, "ycsb_") {
+					go e.benchmarkSendReply(signedRequest, benchmarkResult)
+				} else if request.Transaction.Type != "null" {
 					go e.sendReply(signedRequest, result)
 				}
 				e.state.SetLastExecutedSequenceNum(i)

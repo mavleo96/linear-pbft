@@ -11,56 +11,24 @@ import (
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 // BenchmarkHandler manages signal channels for YCSB benchmarking
 type BenchmarkHandler struct {
-	mutex       sync.RWMutex
-	signalChMap map[[32]byte]chan any
-}
-
-// CreateSignalCh creates a new signal channel for a given request digest
-func (h *BenchmarkHandler) CreateSignalCh(digest []byte) chan any {
-	h.mutex.Lock()
-	defer h.mutex.Unlock()
-	if _, ok := h.signalChMap[utils.To32Bytes(digest)]; !ok {
-		h.signalChMap[utils.To32Bytes(digest)] = make(chan any)
-	}
-	return h.signalChMap[utils.To32Bytes(digest)]
-}
-
-// CloseSignalCh closes a signal channel for a given request digest
-func (h *BenchmarkHandler) CloseSignalCh(digest []byte) {
-	h.mutex.Lock()
-	defer h.mutex.Unlock()
-	close(h.signalChMap[utils.To32Bytes(digest)])
-	delete(h.signalChMap, utils.To32Bytes(digest))
-}
-
-// GetSendSignalCh returns a channel to send results to
-func (h *BenchmarkHandler) GetSendSignalCh(digest []byte) chan<- any {
-	h.mutex.RLock()
-	defer h.mutex.RUnlock()
-	return h.signalChMap[utils.To32Bytes(digest)]
-}
-
-// GetReceiveSignalCh returns a channel to receive results from
-func (h *BenchmarkHandler) GetReceiveSignalCh(digest []byte) <-chan any {
-	h.mutex.RLock()
-	defer h.mutex.RUnlock()
-	return h.signalChMap[utils.To32Bytes(digest)]
+	mutex sync.RWMutex
 }
 
 // NewBenchmarkHandler creates a new BenchmarkHandler
 func NewBenchmarkHandler() *BenchmarkHandler {
 	return &BenchmarkHandler{
-		mutex:       sync.RWMutex{},
-		signalChMap: make(map[[32]byte]chan any),
+		mutex: sync.RWMutex{},
 	}
 }
 
 // BenchmarkRPC handles a benchmark request
-func (n *LinearPBFTNode) BenchmarkRPC(ctx context.Context, signedRequest *pb.SignedTransactionRequest) (*pb.SignedTransactionResponse, error) {
+// func (n *LinearPBFTNode) BenchmarkRPC(ctx context.Context, signedRequest *pb.SignedTransactionRequest) (*pb.SignedTransactionResponse, error) {
+func (n *LinearPBFTNode) BenchmarkRPC(ctx context.Context, signedRequest *pb.SignedTransactionRequest) (*emptypb.Empty, error) {
 	request := signedRequest.Request
 
 	// Ignore request if in view change phase
@@ -83,27 +51,17 @@ func (n *LinearPBFTNode) BenchmarkRPC(ctx context.Context, signedRequest *pb.Sig
 		n.state.TransactionMap.Set(digest, signedRequest)
 	}
 
-	// Create signal channel (all nodes wait on this channel for execution result)
-	signalCh := n.benchmarkHandler.CreateSignalCh(digest)
-
-	// Only primary handles the message; backups just wait on the channel
+	// Only primary handles the message; backups just wait for pre-prepare messages
 	primaryID := utils.ViewNumberToPrimaryID(n.state.GetViewNumber(), n.config.N)
 	if primaryID == n.ID {
-		// Primary: process the request (will trigger consensus)
 		go n.handler.LeaderTransactionRequestHandler(signedRequest)
 	}
+	return &emptypb.Empty{}, nil
+}
 
-	// Backups: just wait on the channel (will receive PRE-PREPARE messages and process through normal consensus)
-	// Wait for result from execution (all nodes wait, including backups)
-	var resultValue any
-	select {
-	case resultValue = <-signalCh:
-		// Result received, continue to build response
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	}
-
+func (n *LinearPBFTNode) BenchmarkSendReply(signedRequest *pb.SignedTransactionRequest, result any) {
 	// Build response based on transaction type
+	request := signedRequest.Request
 	tx := request.Transaction
 	message := &pb.TransactionResponse{
 		ViewNumber: n.state.GetViewNumber(),
@@ -114,33 +72,40 @@ func (n *LinearPBFTNode) BenchmarkRPC(ctx context.Context, signedRequest *pb.Sig
 
 	switch tx.Type {
 	case "ycsb_read":
-		if resultData, ok := resultValue.(map[string][]byte); ok {
+		if resultData, ok := result.(map[string][]byte); ok {
+			log.Infof("Benchmark RPC: Received result data for read operation: %v", resultData)
 			message.ResultData = resultData
 		} else {
+			log.Warnf("Benchmark RPC: Invalid result type for read operation: %v", result)
 			message.Error = "invalid result type for read operation"
 		}
 
 	case "ycsb_scan":
-		if results, ok := resultValue.([]map[string][]byte); ok {
+		if results, ok := result.([]map[string][]byte); ok {
 			scanResults := make([]*pb.ScanResult, 0, len(results))
 			for _, r := range results {
 				scanResults = append(scanResults, &pb.ScanResult{
 					Fields: r,
 				})
 			}
+			log.Infof("Benchmark RPC: Received scan results: %v", scanResults)
 			message.ScanResults = scanResults
 		} else {
+			log.Warnf("Benchmark RPC: Invalid result type for scan operation: %v", result)
 			message.Error = "invalid result type for scan operation"
 		}
 
 	case "ycsb_write", "ycsb_update", "ycsb_delete":
-		if result, ok := resultValue.(int64); ok {
-			message.Result = result
+		if result, ok := result.(bool); ok && result {
+			log.Infof("Benchmark RPC: Received result for write/update/delete operation: %v", result)
+			message.Result = utils.BoolToInt64(result)
 		} else {
+			log.Warnf("Benchmark RPC: Invalid result type for write/update/delete operation: %v", result)
 			message.Error = "invalid result type for write/update/delete operation"
 		}
 
 	default:
+		log.Warnf("Benchmark RPC: Unknown transaction type: %s", tx.Type)
 		message.Error = "unknown transaction type"
 	}
 
@@ -150,5 +115,9 @@ func (n *LinearPBFTNode) BenchmarkRPC(ctx context.Context, signedRequest *pb.Sig
 		Signature: crypto.Sign(message, n.handler.privateKey1),
 	}
 
-	return signedResponse, nil
+	log.Infof("Benchmark RPC: Sending response: %s", utils.LoggingString(signedResponse))
+	_, err := (*n.clients[request.Sender].Client).ReceiveReply(context.Background(), signedResponse)
+	if err != nil {
+		log.Fatal(err)
+	}
 }

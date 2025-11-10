@@ -41,9 +41,6 @@ func (n *LinearPBFTNode) Start(ctx context.Context) {
 	go n.executor.ExecuteRoutine(ctx)
 
 	n.wg.Add(1)
-	go n.executor.BenchmarkExecuteRoutine(ctx)
-
-	n.wg.Add(1)
 	go n.viewchanger.ViewChangeRoutine(ctx)
 
 	n.wg.Add(1)
@@ -85,6 +82,10 @@ func CreateLinearPBFTNode(selfNode *models.Node, peerNodes map[string]*models.No
 
 	executor.sendReply = func(signedRequest *pb.SignedTransactionRequest, result int64) {
 		server.SendReply(signedRequest, result)
+	}
+
+	executor.benchmarkSendReply = func(signedRequest *pb.SignedTransactionRequest, result any) {
+		server.BenchmarkSendReply(signedRequest, result)
 	}
 
 	handler.SendGetRequest = func(digest []byte) (*pb.SignedTransactionRequest, error) {

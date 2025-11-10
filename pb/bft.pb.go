@@ -1684,7 +1684,7 @@ const file_bft_proto_rawDesc = "" +
 	"timeAttack\x18\a \x01(\bR\n" +
 	"timeAttack\x12.\n" +
 	"\x12equivocationAttack\x18\b \x01(\bR\x12equivocationAttack\x128\n" +
-	"\x17equivocationAttackNodes\x18\t \x03(\tR\x17equivocationAttackNodes2\xa1\t\n" +
+	"\x17equivocationAttackNodes\x18\t \x03(\tR\x17equivocationAttackNodes2\x9a\t\n" +
 	"\x0eLinearPBFTNode\x12G\n" +
 	"\x0fTransferRequest\x12\x1c.pb.SignedTransactionRequest\x1a\x16.google.protobuf.Empty\x12N\n" +
 	"\x0fReadOnlyRequest\x12\x1c.pb.SignedTransactionRequest\x1a\x1d.pb.SignedTransactionResponse\x12J\n" +
@@ -1702,8 +1702,8 @@ const file_bft_proto_rawDesc = "" +
 	"\vPrintStatus\x12\x11.pb.StatusRequest\x1a\x16.google.protobuf.Empty\x12@\n" +
 	"\tPrintView\x12\x1b.google.protobuf.Int64Value\x1a\x16.google.protobuf.Empty\x12B\n" +
 	"\x0fReconfigureNode\x12\x17.pb.ChangeStatusMessage\x1a\x16.google.protobuf.Empty\x12;\n" +
-	"\tResetNode\x12\x16.google.protobuf.Empty\x1a\x16.google.protobuf.Empty\x12K\n" +
-	"\fBenchmarkRPC\x12\x1c.pb.SignedTransactionRequest\x1a\x1d.pb.SignedTransactionResponse2\\\n" +
+	"\tResetNode\x12\x16.google.protobuf.Empty\x1a\x16.google.protobuf.Empty\x12D\n" +
+	"\fBenchmarkRPC\x12\x1c.pb.SignedTransactionRequest\x1a\x16.google.protobuf.Empty2\\\n" +
 	"\x13LinearPBFTClientApp\x12E\n" +
 	"\fReceiveReply\x12\x1d.pb.SignedTransactionResponse\x1a\x16.google.protobuf.EmptyB%Z#github.com/mavleo96/bft-mavleo96/pbb\x06proto3"
 
@@ -1808,7 +1808,7 @@ var file_bft_proto_depIdxs = []int32{
 	29, // 52: pb.LinearPBFTNode.PrintView:output_type -> google.protobuf.Empty
 	29, // 53: pb.LinearPBFTNode.ReconfigureNode:output_type -> google.protobuf.Empty
 	29, // 54: pb.LinearPBFTNode.ResetNode:output_type -> google.protobuf.Empty
-	3,  // 55: pb.LinearPBFTNode.BenchmarkRPC:output_type -> pb.SignedTransactionResponse
+	29, // 55: pb.LinearPBFTNode.BenchmarkRPC:output_type -> google.protobuf.Empty
 	29, // 56: pb.LinearPBFTClientApp.ReceiveReply:output_type -> google.protobuf.Empty
 	39, // [39:57] is the sub-list for method output_type
 	21, // [21:39] is the sub-list for method input_type
