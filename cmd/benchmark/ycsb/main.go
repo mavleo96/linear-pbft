@@ -24,9 +24,9 @@ func main() {
 
 	// Create properties
 	props := properties.NewProperties()
-	props.Set(prop.RecordCount, "1000")
+	props.Set(prop.RecordCount, "500")
 	props.Set(prop.OperationCount, "5000")
-	props.Set(prop.ThreadCount, "5")
+	props.Set(prop.ThreadCount, "10")
 	props.Set(prop.Workload, "core")
 
 	// Initialize measurement
