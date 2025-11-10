@@ -77,6 +77,7 @@ func (e *Executor) ExecuteBenchmarkTransaction(signedRequest *pb.SignedTransacti
 			for _, r := range results {
 				scanResults = append(scanResults, map[string][]byte{"value": r.Value})
 			}
+			result = scanResults
 		}
 
 	case "ycsb_read":
