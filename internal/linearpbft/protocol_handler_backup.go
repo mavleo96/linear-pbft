@@ -32,7 +32,6 @@ func (h *ProtocolHandler) BackupPrePrepareRequestHandler(signedPrePrepareMessage
 	}
 	log.Infof("Adding request to transaction map: %s", utils.LoggingString(signedRequest))
 	h.state.TransactionMap.Set(crypto.Digest(signedRequest), signedRequest)
-	signedPrePrepareMessage.Request = nil
 
 	// Verify Digest
 	if !cmp.Equal(prePrepareMessage.Digest, crypto.Digest(signedRequest)) {

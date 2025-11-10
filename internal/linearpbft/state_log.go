@@ -305,9 +305,13 @@ func (s *StateLog) GetPrepareProof() []*pb.PrepareProof {
 			maxViewNumber := utils.Max(viewNumberIntersection)
 
 			prePrepareMessage := record.prePrepareMessage[maxViewNumber]
+			prePrepareMessageWithoutPiggyback := &pb.SignedPrePrepareMessage{
+				Message:   prePrepareMessage.Message,
+				Signature: prePrepareMessage.Signature,
+			}
 			prepareMessage := record.prepareMessage[maxViewNumber]
 			prepareProofs = append(prepareProofs, &pb.PrepareProof{
-				SignedPrePrepareMessage: prePrepareMessage,
+				SignedPrePrepareMessage: prePrepareMessageWithoutPiggyback,
 				SignedPrepareMessage:    prepareMessage,
 			})
 		}
