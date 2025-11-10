@@ -20,11 +20,11 @@ type LinearPBFTNode struct {
 	state           *ServerState
 
 	// Component managers
-	executor    *Executor
-	handler     *ProtocolHandler
-	viewchanger *ViewChangeManager
-	logger      *Logger
-
+	executor         *Executor
+	handler          *ProtocolHandler
+	viewchanger      *ViewChangeManager
+	logger           *Logger
+	benchmarkHandler *BenchmarkHandler
 	// Wait group for graceful shutdown
 	wg sync.WaitGroup
 
@@ -61,25 +61,31 @@ func CreateLinearPBFTNode(selfNode *models.Node, peerNodes map[string]*models.No
 
 	checkpointer := CreateCheckpointManager(selfNode.ID, serverState, serverConfig)
 	viewchanger := CreateViewChangeManager(selfNode.ID, timer, serverState, serverConfig, checkpointer)
-	executor := CreateExecutor(serverState, serverConfig, bankDB, checkpointer, timer, executionTriggerChannel)
+	benchmarkHandler := NewBenchmarkHandler()
+	executor := CreateExecutor(serverState, serverConfig, bankDB, checkpointer, benchmarkHandler, timer, executionTriggerChannel)
 	handler := CreateProtocolHandler(selfNode.ID, serverState, serverConfig, byzantineConfig, privateKey1, privateKey2, masterPublicKey1, masterPublicKey2, peerNodes, timer, executionTriggerChannel)
 	logger := CreateLogger()
 
 	server := &LinearPBFTNode{
-		Node:            selfNode,
-		config:          serverConfig,
-		byzantineConfig: byzantineConfig,
-		clients:         clientMap,
-		state:           serverState,
-		executor:        executor,
-		handler:         handler,
-		viewchanger:     viewchanger,
-		logger:          logger,
-		wg:              sync.WaitGroup{},
+		Node:             selfNode,
+		config:           serverConfig,
+		byzantineConfig:  byzantineConfig,
+		clients:          clientMap,
+		state:            serverState,
+		executor:         executor,
+		handler:          handler,
+		viewchanger:      viewchanger,
+		logger:           logger,
+		benchmarkHandler: benchmarkHandler,
+		wg:               sync.WaitGroup{},
 	}
 
 	executor.sendReply = func(signedRequest *pb.SignedTransactionRequest, result int64) {
 		server.SendReply(signedRequest, result)
+	}
+
+	executor.benchmarkSendReply = func(signedRequest *pb.SignedTransactionRequest, result any) {
+		server.BenchmarkSendReply(signedRequest, result)
 	}
 
 	handler.SendGetRequest = func(digest []byte) (*pb.SignedTransactionRequest, error) {

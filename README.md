@@ -32,7 +32,7 @@ The system consists of multiple nodes (replicas) that maintain a distributed led
 
 ### 1. **Server Nodes** (`cmd/server/main.go`)
 - Implements the Linear PBFT consensus protocol with SBFT optimization
-- Maintains a distributed database (BoltDB) for account balances
+- Maintains a distributed database (BoltDB) for account balances and key-value storage
 - Handles transaction processing through the PBFT consensus phases:
   - **Pre-Prepare**: Leader proposes a transaction
   - **Prepare**: Nodes prepare the transaction
@@ -42,6 +42,8 @@ The system consists of multiple nodes (replicas) that maintain a distributed led
 - Handles checkpointing for state management
 - Uses BLS threshold signature scheme (TSS) for cryptographic operations
 - Communicates via gRPC
+- Provides BenchmarkRPC endpoint for performance testing with key-value operations
+- Supports both banking transactions (transfer/read) and generic key-value operations (benchmarking)
 
 ### 2. **Client Application** (`cmd/client/main.go`)
 - Loads transactions from CSV test files
@@ -58,7 +60,14 @@ The system consists of multiple nodes (replicas) that maintain a distributed led
   - **Key Set 2**: For threshold signature verification (secret2, master_public2)
 - Enables both Linear PBFT and SBFT protocol support
 
-### 4. **Internal Packages**
+### 4. **Benchmark Application** (`cmd/benchmark/ycsb/main.go`)
+- YCSB (Yahoo Cloud Serving Benchmark) integration for performance testing
+- Supports standard YCSB workloads (core, workloada, workloadb, etc.)
+- Benchmarks key-value operations (read, write, update, scan, delete)
+- Configurable record counts, operation counts, and thread counts
+- Uses LinearPBFT database driver for benchmarking the BFT system
+
+### 5. **Internal Packages**
 
 #### `internal/linearpbft/`
 - Core PBFT protocol implementation (Linear PBFT and SBFT)
@@ -68,6 +77,7 @@ The system consists of multiple nodes (replicas) that maintain a distributed led
 - Checkpoint management
 - Byzantine fault handling
 - Timer and timeout management for SBFT
+- Benchmark RPC endpoint support
 
 #### `internal/clientapp/`
 - Client application logic
@@ -89,10 +99,16 @@ The system consists of multiple nodes (replicas) that maintain a distributed led
 - BoltDB integration
 - Account balance management
 - Transaction logging
+- Generic key-value operations for benchmarking (Put, Get, Update, Delete, Scan)
 
 #### `internal/models/`
 - Node and client data structures
 - Network models
+
+#### `benchmark/client/linearpbftdb/`
+- YCSB database driver implementation for LinearPBFT
+- Thread-safe client management
+- Key-value operation translation to BFT transactions
 
 ## Client Details
 
@@ -213,6 +229,26 @@ The client will:
 - Provide an interactive command prompt
 - Execute test sets based on user commands
 
+#### 3. Run Benchmark
+
+Run YCSB benchmark to test system performance:
+```bash
+go run cmd/benchmark/ycsb/main.go
+```
+
+The benchmark will:
+- Load initial data into the system
+- Execute a configurable workload (read/write/update operations)
+- Measure performance metrics (throughput, latency)
+- Output benchmark results
+
+**Benchmark Configuration:**
+You can modify benchmark parameters in `cmd/benchmark/ycsb/main.go`:
+- `RecordCount`: Number of records to load
+- `OperationCount`: Number of operations to perform
+- `ThreadCount`: Number of concurrent threads
+- `Workload`: YCSB workload type (core, workloada, workloadb, etc.)
+
 ### Test Data Format
 
 Test data files are CSV files located in `testdata/` directory. The CSV format includes:
@@ -242,26 +278,32 @@ Generates gRPC and protocol buffer code from `.proto` files.
 
 ```
 bft-mavleo96/
+├── benchmark/
+│   └── client/
+│       └── linearpbftdb/  # YCSB database driver for LinearPBFT
 ├── cmd/
-│   ├── client/          # Client application
-│   ├── server/          # BFT node server
-│   └── generate_keys/   # Key generation utility
-├── configs/             # Configuration files
-├── data/                # Database files (one per node)
+│   ├── benchmark/
+│   │   └── ycsb/          # YCSB benchmark application
+│   ├── client/            # Client application
+│   ├── server/            # BFT node server
+│   └── generate_keys/     # Key generation utility
+├── configs/               # Configuration files
+├── data/                  # Database files (one per node)
+├── debug/                 # Debug utilities and test scripts
 ├── internal/
-│   ├── clientapp/       # Client application logic
-│   ├── config/          # Configuration parsing
-│   ├── crypto/          # Cryptographic operations
-│   ├── database/        # Database operations
-│   ├── linearpbft/      # PBFT protocol implementation
-│   ├── models/          # Data models
-│   └── utils/           # Utility functions
-├── keys/                # Cryptographic keys
-├── logs/                # Log files
-├── pb/                  # Generated protocol buffer code
-├── proto/               # Protocol buffer definitions
-├── scripts/             # Utility scripts
-└── testdata/            # Test data files
+│   ├── clientapp/         # Client application logic
+│   ├── config/            # Configuration parsing
+│   ├── crypto/            # Cryptographic operations
+│   ├── database/          # Database operations
+│   ├── linearpbft/        # PBFT protocol implementation
+│   ├── models/            # Data models
+│   └── utils/             # Utility functions
+├── keys/                  # Cryptographic keys
+├── logs/                  # Log files
+├── pb/                    # Generated protocol buffer code
+├── proto/                 # Protocol buffer definitions
+├── scripts/               # Utility scripts
+└── testdata/              # Test data files
 ```
 
 ## Dependencies
@@ -271,6 +313,8 @@ bft-mavleo96/
 - **BoltDB**: For persistent storage
 - **Logrus**: For logging
 - **YAML**: For configuration parsing
+- **go-ycsb**: For performance benchmarking (Yahoo Cloud Serving Benchmark)
+- **properties**: For property file handling in benchmarks
 
 ## Notes
 
@@ -279,6 +323,8 @@ bft-mavleo96/
 - Each node maintains its own database file in the `data/` directory
 - Client applications listen on ports 6001-6010 by default
 - Node servers listen on ports 5001-5007 by default
+- The benchmark feature supports generic key-value operations (not just banking transactions)
+- The system supports both transaction-based operations (banking) and key-value operations (benchmarking)
 
 
 ## AI Usage
@@ -289,4 +335,5 @@ This project utilized open-source LLMs (Large Language Models) during developmen
 - **Utility Functions**: Logger string formatting functions for debugging and logging
 - **Client Application**: Reset handler implementation in the `internal/clientapp` package
 - **Code Review**: AI-assisted code review using Cursor IDE to identify unsafe operations and potential bugs
+- **Benchmarking**: Generic key-value operations in database module
 - **Documentation**: This README file was generated using AI

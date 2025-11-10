@@ -19,6 +19,12 @@ checkpointingLoop:
 		case sequenceNum := <-c.checkpointPurgeCh:
 			log.Infof("Received signal to start check point routine for sequence number %d and older logs and checkpoints", sequenceNum)
 
+			// Check if higher than low water mark
+			if sequenceNum <= c.config.GetLowWaterMark() {
+				log.Infof("Sequence number %d is not higher than low water mark %d", sequenceNum, c.config.GetLowWaterMark())
+				continue checkpointingLoop
+			}
+
 			// Create checkpoint digest and verify the digest on check point messages
 			checkpoint := c.GetCheckpoint(sequenceNum)
 			checkpointDigest := checkpoint.Digest
