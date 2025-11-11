@@ -115,6 +115,8 @@ func (n *LinearPBFTNode) BenchmarkSendReply(signedRequest *pb.SignedTransactionR
 		Signature: crypto.Sign(message, n.handler.privateKey1),
 	}
 
+	n.logger.AddSentTransactionResponse(signedResponse)
+
 	log.Infof("Benchmark RPC: Sending response: %s", utils.LoggingString(signedResponse))
 	_, err := (*n.clients[request.Sender].Client).ReceiveReply(context.Background(), signedResponse)
 	if err != nil {

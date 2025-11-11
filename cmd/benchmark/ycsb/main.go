@@ -27,7 +27,12 @@ func main() {
 	props.Set(prop.RecordCount, "500")
 	props.Set(prop.OperationCount, "20000")
 	props.Set(prop.ThreadCount, "1")
+	props.Set(prop.RequestDistribution, "uniform")
 	props.Set(prop.Workload, "core")
+	props.Set("readproportion", "0.25")
+	props.Set("updateproportion", "0.25")
+	props.Set("scanproportion", "0.25")
+	props.Set("deleteproportion", "0.25")
 
 	// Initialize measurement
 	measurement.InitMeasure(props)

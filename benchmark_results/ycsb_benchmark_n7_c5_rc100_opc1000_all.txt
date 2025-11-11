@@ -1,0 +1,15 @@
+Using request distribution 'uniform' a keyrange of [0 99]
+2025/11/10 19:07:15 Starting load phase...
+2025/11/10 19:07:19 Load complete.
+2025/11/10 19:07:19 Running benchmark...
+INSERT - Takes(s): 13.2, Count: 100, OPS: 7.6, Avg(us): 164877, Min(us): 112448, Max(us): 271359, 50th(us): 161279, 90th(us): 196351, 95th(us): 200447, 99th(us): 229631, 99.9th(us): 271359, 99.99th(us): 271359
+READ   - Takes(s): 9.9, Count: 173, OPS: 17.5, Avg(us): 79093, Min(us): 33216, Max(us): 153215, 50th(us): 76031, 90th(us): 114815, 95th(us): 124799, 99th(us): 138623, 99.9th(us): 153215, 99.99th(us): 153215
+SCAN   - Takes(s): 9.9, Count: 187, OPS: 18.9, Avg(us): 83070, Min(us): 27936, Max(us): 191999, 50th(us): 79231, 90th(us): 114239, 95th(us): 138239, 99th(us): 163199, 99.9th(us): 191999, 99.99th(us): 191999
+TOTAL  - Takes(s): 13.2, Count: 645, OPS: 48.9, Avg(us): 102707, Min(us): 27936, Max(us): 271359, 50th(us): 94463, 90th(us): 161791, 95th(us): 177791, 99th(us): 198271, 99.9th(us): 229631, 99.99th(us): 271359
+UPDATE - Takes(s): 9.9, Count: 185, OPS: 18.7, Avg(us): 111034, Min(us): 62464, Max(us): 195327, 50th(us): 104959, 90th(us): 153983, 95th(us): 165247, 99th(us): 175999, 99.9th(us): 195327, 99.99th(us): 195327
+2025/11/10 19:07:37 Benchmark complete.
+INSERT - Takes(s): 21.3, Count: 100, OPS: 4.7, Avg(us): 164877, Min(us): 112448, Max(us): 271359, 50th(us): 161279, 90th(us): 196351, 95th(us): 200447, 99th(us): 229631, 99.9th(us): 271359, 99.99th(us): 271359
+READ   - Takes(s): 18.0, Count: 319, OPS: 17.8, Avg(us): 80089, Min(us): 31680, Max(us): 160127, 50th(us): 77567, 90th(us): 114815, 95th(us): 126719, 99th(us): 150015, 99.9th(us): 160127, 99.99th(us): 160127
+SCAN   - Takes(s): 18.0, Count: 330, OPS: 18.4, Avg(us): 79197, Min(us): 26800, Max(us): 191999, 50th(us): 76095, 90th(us): 110335, 95th(us): 129215, 99th(us): 162047, 99.9th(us): 191999, 99.99th(us): 191999
+TOTAL  - Takes(s): 21.3, Count: 1100, OPS: 51.7, Avg(us): 96714, Min(us): 26800, Max(us): 271359, 50th(us): 90175, 90th(us): 151295, 95th(us): 166143, 99th(us): 196095, 99.9th(us): 229631, 99.99th(us): 271359
+UPDATE - Takes(s): 18.0, Count: 351, OPS: 19.5, Avg(us): 108874, Min(us): 46528, Max(us): 195327, 50th(us): 103231, 90th(us): 150271, 95th(us): 159743, 99th(us): 175487, 99.9th(us): 195327, 99.99th(us): 195327
