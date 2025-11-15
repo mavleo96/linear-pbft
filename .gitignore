@@ -4,3 +4,6 @@ logs/**
 debug/**
 testdata/**
 .DS_Store
+
+!testdata/test_normal.csv
+!testdata/test_byz.csv

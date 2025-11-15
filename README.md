@@ -198,7 +198,8 @@ init_balance: 10        # Initial balance for each client account
 ### Prerequisites
 
 1. **Install Dependencies**:
-   - **Go**: Version 1.21 or later (see `go.mod` for exact version requirements)
+   - **Go**: Version 1.25.1 or later (see `go.mod` for exact version requirements)
+   - **Python 3**: Required for synthetic test data generation (with pandas and numpy)
    - **yq**: Required for parsing YAML configuration files in launch script
      - Install via: `brew install yq` (macOS) or `sudo apt-get install yq` (Linux)
      - Or download from: https://github.com/mikefarah/yq
@@ -294,6 +295,25 @@ Test data files are CSV files located in `testdata/` directory. The CSV format i
 - Test set number
 - Node configuration (live, byzantine, attack types)
 
+#### Generating Synthetic Test Data
+
+You can generate synthetic test data using the provided Python script:
+```bash
+python3 scripts/create_synth_data.py
+```
+
+This script generates three test files with different sizes:
+- `testdata/synth_small.csv`: 1,000 transactions
+- `testdata/synth.csv`: 10,000 transactions
+- `testdata/synth_big.csv`: 50,000 transactions
+
+The script creates random transactions between clients A-J with random amounts (1-9) and includes both transfer and read-only operations. All transactions are configured for normal operation (no Byzantine nodes).
+
+**Requirements**: Python 3 with `pandas` and `numpy` installed:
+```bash
+pip3 install pandas numpy
+```
+
 ### Utility Scripts
 
 #### Kill All Nodes
@@ -307,6 +327,12 @@ Kills all running node processes.
 ./scripts/generate_stubs.sh
 ```
 Generates gRPC and protocol buffer code from `.proto` files.
+
+#### Generate Synthetic Test Data
+```bash
+python3 scripts/create_synth_data.py
+```
+Generates synthetic test data files with varying transaction counts for performance testing. See [Test Data Format](#test-data-format) section for details.
 
 ## Project Structure
 
@@ -355,7 +381,10 @@ bft-mavleo96/
 ### System Dependencies
 - **yq**: YAML processor required for the launch script
   - Install: `brew install yq` (macOS) or `sudo apt-get install yq` (Linux)
-- **Go**: Version 1.21 or later (see `go.mod` for exact requirements)
+- **Go**: Version 1.25.1 or later (see `go.mod` for exact requirements)
+- **Python 3**: Required for synthetic test data generation
+  - Install: `brew install python3` (macOS) or `sudo apt-get install python3` (Linux)
+  - Required packages: `pandas`, `numpy` (install via `pip3 install pandas numpy`)
 
 All Go dependencies are automatically downloaded when you run `go mod download` or build the project.
 

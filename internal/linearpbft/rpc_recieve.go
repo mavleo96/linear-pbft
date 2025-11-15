@@ -295,6 +295,37 @@ func (n *LinearPBFTNode) NewViewRequest(signedNewViewMessage *pb.SignedNewViewMe
 			log.Warnf("Rejected: %s; invalid signature on view change message", utils.LoggingString(signedNewViewMessage))
 			return status.Errorf(codes.FailedPrecondition, "invalid signature on view change message")
 		}
+
+		// Verify prepare proofs in view change message against preprepare messages
+		for _, prepareProof := range viewChangeMessage.PreparedSet {
+			signedPrePrepareMessage := prepareProof.SignedPrePrepareMessage
+			prePrepareMessage := signedPrePrepareMessage.Message
+			signedPrepareMessage := prepareProof.SignedPrepareMessage
+			prepareMessage := signedPrepareMessage.Message
+
+			// Verify preprepare message signature
+			proposerID := utils.ViewNumberToPrimaryID(prePrepareMessage.ViewNumber, n.config.N)
+			ok = crypto.Verify(prePrepareMessage, n.GetPublicKey1(proposerID), signedPrePrepareMessage.Signature)
+			if !ok {
+				log.Warnf("Rejected: %s; invalid signature on preprepare message", utils.LoggingString(signedNewViewMessage))
+				return status.Errorf(codes.FailedPrecondition, "invalid signature on preprepare message")
+			}
+
+			// Verify prepare message signature
+			ok = crypto.Verify(prepareMessage, n.handler.masterPublicKey1, signedPrepareMessage.Signature)
+			if !ok {
+				log.Warnf("Rejected: %s; invalid signature on prepare message", utils.LoggingString(signedNewViewMessage))
+				return status.Errorf(codes.FailedPrecondition, "invalid signature on prepare message")
+			}
+
+			// Verify prepare message digest, view number and sequence number against corresponding preprepare message
+			if prepareMessage.ViewNumber != prePrepareMessage.ViewNumber ||
+				prepareMessage.SequenceNum != prePrepareMessage.SequenceNum ||
+				!cmp.Equal(prepareMessage.Digest, prePrepareMessage.Digest) {
+				log.Warnf("Rejected: %s; invalid digest on prepare message for sequence number %d", utils.LoggingString(signedNewViewMessage), prepareMessage.SequenceNum)
+				return status.Errorf(codes.FailedPrecondition, "invalid digest on prepare message")
+			}
+		}
 	}
 
 	// Verify preprepare messages signatures
@@ -323,6 +354,8 @@ func (n *LinearPBFTNode) NewViewRequest(signedNewViewMessage *pb.SignedNewViewMe
 			return status.Errorf(codes.FailedPrecondition, "invalid digest on preprepare message")
 		}
 	}
+
+	// TODO: Verify preprepare messages against prepare proofs in viewchange messages
 
 	// Logger: add received new view message
 	n.logger.AddReceivedNewViewMessage(signedNewViewMessage)
