@@ -4,8 +4,8 @@ import (
 	"cmp"
 	"context"
 
-	"github.com/mavleo96/bft-mavleo96/internal/utils"
-	"github.com/mavleo96/bft-mavleo96/pb"
+	"github.com/mavleo96/pbft/internal/utils"
+	"github.com/mavleo96/pbft/pb"
 )
 
 // ResponseCollector collects responses and determines consensus

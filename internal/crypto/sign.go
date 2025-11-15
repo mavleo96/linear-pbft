@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 
 	"github.com/herumi/bls-eth-go-binary/bls"
-	"github.com/mavleo96/bft-mavleo96/internal/utils"
+	"github.com/mavleo96/pbft/internal/utils"
 )
 
 // Sign signs a message with a private key and returns the serialized signature

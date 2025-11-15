@@ -4,7 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 
-	"github.com/mavleo96/bft-mavleo96/pb"
+	"github.com/mavleo96/pbft/pb"
 )
 
 // Digest hashes a signed transaction request

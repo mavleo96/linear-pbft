@@ -7,9 +7,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/mavleo96/bft-mavleo96/internal/models"
-	"github.com/mavleo96/bft-mavleo96/internal/utils"
-	"github.com/mavleo96/bft-mavleo96/pb"
+	"github.com/mavleo96/pbft/internal/models"
+	"github.com/mavleo96/pbft/internal/utils"
+	"github.com/mavleo96/pbft/pb"
 )
 
 // ReadCSV reads records from a csv file at given path

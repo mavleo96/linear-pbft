@@ -1,6 +1,6 @@
 package linearpbft
 
-import "github.com/mavleo96/bft-mavleo96/pb"
+import "github.com/mavleo96/pbft/pb"
 
 // ByzantineConfig represents the configuration of a byzantine node
 type ByzantineConfig struct {

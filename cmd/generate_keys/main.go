@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 
 	"github.com/herumi/bls-eth-go-binary/bls"
-	"github.com/mavleo96/bft-mavleo96/internal/config"
-	"github.com/mavleo96/bft-mavleo96/internal/utils"
+	"github.com/mavleo96/pbft/internal/config"
+	"github.com/mavleo96/pbft/internal/utils"
 )
 
 // generateShares generates secret and public shares for a given master secret and node IDs

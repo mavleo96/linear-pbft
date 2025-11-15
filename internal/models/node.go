@@ -5,10 +5,10 @@ import (
 	"path/filepath"
 
 	"github.com/herumi/bls-eth-go-binary/bls"
-	"github.com/mavleo96/bft-mavleo96/internal/config"
-	"github.com/mavleo96/bft-mavleo96/internal/crypto"
-	"github.com/mavleo96/bft-mavleo96/internal/utils"
-	"github.com/mavleo96/bft-mavleo96/pb"
+	"github.com/mavleo96/pbft/internal/config"
+	"github.com/mavleo96/pbft/internal/crypto"
+	"github.com/mavleo96/pbft/internal/utils"
+	"github.com/mavleo96/pbft/pb"
 )
 
 // Node represents a node in the distributed system

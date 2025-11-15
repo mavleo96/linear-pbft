@@ -1,4 +1,4 @@
-module github.com/mavleo96/bft-mavleo96
+module github.com/mavleo96/pbft
 
 go 1.25.1
 

@@ -1,9 +1,9 @@
 package linearpbft
 
 import (
-	"github.com/mavleo96/bft-mavleo96/internal/crypto"
-	"github.com/mavleo96/bft-mavleo96/internal/utils"
-	"github.com/mavleo96/bft-mavleo96/pb"
+	"github.com/mavleo96/pbft/internal/crypto"
+	"github.com/mavleo96/pbft/internal/utils"
+	"github.com/mavleo96/pbft/pb"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"

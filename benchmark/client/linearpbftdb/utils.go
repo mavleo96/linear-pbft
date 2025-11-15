@@ -4,7 +4,7 @@ import (
 	"crypto/sha256"
 	"sort"
 
-	"github.com/mavleo96/bft-mavleo96/pb"
+	"github.com/mavleo96/pbft/pb"
 )
 
 // mapKey creates a hashable key from a map[string][]byte for use in maps

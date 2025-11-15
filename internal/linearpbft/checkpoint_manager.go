@@ -3,9 +3,9 @@ package linearpbft
 import (
 	"sync"
 
-	"github.com/mavleo96/bft-mavleo96/internal/crypto"
-	"github.com/mavleo96/bft-mavleo96/internal/utils"
-	"github.com/mavleo96/bft-mavleo96/pb"
+	"github.com/mavleo96/pbft/internal/crypto"
+	"github.com/mavleo96/pbft/internal/utils"
+	"github.com/mavleo96/pbft/pb"
 )
 
 // CheckpointManager is responsible for managing check point messages

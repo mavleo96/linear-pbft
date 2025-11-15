@@ -6,7 +6,7 @@ import (
 
 	"github.com/herumi/bls-eth-go-binary/bls"
 	"github.com/magiconair/properties"
-	"github.com/mavleo96/bft-mavleo96/benchmark/client/linearpbftdb"
+	"github.com/mavleo96/pbft/benchmark/client/linearpbftdb"
 	"github.com/pingcap/go-ycsb/pkg/client"
 	"github.com/pingcap/go-ycsb/pkg/measurement"
 	"github.com/pingcap/go-ycsb/pkg/prop"

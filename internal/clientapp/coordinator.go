@@ -4,7 +4,7 @@ import (
 	"context"
 	"sync"
 
-	"github.com/mavleo96/bft-mavleo96/pb"
+	"github.com/mavleo96/pbft/pb"
 	log "github.com/sirupsen/logrus"
 )
 
