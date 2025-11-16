@@ -26,6 +26,7 @@ type Logger struct {
 	sentCheckpointMessages        []*pb.SignedCheckpointMessage
 	receivedCheckpointMessages    []*pb.SignedCheckpointMessage
 	receivedTransactionRequests   []*pb.SignedTransactionRequest
+	receivedReadOnlyRequests      []*pb.SignedTransactionRequest
 	forwardedTransactionRequests  []*pb.SignedTransactionRequest
 	sentTransactionResponses      []*pb.SignedTransactionResponse
 	sentReadOnlyResponses         []*pb.SignedTransactionResponse
@@ -269,6 +270,20 @@ func (l *Logger) GetReceivedTransactionRequests() []*pb.SignedTransactionRequest
 	return l.receivedTransactionRequests
 }
 
+// AddReceivedReadOnlyRequest adds a received read only request to the logger
+func (l *Logger) AddReceivedReadOnlyRequest(signedTransactionRequest *pb.SignedTransactionRequest) {
+	l.mutex.Lock()
+	defer l.mutex.Unlock()
+	l.receivedReadOnlyRequests = append(l.receivedReadOnlyRequests, signedTransactionRequest)
+}
+
+// GetReceivedReadOnlyRequests returns the received read only requests
+func (l *Logger) GetReceivedReadOnlyRequests() []*pb.SignedTransactionRequest {
+	l.mutex.RLock()
+	defer l.mutex.RUnlock()
+	return l.receivedReadOnlyRequests
+}
+
 // AddForwardedTransactionRequest adds a forwarded transaction request to the logger
 func (l *Logger) AddForwardedTransactionRequest(signedTransactionRequest *pb.SignedTransactionRequest) {
 	l.mutex.Lock()
@@ -332,6 +347,7 @@ func (l *Logger) Reset() {
 	l.sentCheckpointMessages = make([]*pb.SignedCheckpointMessage, 0)
 	l.receivedCheckpointMessages = make([]*pb.SignedCheckpointMessage, 0)
 	l.receivedTransactionRequests = make([]*pb.SignedTransactionRequest, 0)
+	l.receivedReadOnlyRequests = make([]*pb.SignedTransactionRequest, 0)
 	l.forwardedTransactionRequests = make([]*pb.SignedTransactionRequest, 0)
 	l.sentTransactionResponses = make([]*pb.SignedTransactionResponse, 0)
 	l.sentReadOnlyResponses = make([]*pb.SignedTransactionResponse, 0)
@@ -358,6 +374,7 @@ func CreateLogger() *Logger {
 		sentCheckpointMessages:        make([]*pb.SignedCheckpointMessage, 0),
 		receivedCheckpointMessages:    make([]*pb.SignedCheckpointMessage, 0),
 		receivedTransactionRequests:   make([]*pb.SignedTransactionRequest, 0),
+		receivedReadOnlyRequests:      make([]*pb.SignedTransactionRequest, 0),
 		forwardedTransactionRequests:  make([]*pb.SignedTransactionRequest, 0),
 		sentTransactionResponses:      make([]*pb.SignedTransactionResponse, 0),
 		sentReadOnlyResponses:         make([]*pb.SignedTransactionResponse, 0),

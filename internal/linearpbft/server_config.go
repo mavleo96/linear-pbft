@@ -10,8 +10,8 @@ const (
 	ViewChangeTimeout = 500 * time.Millisecond
 	TimeAttackDelay   = 100 * time.Millisecond
 	SBFTTimeout       = 50 * time.Millisecond
-	K                 = 100
-	L                 = 1000
+	K                 = 10
+	L                 = 20
 )
 
 // ServerConfig is the configuration for the server

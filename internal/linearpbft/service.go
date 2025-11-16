@@ -115,6 +115,9 @@ func (n *LinearPBFTNode) ReadOnlyRequest(ctx context.Context, signedRequest *pb.
 		return nil, status.Errorf(codes.Unauthenticated, "invalid signature")
 	}
 
+	// Logger: add received read only request
+	n.logger.AddReceivedReadOnlyRequest(signedRequest)
+
 	// Get balance from database
 	balance, err := n.executor.db.GetBalance(request.Sender)
 	if err != nil {

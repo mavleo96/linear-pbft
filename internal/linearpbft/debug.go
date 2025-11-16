@@ -108,6 +108,12 @@ func (n *LinearPBFTNode) PrintLog(ctx context.Context, req *wrapperspb.Int64Valu
 	}
 	fmt.Println("")
 
+	fmt.Println("Received Read-only requests:")
+	for _, signedTransactionRequest := range n.logger.GetReceivedReadOnlyRequests() {
+		fmt.Println(utils.FormattedLoggingString(signedTransactionRequest))
+	}
+	fmt.Println("")
+
 	fmt.Println("Forwarded Transaction requests:")
 	for _, signedTransactionRequest := range n.logger.GetForwardedTransactionRequests() {
 		fmt.Println(utils.FormattedLoggingString(signedTransactionRequest))
