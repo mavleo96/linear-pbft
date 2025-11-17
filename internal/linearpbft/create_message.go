@@ -73,6 +73,7 @@ func (n *LinearPBFTNode) CreateNewViewMessage(viewNumber int64) *pb.SignedNewVie
 
 			// Ignore if sequence number is already in map or below lower watermark
 			if _, ok := signedPrePrepareMessagesMap[sequenceNum]; ok || sequenceNum < lowerWatermark {
+				// Note: Ignoring messages from next view change message is safe because we validate 2f matching prepares
 				continue
 			}
 

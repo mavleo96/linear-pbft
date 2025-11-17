@@ -6,8 +6,8 @@ import (
 )
 
 const (
-	ExecutionTimeout  = 350 * time.Millisecond
-	ViewChangeTimeout = 500 * time.Millisecond
+	ExecutionTimeout  = 400 * time.Millisecond
+	ViewChangeTimeout = 550 * time.Millisecond
 	TimeAttackDelay   = 100 * time.Millisecond
 	SBFTTimeout       = 50 * time.Millisecond
 	K                 = 10

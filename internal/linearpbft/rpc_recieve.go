@@ -287,6 +287,9 @@ func (n *LinearPBFTNode) NewViewRequest(signedNewViewMessage *pb.SignedNewViewMe
 		return status.Errorf(codes.Unauthenticated, "invalid signature")
 	}
 
+	// Intialise a map of sequence numbers to request digests to verify the new preprepare messages
+	sequenceNumToRequestDigestMap := make(map[int64][]byte)
+
 	// Verify view change messages signatures
 	for _, signedViewChangeMessage := range signedViewChangeMessages {
 		viewChangeMessage := signedViewChangeMessage.Message
@@ -307,24 +310,27 @@ func (n *LinearPBFTNode) NewViewRequest(signedNewViewMessage *pb.SignedNewViewMe
 			proposerID := utils.ViewNumberToPrimaryID(prePrepareMessage.ViewNumber, n.config.N)
 			ok = crypto.Verify(prePrepareMessage, n.GetPublicKey1(proposerID), signedPrePrepareMessage.Signature)
 			if !ok {
-				log.Warnf("Rejected: %s; invalid signature on preprepare message", utils.LoggingString(signedNewViewMessage))
-				return status.Errorf(codes.FailedPrecondition, "invalid signature on preprepare message")
+				log.Warnf("Rejected: %s; invalid signature on preprepare message in view change message", utils.LoggingString(signedNewViewMessage))
+				return status.Errorf(codes.FailedPrecondition, "invalid signature on preprepare message in view change message")
 			}
 
 			// Verify prepare message signature
 			ok = crypto.Verify(prepareMessage, n.handler.masterPublicKey1, signedPrepareMessage.Signature)
 			if !ok {
-				log.Warnf("Rejected: %s; invalid signature on prepare message", utils.LoggingString(signedNewViewMessage))
-				return status.Errorf(codes.FailedPrecondition, "invalid signature on prepare message")
+				log.Warnf("Rejected: %s; invalid signature on prepare message in view change message", utils.LoggingString(signedNewViewMessage))
+				return status.Errorf(codes.FailedPrecondition, "invalid signature on prepare message in view change message")
 			}
 
 			// Verify prepare message digest, view number and sequence number against corresponding preprepare message
 			if prepareMessage.ViewNumber != prePrepareMessage.ViewNumber ||
 				prepareMessage.SequenceNum != prePrepareMessage.SequenceNum ||
 				!cmp.Equal(prepareMessage.Digest, prePrepareMessage.Digest) {
-				log.Warnf("Rejected: %s; invalid digest on prepare message for sequence number %d", utils.LoggingString(signedNewViewMessage), prepareMessage.SequenceNum)
-				return status.Errorf(codes.FailedPrecondition, "invalid digest on prepare message")
+				log.Warnf("Rejected: %s; invalid digest on prepare message for sequence number %d in view change message", utils.LoggingString(signedNewViewMessage), prepareMessage.SequenceNum)
+				return status.Errorf(codes.FailedPrecondition, "invalid digest on prepare message in view change message")
 			}
+
+			// Add sequence number to request digest map
+			sequenceNumToRequestDigestMap[prepareMessage.SequenceNum] = prePrepareMessage.Digest
 		}
 	}
 
@@ -333,8 +339,8 @@ func (n *LinearPBFTNode) NewViewRequest(signedNewViewMessage *pb.SignedNewViewMe
 		prePrepareMessage := signedPrePrepareMessage.Message
 		ok := crypto.Verify(prePrepareMessage, n.GetPublicKey1(primaryID), signedPrePrepareMessage.Signature)
 		if !ok {
-			log.Warnf("Rejected: %s; invalid signature on preprepare message", utils.LoggingString(signedNewViewMessage))
-			return status.Errorf(codes.FailedPrecondition, "invalid signature on preprepare message")
+			log.Warnf("Rejected: %s; invalid signature on preprepare message in new view message", utils.LoggingString(signedNewViewMessage))
+			return status.Errorf(codes.FailedPrecondition, "invalid signature on preprepare message in new view message")
 		}
 
 		// If request is missing then send a get request to all nodes
@@ -350,8 +356,15 @@ func (n *LinearPBFTNode) NewViewRequest(signedNewViewMessage *pb.SignedNewViewMe
 
 		// Verify Digest
 		if !cmp.Equal(prePrepareMessage.Digest, crypto.Digest(signedRequest)) {
-			log.Warnf("Rejected: %s; invalid digest on preprepare message", utils.LoggingString(signedNewViewMessage))
-			return status.Errorf(codes.FailedPrecondition, "invalid digest on preprepare message")
+			log.Warnf("Rejected: %s; invalid digest on preprepare message in new view message", utils.LoggingString(signedNewViewMessage))
+			return status.Errorf(codes.FailedPrecondition, "invalid digest on preprepare message in new view message")
+		}
+
+		// Verify digest against request digest map
+		digest, ok := sequenceNumToRequestDigestMap[prePrepareMessage.SequenceNum]
+		if (ok && !cmp.Equal(prePrepareMessage.Digest, digest)) || (!ok && !cmp.Equal(prePrepareMessage.Digest, DigestNoOp)) {
+			log.Warnf("Rejected: %s; digest on preprepare message in new view message does not match view change message digest", utils.LoggingString(signedNewViewMessage))
+			return status.Errorf(codes.FailedPrecondition, "digest on preprepare message in new view message does not match view change message digest")
 		}
 	}
 
