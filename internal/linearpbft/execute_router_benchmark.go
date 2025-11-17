@@ -3,7 +3,7 @@ package linearpbft
 import (
 	"fmt"
 
-	"github.com/mavleo96/pbft/pb"
+	"github.com/mavleo96/linear-pbft/pb"
 	log "github.com/sirupsen/logrus"
 )
 

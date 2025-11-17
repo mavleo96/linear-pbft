@@ -1,4 +1,4 @@
-module github.com/mavleo96/pbft
+module github.com/mavleo96/linear-pbft
 
 go 1.25.1
 

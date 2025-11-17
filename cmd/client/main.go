@@ -9,10 +9,10 @@ import (
 	"strings"
 
 	"github.com/herumi/bls-eth-go-binary/bls"
-	"github.com/mavleo96/pbft/internal/clientapp"
-	"github.com/mavleo96/pbft/internal/config"
-	"github.com/mavleo96/pbft/internal/models"
-	"github.com/mavleo96/pbft/internal/utils"
+	"github.com/mavleo96/linear-pbft/internal/clientapp"
+	"github.com/mavleo96/linear-pbft/internal/config"
+	"github.com/mavleo96/linear-pbft/internal/models"
+	"github.com/mavleo96/linear-pbft/internal/utils"
 	log "github.com/sirupsen/logrus"
 )
 

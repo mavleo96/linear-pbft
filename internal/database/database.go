@@ -4,7 +4,7 @@ import (
 	"errors"
 	"strconv"
 
-	"github.com/mavleo96/pbft/pb"
+	"github.com/mavleo96/linear-pbft/pb"
 	"go.etcd.io/bbolt"
 )
 

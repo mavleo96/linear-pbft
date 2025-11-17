@@ -5,9 +5,9 @@ import (
 	"slices"
 	"sync"
 
-	"github.com/mavleo96/pbft/internal/models"
-	"github.com/mavleo96/pbft/internal/utils"
-	"github.com/mavleo96/pbft/pb"
+	"github.com/mavleo96/linear-pbft/internal/models"
+	"github.com/mavleo96/linear-pbft/internal/utils"
+	"github.com/mavleo96/linear-pbft/pb"
 	log "github.com/sirupsen/logrus"
 )
 

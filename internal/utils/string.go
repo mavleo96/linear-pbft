@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/mavleo96/pbft/pb"
+	"github.com/mavleo96/linear-pbft/pb"
 )
 
 func FormattedLoggingString(t any) string {

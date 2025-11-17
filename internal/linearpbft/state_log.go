@@ -7,8 +7,8 @@ import (
 	"sync"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/mavleo96/pbft/internal/utils"
-	"github.com/mavleo96/pbft/pb"
+	"github.com/mavleo96/linear-pbft/internal/utils"
+	"github.com/mavleo96/linear-pbft/pb"
 )
 
 // StateLog represents the state log of the server

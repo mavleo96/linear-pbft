@@ -6,9 +6,9 @@ import (
 	"sync"
 
 	"github.com/herumi/bls-eth-go-binary/bls"
-	"github.com/mavleo96/pbft/internal/models"
-	"github.com/mavleo96/pbft/internal/utils"
-	"github.com/mavleo96/pbft/pb"
+	"github.com/mavleo96/linear-pbft/internal/models"
+	"github.com/mavleo96/linear-pbft/internal/utils"
+	"github.com/mavleo96/linear-pbft/pb"
 )
 
 // TestSet represents a test set with a set number, transactions, live nodes, byzantine nodes, and attacks

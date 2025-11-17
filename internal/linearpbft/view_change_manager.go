@@ -3,8 +3,8 @@ package linearpbft
 import (
 	"sync"
 
-	"github.com/mavleo96/pbft/internal/utils"
-	"github.com/mavleo96/pbft/pb"
+	"github.com/mavleo96/linear-pbft/internal/utils"
+	"github.com/mavleo96/linear-pbft/pb"
 )
 
 // ViewChangeManager is responsible for managing view changes and new views

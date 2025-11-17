@@ -3,8 +3,8 @@ package linearpbft
 import (
 	"sync"
 
-	"github.com/mavleo96/pbft/internal/database"
-	"github.com/mavleo96/pbft/pb"
+	"github.com/mavleo96/linear-pbft/internal/database"
+	"github.com/mavleo96/linear-pbft/pb"
 )
 
 // Executor is responsible for executing transactions and managing check points

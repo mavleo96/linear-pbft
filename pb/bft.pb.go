@@ -1705,7 +1705,7 @@ const file_bft_proto_rawDesc = "" +
 	"\tResetNode\x12\x16.google.protobuf.Empty\x1a\x16.google.protobuf.Empty\x12D\n" +
 	"\fBenchmarkRPC\x12\x1c.pb.SignedTransactionRequest\x1a\x16.google.protobuf.Empty2\\\n" +
 	"\x13LinearPBFTClientApp\x12E\n" +
-	"\fReceiveReply\x12\x1d.pb.SignedTransactionResponse\x1a\x16.google.protobuf.EmptyB\x1dZ\x1bgithub.com/mavleo96/pbft/pbb\x06proto3"
+	"\fReceiveReply\x12\x1d.pb.SignedTransactionResponse\x1a\x16.google.protobuf.EmptyB$Z\"github.com/mavleo96/linear-pbft/pbb\x06proto3"
 
 var (
 	file_bft_proto_rawDescOnce sync.Once

@@ -5,9 +5,9 @@ import (
 	"sync"
 
 	"github.com/herumi/bls-eth-go-binary/bls"
-	"github.com/mavleo96/pbft/internal/database"
-	"github.com/mavleo96/pbft/internal/models"
-	"github.com/mavleo96/pbft/pb"
+	"github.com/mavleo96/linear-pbft/internal/database"
+	"github.com/mavleo96/linear-pbft/internal/models"
+	"github.com/mavleo96/linear-pbft/pb"
 )
 
 // LinearPBFTNode represents a LinearPBFT node

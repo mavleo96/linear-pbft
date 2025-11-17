@@ -3,7 +3,7 @@ package linearpbft
 import (
 	"sync"
 
-	"github.com/mavleo96/pbft/pb"
+	"github.com/mavleo96/linear-pbft/pb"
 )
 
 // Logger is a logger for the linear PBFT node

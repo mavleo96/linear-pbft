@@ -2,8 +2,8 @@ package linearpbft
 
 import (
 	"github.com/herumi/bls-eth-go-binary/bls"
-	"github.com/mavleo96/pbft/internal/models"
-	"github.com/mavleo96/pbft/pb"
+	"github.com/mavleo96/linear-pbft/internal/models"
+	"github.com/mavleo96/linear-pbft/pb"
 )
 
 // ProtocolHandler is a struct that contains the state of the protocol

@@ -4,7 +4,7 @@ import (
 	"context"
 	"strings"
 
-	"github.com/mavleo96/pbft/internal/utils"
+	"github.com/mavleo96/linear-pbft/internal/utils"
 	log "github.com/sirupsen/logrus"
 )
 
