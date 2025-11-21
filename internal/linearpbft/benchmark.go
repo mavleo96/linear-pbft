@@ -2,7 +2,6 @@ package linearpbft
 
 import (
 	"context"
-	"sync"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/mavleo96/linear-pbft/internal/crypto"
@@ -14,20 +13,7 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-// BenchmarkHandler manages signal channels for YCSB benchmarking
-type BenchmarkHandler struct {
-	mutex sync.RWMutex
-}
-
-// NewBenchmarkHandler creates a new BenchmarkHandler
-func NewBenchmarkHandler() *BenchmarkHandler {
-	return &BenchmarkHandler{
-		mutex: sync.RWMutex{},
-	}
-}
-
 // BenchmarkRPC handles a benchmark request
-// func (n *LinearPBFTNode) BenchmarkRPC(ctx context.Context, signedRequest *pb.SignedTransactionRequest) (*pb.SignedTransactionResponse, error) {
 func (n *LinearPBFTNode) BenchmarkRPC(ctx context.Context, signedRequest *pb.SignedTransactionRequest) (*emptypb.Empty, error) {
 	request := signedRequest.Request
 
@@ -59,6 +45,7 @@ func (n *LinearPBFTNode) BenchmarkRPC(ctx context.Context, signedRequest *pb.Sig
 	return &emptypb.Empty{}, nil
 }
 
+// BenchmarkSendReply sends a reply to the client for a benchmark request
 func (n *LinearPBFTNode) BenchmarkSendReply(signedRequest *pb.SignedTransactionRequest, result any) {
 	// Build response based on transaction type
 	request := signedRequest.Request

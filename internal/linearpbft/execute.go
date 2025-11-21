@@ -14,7 +14,6 @@ type Executor struct {
 	config              *ServerConfig
 	db                  *database.Database
 	checkpointer        *CheckpointManager
-	benchmarkHandler    *BenchmarkHandler
 	timer               *SafeTimer
 	executionTriggerCh  chan int64
 	checkpointInstallCh chan int64
@@ -39,14 +38,13 @@ func (e *Executor) GetCheckpointInstallChannel() chan<- int64 {
 // }
 
 // CreateExecutor creates a new executor
-func CreateExecutor(state *ServerState, config *ServerConfig, db *database.Database, checkpointer *CheckpointManager, benchmarkHandler *BenchmarkHandler, timer *SafeTimer, executionTriggerCh chan int64) *Executor {
+func CreateExecutor(state *ServerState, config *ServerConfig, db *database.Database, checkpointer *CheckpointManager, timer *SafeTimer, executionTriggerCh chan int64) *Executor {
 	return &Executor{
 		mutex:               sync.Mutex{},
 		state:               state,
 		config:              config,
 		db:                  db,
 		checkpointer:        checkpointer,
-		benchmarkHandler:    benchmarkHandler,
 		timer:               timer,
 		executionTriggerCh:  executionTriggerCh,
 		checkpointInstallCh: make(chan int64),

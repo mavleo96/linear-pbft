@@ -20,11 +20,11 @@ type LinearPBFTNode struct {
 	state           *ServerState
 
 	// Component managers
-	executor         *Executor
-	handler          *ProtocolHandler
-	viewchanger      *ViewChangeManager
-	logger           *Logger
-	benchmarkHandler *BenchmarkHandler
+	executor    *Executor
+	handler     *ProtocolHandler
+	viewchanger *ViewChangeManager
+	logger      *Logger
+
 	// Wait group for graceful shutdown
 	wg sync.WaitGroup
 
@@ -34,17 +34,10 @@ type LinearPBFTNode struct {
 
 // Start starts the LinearPBFT node
 func (n *LinearPBFTNode) Start(ctx context.Context) {
-	n.wg.Add(1)
-	go n.RouterRoutine(ctx)
-
-	n.wg.Add(1)
-	go n.executor.ExecuteRoutine(ctx)
-
-	n.wg.Add(1)
-	go n.viewchanger.ViewChangeRoutine(ctx)
-
-	n.wg.Add(1)
-	go n.executor.checkpointer.CheckpointRoutine(ctx)
+	n.wg.Go(func() { n.RouterRoutine(ctx) })
+	n.wg.Go(func() { n.executor.ExecuteRoutine(ctx) })
+	n.wg.Go(func() { n.viewchanger.ViewChangeRoutine(ctx) })
+	n.wg.Go(func() { n.executor.checkpointer.CheckpointRoutine(ctx) })
 
 	n.wg.Wait()
 }
@@ -61,23 +54,21 @@ func CreateLinearPBFTNode(selfNode *models.Node, peerNodes map[string]*models.No
 
 	checkpointer := CreateCheckpointManager(selfNode.ID, serverState, serverConfig)
 	viewchanger := CreateViewChangeManager(selfNode.ID, timer, serverState, serverConfig, checkpointer)
-	benchmarkHandler := NewBenchmarkHandler()
-	executor := CreateExecutor(serverState, serverConfig, bankDB, checkpointer, benchmarkHandler, timer, executionTriggerChannel)
+	executor := CreateExecutor(serverState, serverConfig, bankDB, checkpointer, timer, executionTriggerChannel)
 	handler := CreateProtocolHandler(selfNode.ID, serverState, serverConfig, byzantineConfig, privateKey1, privateKey2, masterPublicKey1, masterPublicKey2, peerNodes, timer, executionTriggerChannel)
 	logger := CreateLogger()
 
 	server := &LinearPBFTNode{
-		Node:             selfNode,
-		config:           serverConfig,
-		byzantineConfig:  byzantineConfig,
-		clients:          clientMap,
-		state:            serverState,
-		executor:         executor,
-		handler:          handler,
-		viewchanger:      viewchanger,
-		logger:           logger,
-		benchmarkHandler: benchmarkHandler,
-		wg:               sync.WaitGroup{},
+		Node:            selfNode,
+		config:          serverConfig,
+		byzantineConfig: byzantineConfig,
+		clients:         clientMap,
+		state:           serverState,
+		executor:        executor,
+		handler:         handler,
+		viewchanger:     viewchanger,
+		logger:          logger,
+		wg:              sync.WaitGroup{},
 	}
 
 	executor.sendReply = func(signedRequest *pb.SignedTransactionRequest, result int64) {
