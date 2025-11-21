@@ -28,7 +28,7 @@ service LinearPBFTNode {
     rpc PrintView (google.protobuf.Int64Value) returns (google.protobuf.Empty);
 
     rpc ReconfigureNode (ChangeStatusMessage) returns (google.protobuf.Empty);
-    rpc ResetNode (google.protobuf.Empty) returns (google.protobuf.Empty);
+    rpc ResetNode (ResetRequest) returns (google.protobuf.Empty);
 
     rpc BenchmarkRPC (SignedTransactionRequest) returns (google.protobuf.Empty);
 }
@@ -40,6 +40,10 @@ service LinearPBFTClientApp {
 message StatusRequest {
     int64 testSet = 1;
     int64 sequenceNum = 2;
+}
+
+message ResetRequest {
+    int64 initBalance = 1;
 }
 
 // ---------- TransactionRequest ----------

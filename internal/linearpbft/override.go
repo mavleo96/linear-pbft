@@ -45,7 +45,7 @@ func (n *LinearPBFTNode) ReconfigureNode(ctx context.Context, changeStatusMessag
 }
 
 // ResetNode resets the server state and database
-func (n *LinearPBFTNode) ResetNode(ctx context.Context, req *emptypb.Empty) (*emptypb.Empty, error) {
+func (n *LinearPBFTNode) ResetNode(ctx context.Context, resetRequest *pb.ResetRequest) (*emptypb.Empty, error) {
 	// Reset configuration
 	n.config.Reset(L)
 	n.byzantineConfig.Reset()
@@ -54,7 +54,7 @@ func (n *LinearPBFTNode) ResetNode(ctx context.Context, req *emptypb.Empty) (*em
 	n.state.Reset()
 	n.viewchanger.Reset()
 	n.executor.checkpointer.Reset()
-	n.executor.db.ResetDB(10)
+	n.executor.db.ResetDB(resetRequest.InitBalance)
 	n.logger.Reset()
 
 	return &emptypb.Empty{}, nil

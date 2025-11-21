@@ -7,7 +7,6 @@ import (
 	"github.com/mavleo96/linear-pbft/internal/models"
 	"github.com/mavleo96/linear-pbft/pb"
 	log "github.com/sirupsen/logrus"
-	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 // ReconfigureNodes reconfigures the nodes based on the live, byzantine, and attack lists
@@ -55,10 +54,10 @@ func ReconfigureNodes(nodeMap map[string]*models.Node, liveNodes []*models.Node,
 }
 
 // SendResetCommand sends a reset command to all nodes
-func SendResetCommand(nodeMap map[string]*models.Node) {
+func SendResetCommand(nodeMap map[string]*models.Node, initBalance int64) {
 	log.Info("Node Reset command received")
 	for _, node := range nodeMap {
-		_, err := (*node.Client).ResetNode(context.Background(), &emptypb.Empty{})
+		_, err := (*node.Client).ResetNode(context.Background(), &pb.ResetRequest{InitBalance: initBalance})
 		if err != nil {
 			log.Warnf("Error sending reset command to node %s: %v", node.ID, err)
 		}

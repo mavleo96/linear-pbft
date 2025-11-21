@@ -152,7 +152,7 @@ interactionLoop:
 				<-clientResetChs[clientID]
 			}
 			log.Info("Clients reset complete")
-			clientapp.SendResetCommand(nodeMap)
+			clientapp.SendResetCommand(nodeMap, cfg.InitBalance)
 		case "reset clients":
 			log.Info("Resetting clients...")
 			for clientID := range cfg.Clients {
@@ -163,7 +163,7 @@ interactionLoop:
 			}
 			log.Info("Clients reset complete")
 		case "reset nodes":
-			clientapp.SendResetCommand(nodeMap)
+			clientapp.SendResetCommand(nodeMap, cfg.InitBalance)
 		case "exit":
 			break interactionLoop
 		default:

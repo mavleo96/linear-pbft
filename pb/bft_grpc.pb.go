@@ -59,7 +59,7 @@ type LinearPBFTNodeClient interface {
 	PrintStatus(ctx context.Context, in *StatusRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	PrintView(ctx context.Context, in *wrapperspb.Int64Value, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	ReconfigureNode(ctx context.Context, in *ChangeStatusMessage, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	ResetNode(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	ResetNode(ctx context.Context, in *ResetRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	BenchmarkRPC(ctx context.Context, in *SignedTransactionRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
@@ -229,7 +229,7 @@ func (c *linearPBFTNodeClient) ReconfigureNode(ctx context.Context, in *ChangeSt
 	return out, nil
 }
 
-func (c *linearPBFTNodeClient) ResetNode(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *linearPBFTNodeClient) ResetNode(ctx context.Context, in *ResetRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, LinearPBFTNode_ResetNode_FullMethodName, in, out, opts...)
 	if err != nil {
@@ -266,7 +266,7 @@ type LinearPBFTNodeServer interface {
 	PrintStatus(context.Context, *StatusRequest) (*emptypb.Empty, error)
 	PrintView(context.Context, *wrapperspb.Int64Value) (*emptypb.Empty, error)
 	ReconfigureNode(context.Context, *ChangeStatusMessage) (*emptypb.Empty, error)
-	ResetNode(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
+	ResetNode(context.Context, *ResetRequest) (*emptypb.Empty, error)
 	BenchmarkRPC(context.Context, *SignedTransactionRequest) (*emptypb.Empty, error)
 	mustEmbedUnimplementedLinearPBFTNodeServer()
 }
@@ -320,7 +320,7 @@ func (UnimplementedLinearPBFTNodeServer) PrintView(context.Context, *wrapperspb.
 func (UnimplementedLinearPBFTNodeServer) ReconfigureNode(context.Context, *ChangeStatusMessage) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ReconfigureNode not implemented")
 }
-func (UnimplementedLinearPBFTNodeServer) ResetNode(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
+func (UnimplementedLinearPBFTNodeServer) ResetNode(context.Context, *ResetRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ResetNode not implemented")
 }
 func (UnimplementedLinearPBFTNodeServer) BenchmarkRPC(context.Context, *SignedTransactionRequest) (*emptypb.Empty, error) {
@@ -613,7 +613,7 @@ func _LinearPBFTNode_ReconfigureNode_Handler(srv interface{}, ctx context.Contex
 }
 
 func _LinearPBFTNode_ResetNode_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(emptypb.Empty)
+	in := new(ResetRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -625,7 +625,7 @@ func _LinearPBFTNode_ResetNode_Handler(srv interface{}, ctx context.Context, dec
 		FullMethod: LinearPBFTNode_ResetNode_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(LinearPBFTNodeServer).ResetNode(ctx, req.(*emptypb.Empty))
+		return srv.(LinearPBFTNodeServer).ResetNode(ctx, req.(*ResetRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
