@@ -1,7 +1,4 @@
-# BFT-Mavleo96
-
-<!-- Submission 1: 11/09/2025 17:44 EST -->
-<!-- Submission 2: 11/09/2025 23:39 EST -->
+# LinearPBFT
 
 A Byzantine Fault Tolerant distributed system implementation using Linear PBFT (Practical Byzantine Fault Tolerance) consensus protocol.
 
@@ -337,7 +334,7 @@ Generates synthetic test data files with varying transaction counts for performa
 ## Project Structure
 
 ```
-bft-mavleo96/
+linear-pbft/
 ├── benchmark/
 │   └── client/
 │       └── linearpbftdb/  # YCSB database driver for LinearPBFT
