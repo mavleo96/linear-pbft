@@ -10,11 +10,11 @@ import (
 )
 
 // SendPrintLogCommand sends a print log command to all nodes
-func SendPrintLogCommand(nodeMap map[string]*models.Node, testSet int64) error {
+func SendPrintLogCommand(ctx context.Context, nodeMap map[string]*models.Node, testSet int64) error {
 	log.Info("Print log command received")
 	for _, node := range nodeMap {
 		go func() {
-			_, err := node.Client.PrintLog(context.Background(), &wrapperspb.Int64Value{Value: testSet})
+			_, err := node.Client.PrintLog(ctx, &wrapperspb.Int64Value{Value: testSet})
 			if err != nil {
 				log.Warnf("Error sending print log command to node %s: %v", node.ID, err)
 			}
@@ -24,11 +24,11 @@ func SendPrintLogCommand(nodeMap map[string]*models.Node, testSet int64) error {
 }
 
 // SendPrintDBCommand sends a print db command to all nodes
-func SendPrintDBCommand(nodeMap map[string]*models.Node, testSet int64) error {
+func SendPrintDBCommand(ctx context.Context, nodeMap map[string]*models.Node, testSet int64) error {
 	log.Info("Print db command received")
 	for _, node := range nodeMap {
 		go func() {
-			_, err := node.Client.PrintDB(context.Background(), &wrapperspb.Int64Value{Value: testSet})
+			_, err := node.Client.PrintDB(ctx, &wrapperspb.Int64Value{Value: testSet})
 			if err != nil {
 				log.Warnf("Error sending print db command to node %s: %v", node.ID, err)
 			}
@@ -38,7 +38,7 @@ func SendPrintDBCommand(nodeMap map[string]*models.Node, testSet int64) error {
 }
 
 // SendPrintStatusCommand sends a print status command to all nodes
-func SendPrintStatusCommand(nodeMap map[string]*models.Node, testSet int64, sequenceNum int64) error {
+func SendPrintStatusCommand(ctx context.Context, nodeMap map[string]*models.Node, testSet int64, sequenceNum int64) error {
 	if sequenceNum == 0 {
 		log.Infof("Print status command received for all sequence numbers")
 	} else {
@@ -46,7 +46,7 @@ func SendPrintStatusCommand(nodeMap map[string]*models.Node, testSet int64, sequ
 	}
 	for _, node := range nodeMap {
 		go func() {
-			_, err := node.Client.PrintStatus(context.Background(), &pb.StatusRequest{TestSet: testSet, SequenceNum: sequenceNum})
+			_, err := node.Client.PrintStatus(ctx, &pb.StatusRequest{TestSet: testSet, SequenceNum: sequenceNum})
 			if err != nil {
 				log.Warnf("Error sending print status command to node %s: %v", node.ID, err)
 			}
@@ -56,11 +56,11 @@ func SendPrintStatusCommand(nodeMap map[string]*models.Node, testSet int64, sequ
 }
 
 // SendPrintViewCommand sends a print view command to all nodes
-func SendPrintViewCommand(nodeMap map[string]*models.Node, testSet int64) error {
+func SendPrintViewCommand(ctx context.Context, nodeMap map[string]*models.Node, testSet int64) error {
 	log.Info("Print view command received")
 	for _, node := range nodeMap {
 		go func() {
-			_, err := node.Client.PrintView(context.Background(), &wrapperspb.Int64Value{Value: testSet})
+			_, err := node.Client.PrintView(ctx, &wrapperspb.Int64Value{Value: testSet})
 			if err != nil {
 				log.Warnf("Error sending print view command to node %s: %v", node.ID, err)
 			}

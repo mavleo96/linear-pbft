@@ -184,7 +184,7 @@ func CreateServer(selfNode *models.Node, peerNodes map[string]*models.Node, clie
 
 	grpcServer := grpc.NewServer()
 
-	node := linearpbft.CreateLinearPBFTNode(selfNode, peerNodes, clientMap, bankDB, privateKey1, privateKey2, masterPublicKey1, masterPublicKey2)
+	node := linearpbft.CreateLinearPBFTNode(selfNode, peerNodes, clientMap, bankDB, privateKey1, privateKey2, masterPublicKey1, masterPublicKey2, ctx)
 	pb.RegisterLinearPBFTNodeServer(grpcServer, node)
 
 	// Start LinearPBFT node (it will stop when context is cancelled)

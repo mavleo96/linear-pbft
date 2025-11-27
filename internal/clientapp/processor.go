@@ -65,7 +65,6 @@ func (p *Processor) ProcessTransaction(ctx context.Context, t *pb.Transaction) (
 func (p *Processor) processWriteTransaction(ctx context.Context, signedRequest *pb.SignedTransactionRequest) (Result, error) {
 	var result Result
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
-		// ctxWithTimeout, cancel := context.WithTimeout(context.Background(), clientTimeout)
 		// If first attempt send to primary node
 		if attempt == 1 {
 			primaryID := utils.ViewNumberToPrimaryID(p.state.GetViewNumber(), p.nodes.N)

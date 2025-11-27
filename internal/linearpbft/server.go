@@ -26,7 +26,8 @@ type LinearPBFTNode struct {
 	logger      *Logger
 
 	// Wait group for graceful shutdown
-	wg sync.WaitGroup
+	wg        sync.WaitGroup
+	serverCtx context.Context
 
 	// UnimplementedLinearPBFTNodeServer is the server interface for the LinearPBFT node
 	*pb.UnimplementedLinearPBFTNodeServer
@@ -43,7 +44,7 @@ func (n *LinearPBFTNode) Start(ctx context.Context) {
 }
 
 // CreateLinearPBFTNode creates a new LinearPBFT node
-func CreateLinearPBFTNode(selfNode *models.Node, peerNodes map[string]*models.Node, clientMap map[string]*models.Client, bankDB *database.Database, privateKey1 *bls.SecretKey, privateKey2 *bls.SecretKey, masterPublicKey1 *bls.PublicKey, masterPublicKey2 *bls.PublicKey) *LinearPBFTNode {
+func CreateLinearPBFTNode(selfNode *models.Node, peerNodes map[string]*models.Node, clientMap map[string]*models.Client, bankDB *database.Database, privateKey1 *bls.SecretKey, privateKey2 *bls.SecretKey, masterPublicKey1 *bls.PublicKey, masterPublicKey2 *bls.PublicKey, ctx context.Context) *LinearPBFTNode {
 
 	timer := CreateSafeTimer(ExecutionTimeout, ViewChangeTimeout)
 	serverConfig := CreateServerConfig(int64(len(peerNodes)+1), K, L)
@@ -69,6 +70,7 @@ func CreateLinearPBFTNode(selfNode *models.Node, peerNodes map[string]*models.No
 		viewchanger:     viewchanger,
 		logger:          logger,
 		wg:              sync.WaitGroup{},
+		serverCtx:       ctx,
 	}
 
 	executor.sendReply = func(signedRequest *pb.SignedTransactionRequest, result int64) {

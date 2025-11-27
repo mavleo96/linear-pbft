@@ -1,7 +1,6 @@
 package linearpbft
 
 import (
-	"context"
 	"slices"
 	"sync"
 
@@ -36,7 +35,7 @@ func (n *LinearPBFTNode) SendGetRequest(digest []byte) (*pb.SignedTransactionReq
 				return
 			}
 
-			signedRequest, err := peer.Client.GetRequest(context.Background(), getRequestMessage)
+			signedRequest, err := peer.Client.GetRequest(n.serverCtx, getRequestMessage)
 			if err != nil {
 				return
 			}
@@ -95,7 +94,7 @@ func (n *LinearPBFTNode) SendGetCheckpoint(sequenceNum int64) (*pb.Checkpoint, e
 				return
 			}
 
-			checkpoint, err := peer.Client.GetCheckpoint(context.Background(), getCheckpointMessage)
+			checkpoint, err := peer.Client.GetCheckpoint(n.serverCtx, getCheckpointMessage)
 			if err != nil {
 				return
 			}

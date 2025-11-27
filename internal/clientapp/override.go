@@ -10,7 +10,7 @@ import (
 )
 
 // ReconfigureNodes reconfigures the nodes based on the live, byzantine, and attack lists
-func ReconfigureNodes(nodeMap map[string]*models.Node, liveNodes []*models.Node, byzantineNodes []*models.Node, attacks []*Attack) {
+func ReconfigureNodes(ctx context.Context, nodeMap map[string]*models.Node, liveNodes []*models.Node, byzantineNodes []*models.Node, attacks []*Attack) {
 	log.Infof("Live nodes: %s", nodeStringSlice(liveNodes))
 	log.Infof("Byzantine nodes: %s", nodeStringSlice(byzantineNodes))
 	log.Infof("Attacks: %v", attacks)
@@ -46,7 +46,7 @@ func ReconfigureNodes(nodeMap map[string]*models.Node, liveNodes []*models.Node,
 				changeStatusMessage.EquivocationAttackNodes = nodeStringSlice(attack.AttackNodes)
 			}
 		}
-		_, err := node.Client.ReconfigureNode(context.Background(), changeStatusMessage)
+		_, err := node.Client.ReconfigureNode(ctx, changeStatusMessage)
 		if err != nil {
 			log.Warn(err)
 		}
@@ -54,10 +54,10 @@ func ReconfigureNodes(nodeMap map[string]*models.Node, liveNodes []*models.Node,
 }
 
 // SendResetCommand sends a reset command to all nodes
-func SendResetCommand(nodeMap map[string]*models.Node, initBalance int64) {
+func SendResetCommand(ctx context.Context, nodeMap map[string]*models.Node, initBalance int64) {
 	log.Info("Node Reset command received")
 	for _, node := range nodeMap {
-		_, err := node.Client.ResetNode(context.Background(), &pb.ResetRequest{InitBalance: initBalance})
+		_, err := node.Client.ResetNode(ctx, &pb.ResetRequest{InitBalance: initBalance})
 		if err != nil {
 			log.Warnf("Error sending reset command to node %s: %v", node.ID, err)
 		}

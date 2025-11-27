@@ -179,7 +179,7 @@ func (n *LinearPBFTNode) SendReply(signedRequest *pb.SignedTransactionRequest, r
 
 	// Send reply to client with simple retries to avoid crashing replica on transient issues
 	for attempt := 1; attempt <= MaxSendAttempts; attempt++ {
-		_, err := n.clients[request.Sender].Client.ReceiveReply(context.Background(), signedReply)
+		_, err := n.clients[request.Sender].Client.ReceiveReply(n.serverCtx, signedReply)
 		if err == nil {
 			return
 		}
@@ -207,7 +207,7 @@ func (n *LinearPBFTNode) ForwardRequest(ctx context.Context, signedRequest *pb.S
 	n.logger.AddForwardedTransactionRequest(signedRequest)
 
 	log.Infof("Forwarding to primary %s: %s", primaryID, utils.LoggingString(signedRequest))
-	_, err := n.handler.peers[primaryID].Client.TransferRequest(context.Background(), signedRequest)
+	_, err := n.handler.peers[primaryID].Client.TransferRequest(n.serverCtx, signedRequest)
 	if err != nil {
 		log.Warnf("Forwarding failed: %s; %s", utils.LoggingString(signedRequest), err.Error())
 	}
