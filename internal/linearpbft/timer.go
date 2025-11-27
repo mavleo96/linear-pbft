@@ -1,7 +1,6 @@
 package linearpbft
 
 import (
-	"context"
 	"math"
 	"sync"
 	"time"
@@ -18,8 +17,6 @@ type SafeTimer struct {
 	running            bool
 	waitCount          int64
 	viewChangeTryCount int64
-	ctx                context.Context
-	cancel             context.CancelFunc
 	TimeoutCh          chan bool
 }
 
@@ -36,7 +33,6 @@ func CreateSafeTimer(executionTimeout time.Duration, viewChangeTimeout time.Dura
 		TimeoutCh:          make(chan bool),
 	}
 	t.timer.Stop()
-	t.ctx, t.cancel = context.WithCancel(context.Background())
 	go t.run()
 	return t
 }
@@ -114,8 +110,6 @@ func (t *SafeTimer) Cleanup() bool {
 	stopped := t.timer.Stop()
 	t.running = false
 	t.waitCount = 0
-	t.cancel()
-	t.ctx, t.cancel = context.WithCancel(context.Background())
 	log.Infof("SafeTimer: Cleanup wait count: %d, running: %t at %d", t.waitCount, t.running, time.Now().UnixMilli())
 	return !stopped
 }
@@ -124,7 +118,6 @@ func (t *SafeTimer) Cleanup() bool {
 func (t *SafeTimer) run() {
 	for range t.timer.C {
 		log.Infof("SafeTimer: Timer expired at %d", time.Now().UnixMilli())
-		t.cancel()
 		t.Cleanup()
 		t.TimeoutCh <- true
 		log.Infof("SafeTimer: Timeout channel signaled at %d", time.Now().UnixMilli())
