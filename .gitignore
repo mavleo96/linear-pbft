@@ -5,5 +5,6 @@ debug/**
 testdata/**
 .DS_Store
 
+!testdata/test1.csv
 !testdata/test_normal.csv
 !testdata/test_byz.csv
