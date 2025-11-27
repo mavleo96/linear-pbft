@@ -12,6 +12,8 @@ const (
 	SBFTTimeout       = 50 * time.Millisecond
 	K                 = 10
 	L                 = 20
+	MaxSendAttempts   = 3
+	SendAttemptDelay  = 50 * time.Millisecond
 )
 
 // ServerConfig is the configuration for the server

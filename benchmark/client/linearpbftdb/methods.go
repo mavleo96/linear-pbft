@@ -35,7 +35,7 @@ func (p *LinearPBFTDB) Read(ctx context.Context, table string, key string, field
 	// Send request to all nodes
 	for _, node := range p.nodeMap {
 		go func(n *models.Node) {
-			(*n.Client).BenchmarkRPC(ctx, signedRequest)
+			n.Client.BenchmarkRPC(ctx, signedRequest)
 		}(node)
 	}
 
@@ -94,7 +94,7 @@ func (p *LinearPBFTDB) Scan(ctx context.Context, table string, startKey string, 
 	// Send request to all nodes
 	for _, node := range p.nodeMap {
 		go func(n *models.Node) {
-			(*n.Client).BenchmarkRPC(ctx, signedRequest)
+			n.Client.BenchmarkRPC(ctx, signedRequest)
 		}(node)
 	}
 
@@ -172,7 +172,7 @@ func (p *LinearPBFTDB) Insert(ctx context.Context, table string, key string, val
 	// Send request to all nodes
 	for _, node := range p.nodeMap {
 		go func(n *models.Node) {
-			(*n.Client).BenchmarkRPC(ctx, signedRequest)
+			n.Client.BenchmarkRPC(ctx, signedRequest)
 		}(node)
 	}
 
@@ -237,7 +237,7 @@ func (p *LinearPBFTDB) Update(ctx context.Context, table string, key string, val
 	// Send request to all nodes
 	for _, node := range p.nodeMap {
 		go func(n *models.Node) {
-			(*n.Client).BenchmarkRPC(ctx, signedRequest)
+			n.Client.BenchmarkRPC(ctx, signedRequest)
 		}(node)
 	}
 
@@ -290,7 +290,7 @@ func (p *LinearPBFTDB) Delete(ctx context.Context, table string, key string) err
 	// Send request to all nodes
 	for _, node := range p.nodeMap {
 		go func(n *models.Node) {
-			(*n.Client).BenchmarkRPC(ctx, signedRequest)
+			n.Client.BenchmarkRPC(ctx, signedRequest)
 		}(node)
 	}
 

@@ -46,7 +46,7 @@ func ReconfigureNodes(nodeMap map[string]*models.Node, liveNodes []*models.Node,
 				changeStatusMessage.EquivocationAttackNodes = nodeStringSlice(attack.AttackNodes)
 			}
 		}
-		_, err := (*node.Client).ReconfigureNode(context.Background(), changeStatusMessage)
+		_, err := node.Client.ReconfigureNode(context.Background(), changeStatusMessage)
 		if err != nil {
 			log.Warn(err)
 		}
@@ -57,7 +57,7 @@ func ReconfigureNodes(nodeMap map[string]*models.Node, liveNodes []*models.Node,
 func SendResetCommand(nodeMap map[string]*models.Node, initBalance int64) {
 	log.Info("Node Reset command received")
 	for _, node := range nodeMap {
-		_, err := (*node.Client).ResetNode(context.Background(), &pb.ResetRequest{InitBalance: initBalance})
+		_, err := node.Client.ResetNode(context.Background(), &pb.ResetRequest{InitBalance: initBalance})
 		if err != nil {
 			log.Warnf("Error sending reset command to node %s: %v", node.ID, err)
 		}

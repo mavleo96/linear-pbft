@@ -3,6 +3,7 @@ package linearpbft
 import (
 	"context"
 	"slices"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/mavleo96/linear-pbft/internal/crypto"
@@ -176,11 +177,19 @@ func (n *LinearPBFTNode) SendReply(signedRequest *pb.SignedTransactionRequest, r
 	// Logger: add sent transaction response
 	n.logger.AddSentTransactionResponse(signedReply)
 
-	// Send reply to client
-	_, err := (*n.clients[request.Sender].Client).ReceiveReply(context.Background(), signedReply)
-	if err != nil {
-		log.Fatal(err)
+	// Send reply to client with simple retries to avoid crashing replica on transient issues
+	for attempt := 1; attempt <= MaxSendAttempts; attempt++ {
+		_, err := n.clients[request.Sender].Client.ReceiveReply(context.Background(), signedReply)
+		if err == nil {
+			return
+		}
+
+		// Warn and retry with exponential backoff
+		log.Warnf("Failed to send reply to client %s (attempt %d/%d): %v", request.Sender, attempt, MaxSendAttempts, err)
+		time.Sleep(SendAttemptDelay)
 	}
+
+	log.Errorf("Giving up sending reply to client %s after %d attempts", request.Sender, MaxSendAttempts)
 }
 
 // ForwardRequest forwards a transaction request to the primary
@@ -198,7 +207,7 @@ func (n *LinearPBFTNode) ForwardRequest(ctx context.Context, signedRequest *pb.S
 	n.logger.AddForwardedTransactionRequest(signedRequest)
 
 	log.Infof("Forwarding to primary %s: %s", primaryID, utils.LoggingString(signedRequest))
-	_, err := (*n.handler.peers[primaryID].Client).TransferRequest(context.Background(), signedRequest)
+	_, err := n.handler.peers[primaryID].Client.TransferRequest(context.Background(), signedRequest)
 	if err != nil {
 		log.Warnf("Forwarding failed: %s; %s", utils.LoggingString(signedRequest), err.Error())
 	}

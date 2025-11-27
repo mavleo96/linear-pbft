@@ -69,7 +69,7 @@ func (p *Processor) processWriteTransaction(ctx context.Context, signedRequest *
 		// If first attempt send to primary node
 		if attempt == 1 {
 			primaryID := utils.ViewNumberToPrimaryID(p.state.GetViewNumber(), p.nodes.N)
-			_, err := (*p.nodes.GetNode(primaryID).Client).TransferRequest(ctx, signedRequest)
+			_, err := p.nodes.GetNode(primaryID).Client.TransferRequest(ctx, signedRequest)
 			if err != nil {
 				log.Warnf("%s -> %s: error sending transaction to %s: %s", p.clientID, utils.LoggingString(signedRequest), primaryID, err.Error())
 			}
@@ -77,7 +77,7 @@ func (p *Processor) processWriteTransaction(ctx context.Context, signedRequest *
 			// If not first attempt multicast to all nodes
 			for _, node := range p.nodes.GetNodes() {
 				go func(node *models.Node, signedRequest *pb.SignedTransactionRequest) {
-					_, err := (*node.Client).TransferRequest(ctx, signedRequest)
+					_, err := node.Client.TransferRequest(ctx, signedRequest)
 					if err != nil {
 						log.Warnf("%s -> %s: error sending transaction to %s: %s", p.clientID, utils.LoggingString(signedRequest), node.ID, err.Error())
 					}
@@ -111,7 +111,7 @@ func (p *Processor) processReadOnlyTransaction(ctx context.Context, signedReques
 		wg.Add(1)
 		go func(node *models.Node, signedRequest *pb.SignedTransactionRequest) {
 			defer wg.Done()
-			resp, err := (*node.Client).ReadOnlyRequest(ctx, signedRequest)
+			resp, err := node.Client.ReadOnlyRequest(ctx, signedRequest)
 			if err != nil {
 				log.Warnf("%s -> %s: error sending read-only request to %s: %s", p.clientID, utils.LoggingString(signedRequest), node.ID, err.Error())
 				return

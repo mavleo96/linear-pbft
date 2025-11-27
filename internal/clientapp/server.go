@@ -87,7 +87,7 @@ func (s *ClientAppServer) StartServer(mainCtx context.Context) {
 func CreateClientAppServer(mainCtx context.Context, client *models.Client, nodes map[string]*models.Node) (chan<- *TestSet, chan bool, error) {
 	privateKey, err := crypto.ReadPrivateKey(filepath.Join("./keys", "client", fmt.Sprintf("%s_secret.key", client.ID)))
 	if err != nil {
-		log.Fatal(err)
+		return nil, nil, err
 	}
 
 	// Calculate F (fault tolerance) based on number of nodes: F = (N-1)/3

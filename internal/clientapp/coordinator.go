@@ -41,14 +41,8 @@ func (c *Coordinator) GetReceiveResetChannel() chan bool {
 
 // Start starts the coordinator
 func (c *Coordinator) Start() {
-	c.Run()
-
-	// Start reset handler
-	c.wgReset.Add(1)
-	go func() {
-		defer c.wgReset.Done()
-		c.resetHandler()
-	}()
+	c.Run()                                   // Start coordinator
+	c.wgReset.Go(func() { c.resetHandler() }) // Start reset handler
 }
 
 // Run runs the coordinator
@@ -57,19 +51,8 @@ func (c *Coordinator) Run() {
 	defer c.mutex.Unlock()
 	ctx := c.ctx
 
-	// Start collector
-	c.wg.Add(1)
-	go func() {
-		defer c.wg.Done()
-		c.collector.CollectResponses(ctx)
-	}()
-
-	// Start transaction loop
-	c.wg.Add(1)
-	go func() {
-		defer c.wg.Done()
-		c.runTransactionLoop(ctx)
-	}()
+	c.wg.Go(func() { c.collector.CollectResponses(ctx) }) // Start collector
+	c.wg.Go(func() { c.runTransactionLoop(ctx) })         // Start transaction loop
 }
 
 // runTransactionLoop runs the transaction loop

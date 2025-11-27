@@ -29,7 +29,7 @@ func (n *LinearPBFTNode) SendPrePrepareToNode(signedPreprepareMessage *pb.Signed
 		time.Sleep(TimeAttackDelay)
 	}
 
-	signedPrepareMsg, err := (*n.handler.peers[nodeID].Client).PrePrepareRequest(context.Background(), signedPreprepareMessage)
+	signedPrepareMsg, err := n.handler.peers[nodeID].Client.PrePrepareRequest(context.Background(), signedPreprepareMessage)
 	if err != nil {
 		return nil, err
 	}
@@ -73,7 +73,7 @@ func (n *LinearPBFTNode) SendPrepareToNode(signedPrepareMessage *pb.SignedPrepar
 		time.Sleep(TimeAttackDelay)
 	}
 
-	signedCommitMsg, err := (*n.handler.peers[nodeID].Client).PrepareRequest(context.Background(), signedPrepareMessage)
+	signedCommitMsg, err := n.handler.peers[nodeID].Client.PrepareRequest(context.Background(), signedPrepareMessage)
 	if err != nil {
 		return nil, err
 	}
@@ -115,7 +115,7 @@ func (n *LinearPBFTNode) SendCommitToNode(signedCommitMessage *pb.SignedCommitMe
 		time.Sleep(TimeAttackDelay)
 	}
 
-	_, err := (*n.handler.peers[nodeID].Client).CommitRequest(context.Background(), signedCommitMessage)
+	_, err := n.handler.peers[nodeID].Client.CommitRequest(context.Background(), signedCommitMessage)
 	if err != nil {
 		return err
 	}
@@ -137,7 +137,7 @@ func (n *LinearPBFTNode) SendViewChangeMessageToNode(signedViewChangeMessage *pb
 		time.Sleep(TimeAttackDelay)
 	}
 
-	_, err := (*n.handler.peers[nodeID].Client).ViewChangeRequest(context.Background(), signedViewChangeMessage)
+	_, err := n.handler.peers[nodeID].Client.ViewChangeRequest(context.Background(), signedViewChangeMessage)
 	if err != nil {
 		return err
 	}
@@ -163,7 +163,7 @@ func (n *LinearPBFTNode) SendNewViewMessageToNode(signedNewViewMessage *pb.Signe
 		time.Sleep(TimeAttackDelay)
 	}
 
-	stream, err := (*n.handler.peers[nodeID].Client).NewViewRequest(context.Background(), signedNewViewMessage)
+	stream, err := n.handler.peers[nodeID].Client.NewViewRequest(context.Background(), signedNewViewMessage)
 	if err != nil {
 		return err
 	}
@@ -222,7 +222,7 @@ func (n *LinearPBFTNode) SendCheckpointMessageToNode(signedCheckpointMessage *pb
 		time.Sleep(TimeAttackDelay)
 	}
 
-	_, err := (*n.handler.peers[nodeID].Client).CheckpointRequest(context.Background(), signedCheckpointMessage)
+	_, err := n.handler.peers[nodeID].Client.CheckpointRequest(context.Background(), signedCheckpointMessage)
 	if err != nil {
 		return err
 	}

@@ -2,6 +2,7 @@ package linearpbft
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/mavleo96/linear-pbft/internal/crypto"
@@ -105,8 +106,15 @@ func (n *LinearPBFTNode) BenchmarkSendReply(signedRequest *pb.SignedTransactionR
 	n.logger.AddSentTransactionResponse(signedResponse)
 
 	log.Infof("Benchmark RPC: Sending response: %s", utils.LoggingString(signedResponse))
-	_, err := (*n.clients[request.Sender].Client).ReceiveReply(context.Background(), signedResponse)
-	if err != nil {
-		log.Fatal(err)
+
+	for attempt := 1; attempt <= MaxSendAttempts; attempt++ {
+		_, err := n.clients[request.Sender].Client.ReceiveReply(context.Background(), signedResponse)
+		if err == nil {
+			return
+		}
+		log.Warnf("Benchmark RPC: failed to send response to client %s (attempt %d/%d): %v", request.Sender, attempt, MaxSendAttempts, err)
+		time.Sleep(SendAttemptDelay)
 	}
+
+	log.Errorf("Benchmark RPC: giving up sending response to client %s after %d attempts", request.Sender, MaxSendAttempts)
 }

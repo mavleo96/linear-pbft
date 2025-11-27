@@ -133,6 +133,9 @@ interactionLoop:
 			continue interactionLoop
 		case "skip":
 			nextTestSet++
+			if nextTestSet >= len(testSets) {
+				break interactionLoop
+			}
 			log.Infof("Skipping test set %d", testSets[nextTestSet].SetNumber)
 			continue interactionLoop
 		case "print log":
