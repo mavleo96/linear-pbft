@@ -113,6 +113,8 @@ func (c *Coordinator) resetHandler() {
 					break drainLoop
 				}
 			}
+			// Drain response channel to unblock node replies before restarting.
+			c.collector.DrainResponseChannel()
 			c.mutex.Unlock()
 
 			// Start new coordinator run after releasing mutex

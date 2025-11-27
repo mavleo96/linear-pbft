@@ -65,8 +65,7 @@ func (n *LinearPBFTNode) TransferRequest(ctx context.Context, signedRequest *pb.
 		n.logger.AddReceivedTransactionRequest(signedRequest)
 
 		n.handler.timer.IncrementWaitCountOrStart()
-		ctx := n.handler.timer.GetContext()
-		go n.ForwardRequest(ctx, signedRequest)
+		go n.ForwardRequest(signedRequest)
 		n.state.AddForwardedRequest(digest)
 		return &emptypb.Empty{}, nil
 	}
@@ -193,7 +192,7 @@ func (n *LinearPBFTNode) SendReply(signedRequest *pb.SignedTransactionRequest, r
 }
 
 // ForwardRequest forwards a transaction request to the primary
-func (n *LinearPBFTNode) ForwardRequest(ctx context.Context, signedRequest *pb.SignedTransactionRequest) {
+func (n *LinearPBFTNode) ForwardRequest(signedRequest *pb.SignedTransactionRequest) {
 	// Forward request to primary
 	primaryID := utils.ViewNumberToPrimaryID(n.state.GetViewNumber(), n.config.N)
 

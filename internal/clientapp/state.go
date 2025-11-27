@@ -1,6 +1,10 @@
 package clientapp
 
-import "sync"
+import (
+	"sync"
+
+	"github.com/mavleo96/linear-pbft/internal/utils"
+)
 
 // State represents the state of the client application
 type ClientState struct {
@@ -34,6 +38,14 @@ func (s *ClientState) GetResponseMap() map[string]Result {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 	return s.responseMap
+}
+
+// GetHighestResponseCount returns the highest response count
+func (s *ClientState) GetHighestResponseCount() (Result, int64) {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	result, count := utils.MaxByValue(utils.CountMap(utils.Values(s.responseMap)))
+	return result, count
 }
 
 // UpdateTimestamp sets the current timestamp

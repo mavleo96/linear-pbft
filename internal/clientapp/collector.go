@@ -4,7 +4,6 @@ import (
 	"cmp"
 	"context"
 
-	"github.com/mavleo96/linear-pbft/internal/utils"
 	"github.com/mavleo96/linear-pbft/pb"
 )
 
@@ -59,12 +58,22 @@ collectionLoop:
 			rc.state.AddResponse(resp.NodeID, Result{ViewNumber: resp.ViewNumber, Result: resp.Result})
 
 			// Check if f+1 matching values have been received
-			responseCounter := rc.state.GetResponseMap()
-			maxVal, maxCnt := utils.MaxByValue(utils.CountMap(utils.Values(responseCounter)))
+			maxVal, maxCnt := rc.state.GetHighestResponseCount()
 			if maxCnt >= rc.f+1 {
 				majorityReached = true
 				rc.resultCh <- maxVal
 			}
+		}
+	}
+}
+
+// DrainResponseChannel empties any buffered responses to avoid blocking senders.
+func (rc *ResponseCollector) DrainResponseChannel() {
+	for {
+		select {
+		case <-rc.responseCh:
+		default:
+			return
 		}
 	}
 }

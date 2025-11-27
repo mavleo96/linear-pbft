@@ -130,10 +130,3 @@ func (t *SafeTimer) run() {
 		log.Infof("SafeTimer: Timeout channel signaled at %d", time.Now().UnixMilli())
 	}
 }
-
-// GetContext returns the timer’s context for cancellation signaling.
-func (t *SafeTimer) GetContext() context.Context {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	return t.ctx
-}
