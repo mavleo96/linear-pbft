@@ -8,7 +8,7 @@ import (
 
 	"github.com/herumi/bls-eth-go-binary/bls"
 	"github.com/mavleo96/linear-pbft/internal/crypto"
-	"github.com/mavleo96/linear-pbft/internal/models"
+	"github.com/mavleo96/linear-pbft/internal/network"
 	"github.com/mavleo96/linear-pbft/internal/utils"
 	"github.com/mavleo96/linear-pbft/pb"
 	log "github.com/sirupsen/logrus"
@@ -21,10 +21,11 @@ const (
 
 // Processor processes transactions
 type Processor struct {
-	clientID   string
-	state      *ClientState
-	nodes      *NodeMap
-	privateKey *bls.SecretKey
+	clientID      string
+	state         *ClientState
+	nodes         *NodeMap
+	privateKey    *bls.SecretKey
+	nodeTransport network.ClientTransport
 
 	// Channels
 	resultCh <-chan Result
@@ -68,19 +69,19 @@ func (p *Processor) processWriteTransaction(ctx context.Context, signedRequest *
 		// If first attempt send to primary node
 		if attempt == 1 {
 			primaryID := utils.ViewNumberToPrimaryID(p.state.GetViewNumber(), p.nodes.N)
-			_, err := p.nodes.GetNode(primaryID).Client.TransferRequest(ctx, signedRequest)
+			err := p.nodeTransport.SendTransfer(ctx, primaryID, signedRequest)
 			if err != nil {
 				log.Warnf("%s -> %s: error sending transaction to %s: %s", p.clientID, utils.LoggingString(signedRequest), primaryID, err.Error())
 			}
 		} else {
 			// If not first attempt multicast to all nodes
 			for _, node := range p.nodes.GetNodes() {
-				go func(node *models.Node, signedRequest *pb.SignedTransactionRequest) {
-					_, err := node.Client.TransferRequest(ctx, signedRequest)
+				go func(nodeID string, signedRequest *pb.SignedTransactionRequest) {
+					err := p.nodeTransport.SendTransfer(ctx, nodeID, signedRequest)
 					if err != nil {
-						log.Warnf("%s -> %s: error sending transaction to %s: %s", p.clientID, utils.LoggingString(signedRequest), node.ID, err.Error())
+						log.Warnf("%s -> %s: error sending transaction to %s: %s", p.clientID, utils.LoggingString(signedRequest), nodeID, err.Error())
 					}
-				}(node, signedRequest)
+				}(node.ID, signedRequest)
 			}
 		}
 
@@ -108,15 +109,15 @@ func (p *Processor) processReadOnlyTransaction(ctx context.Context, signedReques
 	wg := sync.WaitGroup{}
 	for _, node := range p.nodes.GetNodes() {
 		wg.Add(1)
-		go func(node *models.Node, signedRequest *pb.SignedTransactionRequest) {
+		go func(nodeID string, signedRequest *pb.SignedTransactionRequest) {
 			defer wg.Done()
-			resp, err := node.Client.ReadOnlyRequest(ctx, signedRequest)
+			resp, err := p.nodeTransport.SendReadOnly(ctx, nodeID, signedRequest)
 			if err != nil {
-				log.Warnf("%s -> %s: error sending read-only request to %s: %s", p.clientID, utils.LoggingString(signedRequest), node.ID, err.Error())
+				log.Warnf("%s -> %s: error sending read-only request to %s: %s", p.clientID, utils.LoggingString(signedRequest), nodeID, err.Error())
 				return
 			}
 			responseCh <- resp
-		}(node, signedRequest)
+		}(node.ID, signedRequest)
 	}
 
 	// Close response channel after all responses are received

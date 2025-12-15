@@ -7,7 +7,6 @@ import (
 
 	"github.com/herumi/bls-eth-go-binary/bls"
 	"github.com/mavleo96/linear-pbft/internal/crypto"
-	"github.com/mavleo96/linear-pbft/internal/models"
 	"github.com/mavleo96/linear-pbft/internal/utils"
 	"github.com/mavleo96/linear-pbft/pb"
 	log "github.com/sirupsen/logrus"
@@ -33,10 +32,10 @@ func (p *LinearPBFTDB) Read(ctx context.Context, table string, key string, field
 	}
 
 	// Send request to all nodes
-	for _, node := range p.nodeMap {
-		go func(n *models.Node) {
-			n.Client.BenchmarkRPC(ctx, signedRequest)
-		}(node)
+	for _, nodeID := range p.nodeIDs {
+		go func(id string) {
+			_ = p.nodeTransport.SendBenchmark(ctx, id, signedRequest)
+		}(nodeID)
 	}
 
 	responseCh := ctx.Value(responseChKey).(chan *pb.SignedTransactionResponse)
@@ -45,7 +44,7 @@ func (p *LinearPBFTDB) Read(ctx context.Context, table string, key string, field
 	// Use hashable keys (map keys) instead of maps directly
 	responseMap := make(map[[32]byte]int64)
 	valueMap := make(map[[32]byte]map[string][]byte)
-	for range len(p.nodeMap) {
+	for range len(p.nodeIDs) {
 		response := <-responseCh
 		if response != nil && response.Message != nil {
 			if response.Message.Error != "" {
@@ -92,10 +91,10 @@ func (p *LinearPBFTDB) Scan(ctx context.Context, table string, startKey string, 
 	}
 
 	// Send request to all nodes
-	for _, node := range p.nodeMap {
-		go func(n *models.Node) {
-			n.Client.BenchmarkRPC(ctx, signedRequest)
-		}(node)
+	for _, nodeID := range p.nodeIDs {
+		go func(id string) {
+			_ = p.nodeTransport.SendBenchmark(ctx, id, signedRequest)
+		}(nodeID)
 	}
 
 	responseCh := ctx.Value(responseChKey).(chan *pb.SignedTransactionResponse)
@@ -104,7 +103,7 @@ func (p *LinearPBFTDB) Scan(ctx context.Context, table string, startKey string, 
 	// Use hashable keys instead of slices directly
 	responseMap := make(map[[32]byte]int64)
 	valueMap := make(map[[32]byte][]map[string][]byte)
-	for range len(p.nodeMap) {
+	for range len(p.nodeIDs) {
 		response := <-responseCh
 		if response != nil && response.Message != nil {
 			if response.Message.Error != "" {
@@ -170,17 +169,17 @@ func (p *LinearPBFTDB) Insert(ctx context.Context, table string, key string, val
 	}
 
 	// Send request to all nodes
-	for _, node := range p.nodeMap {
-		go func(n *models.Node) {
-			n.Client.BenchmarkRPC(ctx, signedRequest)
-		}(node)
+	for _, nodeID := range p.nodeIDs {
+		go func(id string) {
+			_ = p.nodeTransport.SendBenchmark(ctx, id, signedRequest)
+		}(nodeID)
 	}
 
 	responseCh := ctx.Value(responseChKey).(chan *pb.SignedTransactionResponse)
 
 	// Check for f+1 matching values
 	responseMap := make(map[any]int64)
-	for range len(p.nodeMap) {
+	for range len(p.nodeIDs) {
 		response := <-responseCh
 		if response != nil && response.Message != nil {
 			if response.Message.Error != "" {
@@ -235,17 +234,17 @@ func (p *LinearPBFTDB) Update(ctx context.Context, table string, key string, val
 	}
 
 	// Send request to all nodes
-	for _, node := range p.nodeMap {
-		go func(n *models.Node) {
-			n.Client.BenchmarkRPC(ctx, signedRequest)
-		}(node)
+	for _, nodeID := range p.nodeIDs {
+		go func(id string) {
+			_ = p.nodeTransport.SendBenchmark(ctx, id, signedRequest)
+		}(nodeID)
 	}
 
 	responseCh := ctx.Value(responseChKey).(chan *pb.SignedTransactionResponse)
 
 	// Check for f+1 matching values
 	responseMap := make(map[any]int64)
-	for range len(p.nodeMap) {
+	for range len(p.nodeIDs) {
 		response := <-responseCh
 		if response != nil && response.Message != nil {
 			if response.Message.Error != "" {
@@ -288,17 +287,17 @@ func (p *LinearPBFTDB) Delete(ctx context.Context, table string, key string) err
 	}
 
 	// Send request to all nodes
-	for _, node := range p.nodeMap {
-		go func(n *models.Node) {
-			n.Client.BenchmarkRPC(ctx, signedRequest)
-		}(node)
+	for _, nodeID := range p.nodeIDs {
+		go func(id string) {
+			_ = p.nodeTransport.SendBenchmark(ctx, id, signedRequest)
+		}(nodeID)
 	}
 
 	responseCh := ctx.Value(responseChKey).(chan *pb.SignedTransactionResponse)
 
 	// Check for f+1 matching values
 	responseMap := make(map[any]int64)
-	for range len(p.nodeMap) {
+	for range len(p.nodeIDs) {
 		response := <-responseCh
 		if response != nil && response.Message != nil {
 			if response.Message.Error != "" {

@@ -15,6 +15,13 @@ func ReconfigureNodes(ctx context.Context, nodeMap map[string]*models.Node, live
 	log.Infof("Byzantine nodes: %s", nodeStringSlice(byzantineNodes))
 	log.Infof("Attacks: %v", attacks)
 
+	transport, err := createNodeTransport(nodeMap)
+	if err != nil {
+		log.Errorf("Failed to create transport for reconfiguration: %v", err)
+		return
+	}
+	defer transport.Close()
+
 	for _, node := range nodeMap {
 		changeStatusMessage := &pb.ChangeStatusMessage{
 			Alive:                   slices.Contains(liveNodes, node),
@@ -46,7 +53,7 @@ func ReconfigureNodes(ctx context.Context, nodeMap map[string]*models.Node, live
 				changeStatusMessage.EquivocationAttackNodes = nodeStringSlice(attack.AttackNodes)
 			}
 		}
-		_, err := node.Client.ReconfigureNode(ctx, changeStatusMessage)
+		err := transport.SendReconfigure(ctx, node.ID, changeStatusMessage)
 		if err != nil {
 			log.Warn(err)
 		}
@@ -56,8 +63,15 @@ func ReconfigureNodes(ctx context.Context, nodeMap map[string]*models.Node, live
 // SendResetCommand sends a reset command to all nodes
 func SendResetCommand(ctx context.Context, nodeMap map[string]*models.Node, initBalance int64) {
 	log.Info("Node Reset command received")
+	transport, err := createNodeTransport(nodeMap)
+	if err != nil {
+		log.Errorf("Failed to create transport for reset: %v", err)
+		return
+	}
+	defer transport.Close()
+
 	for _, node := range nodeMap {
-		_, err := node.Client.ResetNode(ctx, &pb.ResetRequest{InitBalance: initBalance})
+		err := transport.SendReset(ctx, node.ID, &pb.ResetRequest{InitBalance: initBalance})
 		if err != nil {
 			log.Warnf("Error sending reset command to node %s: %v", node.ID, err)
 		}

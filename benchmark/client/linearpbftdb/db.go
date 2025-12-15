@@ -8,10 +8,13 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/herumi/bls-eth-go-binary/bls"
 	"github.com/magiconair/properties"
 	"github.com/mavleo96/linear-pbft/internal/config"
 	"github.com/mavleo96/linear-pbft/internal/crypto"
 	"github.com/mavleo96/linear-pbft/internal/models"
+	"github.com/mavleo96/linear-pbft/internal/network"
+	networkgrpc "github.com/mavleo96/linear-pbft/internal/network/grpc"
 	"github.com/mavleo96/linear-pbft/internal/utils"
 	"github.com/mavleo96/linear-pbft/pb"
 	"github.com/pingcap/go-ycsb/pkg/util"
@@ -23,13 +26,15 @@ import (
 
 // LinearPBFTDB represents a LinearPBFT database
 type LinearPBFTDB struct {
-	n         int64
-	f         int64
-	p         *properties.Properties
-	nodeMap   map[string]*models.Node
-	clientMap map[string]*models.Client
-	r         *util.RowCodec
-	bufPool   *util.BufPool
+	n              int64
+	f              int64
+	p              *properties.Properties
+	nodeTransport  network.ClientTransport
+	nodeIDs        []string
+	nodePublicKeys map[string]*bls.PublicKey
+	clientMap      map[string]*models.Client
+	r              *util.RowCodec
+	bufPool        *util.BufPool
 	// Track servers for cleanup in Close()
 	mu        sync.Mutex
 	servers   []*grpc.Server
@@ -53,23 +58,49 @@ func (c *LinearPBFTDBCreator) Create(props *properties.Properties) (ycsb.DB, err
 		return nil, fmt.Errorf("failed to get client map: %v", err)
 	}
 
-	// Get node map and connections
+	// Get node map to extract addresses and public keys
 	nodeMap, err := models.GetNodeMap(cfg.Nodes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get node map: %v", err)
 	}
 
+	// Build address map and extract node IDs and public keys
+	nodeAddresses := make(map[string]string, len(nodeMap))
+	nodeIDs := make([]string, 0, len(nodeMap))
+	nodePublicKeys := make(map[string]*bls.PublicKey, len(nodeMap))
+	for id, node := range nodeMap {
+		nodeAddresses[id] = node.Address
+		nodeIDs = append(nodeIDs, id)
+		nodePublicKeys[id] = node.PublicKey1
+	}
+
+	// Create transport manager
+	nodeTransport, err := networkgrpc.NewClientTransport(nodeAddresses)
+	if err != nil {
+		// Cleanup node connections
+		for _, node := range nodeMap {
+			node.Close()
+		}
+		// Cleanup client connections
+		for _, client := range clientMap {
+			client.Close()
+		}
+		return nil, fmt.Errorf("failed to create node transport: %v", err)
+	}
+
 	// Create LinearPBFTDB instance
 	db := &LinearPBFTDB{
-		n:         int64(len(nodeMap)),
-		f:         int64((len(nodeMap) - 1) / 3),
-		p:         props,
-		nodeMap:   nodeMap,
-		clientMap: clientMap,
-		r:         util.NewRowCodec(props),
-		bufPool:   util.NewBufPool(),
-		servers:   make([]*grpc.Server, 0),
-		listeners: make([]net.Listener, 0),
+		n:              int64(len(nodeMap)),
+		f:              int64((len(nodeMap) - 1) / 3),
+		p:              props,
+		nodeTransport:  nodeTransport,
+		nodeIDs:        nodeIDs,
+		nodePublicKeys: nodePublicKeys,
+		clientMap:      clientMap,
+		r:              util.NewRowCodec(props),
+		bufPool:        util.NewBufPool(),
+		servers:        make([]*grpc.Server, 0),
+		listeners:      make([]net.Listener, 0),
 	}
 
 	return db, nil
@@ -120,9 +151,9 @@ func (p *LinearPBFTDB) InitThread(ctx context.Context, threadID int, threadCount
 	}
 
 	// Create Server for receiving replies
-	server := &ReceiveServer{clientID: clientID, nodeMap: p.nodeMap, responseCh: responseCh}
+	server := &ReceiveServer{clientID: clientID, nodePublicKeys: p.nodePublicKeys, responseCh: responseCh}
 	grpcServer := grpc.NewServer()
-	pb.RegisterLinearPBFTClientAppServer(grpcServer, server)
+	pb.RegisterClientAppServer(grpcServer, server)
 
 	// Store listener and server in context for cleanup
 	ctx = context.WithValue(ctx, listenerKey, lis)
@@ -181,9 +212,9 @@ func (p *LinearPBFTDB) Close() error {
 		}
 	}
 
-	// Close node connections
-	for _, node := range p.nodeMap {
-		node.Close()
+	// Close transport
+	if p.nodeTransport != nil {
+		p.nodeTransport.Close()
 	}
 
 	// Close client connections
@@ -222,10 +253,10 @@ func Register() {
 
 // ReceiveServer is the server for receiving replies from nodes
 type ReceiveServer struct {
-	clientID   string
-	nodeMap    map[string]*models.Node
-	responseCh chan *pb.SignedTransactionResponse
-	*pb.UnimplementedLinearPBFTClientAppServer
+	clientID       string
+	nodePublicKeys map[string]*bls.PublicKey
+	responseCh     chan *pb.SignedTransactionResponse
+	*pb.UnimplementedClientAppServer
 }
 
 // ReceiveReply receives a reply from a node and send to channel
@@ -233,7 +264,14 @@ func (s *ReceiveServer) ReceiveReply(ctx context.Context, signedResponse *pb.Sig
 	response := signedResponse.Message
 
 	// Verify signature
-	ok := crypto.Verify(response, s.nodeMap[response.NodeID].PublicKey1, signedResponse.Signature)
+	publicKey, ok := s.nodePublicKeys[response.NodeID]
+	if !ok {
+		log.Warnf("%s: Unknown node ID %s", s.clientID, response.NodeID)
+		signedResponse.Message.Error = "unknown node"
+		s.responseCh <- signedResponse
+		return &emptypb.Empty{}, nil
+	}
+	ok = crypto.Verify(response, publicKey, signedResponse.Signature)
 	if !ok {
 		log.Warnf("%s: Invalid signature for reply from node %s for request %s", s.clientID, response.NodeID, utils.LoggingString(signedResponse))
 		signedResponse.Message.Error = "invalid signature"

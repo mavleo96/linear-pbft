@@ -28,7 +28,7 @@ func (n *LinearPBFTNode) SendPrePrepareToNode(signedPreprepareMessage *pb.Signed
 		time.Sleep(TimeAttackDelay)
 	}
 
-	signedPrepareMsg, err := n.handler.peers[nodeID].Client.PrePrepareRequest(n.serverCtx, signedPreprepareMessage)
+	signedPrepareMsg, err := n.Transport.SendPrePrepare(n.serverCtx, nodeID, signedPreprepareMessage)
 	if err != nil {
 		return nil, err
 	}
@@ -72,7 +72,7 @@ func (n *LinearPBFTNode) SendPrepareToNode(signedPrepareMessage *pb.SignedPrepar
 		time.Sleep(TimeAttackDelay)
 	}
 
-	signedCommitMsg, err := n.handler.peers[nodeID].Client.PrepareRequest(n.serverCtx, signedPrepareMessage)
+	signedCommitMsg, err := n.Transport.SendPrepare(n.serverCtx, nodeID, signedPrepareMessage)
 	if err != nil {
 		return nil, err
 	}
@@ -114,7 +114,7 @@ func (n *LinearPBFTNode) SendCommitToNode(signedCommitMessage *pb.SignedCommitMe
 		time.Sleep(TimeAttackDelay)
 	}
 
-	_, err := n.handler.peers[nodeID].Client.CommitRequest(n.serverCtx, signedCommitMessage)
+	err := n.Transport.SendCommit(n.serverCtx, nodeID, signedCommitMessage)
 	if err != nil {
 		return err
 	}
@@ -136,7 +136,7 @@ func (n *LinearPBFTNode) SendViewChangeMessageToNode(signedViewChangeMessage *pb
 		time.Sleep(TimeAttackDelay)
 	}
 
-	_, err := n.handler.peers[nodeID].Client.ViewChangeRequest(n.serverCtx, signedViewChangeMessage)
+	err := n.Transport.SendViewChange(n.serverCtx, nodeID, signedViewChangeMessage)
 	if err != nil {
 		return err
 	}
@@ -162,7 +162,7 @@ func (n *LinearPBFTNode) SendNewViewMessageToNode(signedNewViewMessage *pb.Signe
 		time.Sleep(TimeAttackDelay)
 	}
 
-	stream, err := n.handler.peers[nodeID].Client.NewViewRequest(n.serverCtx, signedNewViewMessage)
+	stream, err := n.Transport.SendNewView(n.serverCtx, nodeID, signedNewViewMessage)
 	if err != nil {
 		return err
 	}
@@ -221,7 +221,7 @@ func (n *LinearPBFTNode) SendCheckpointMessageToNode(signedCheckpointMessage *pb
 		time.Sleep(TimeAttackDelay)
 	}
 
-	_, err := n.handler.peers[nodeID].Client.CheckpointRequest(n.serverCtx, signedCheckpointMessage)
+	err := n.Transport.SendCheckpoint(n.serverCtx, nodeID, signedCheckpointMessage)
 	if err != nil {
 		return err
 	}

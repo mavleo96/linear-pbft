@@ -35,7 +35,7 @@ func (n *LinearPBFTNode) SendGetRequest(digest []byte) (*pb.SignedTransactionReq
 				return
 			}
 
-			signedRequest, err := peer.Client.GetRequest(n.serverCtx, getRequestMessage)
+			signedRequest, err := n.Transport.GetRequest(n.serverCtx, peer.ID, getRequestMessage)
 			if err != nil {
 				return
 			}
@@ -94,7 +94,7 @@ func (n *LinearPBFTNode) SendGetCheckpoint(sequenceNum int64) (*pb.Checkpoint, e
 				return
 			}
 
-			checkpoint, err := peer.Client.GetCheckpoint(n.serverCtx, getCheckpointMessage)
+			checkpoint, err := n.Transport.GetCheckpoint(n.serverCtx, peer.ID, getCheckpointMessage)
 			if err != nil {
 				return
 			}

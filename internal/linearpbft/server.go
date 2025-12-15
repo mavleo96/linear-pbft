@@ -7,7 +7,10 @@ import (
 	"github.com/herumi/bls-eth-go-binary/bls"
 	"github.com/mavleo96/linear-pbft/internal/database"
 	"github.com/mavleo96/linear-pbft/internal/models"
+	"github.com/mavleo96/linear-pbft/internal/network"
+	networkgrpc "github.com/mavleo96/linear-pbft/internal/network/grpc"
 	"github.com/mavleo96/linear-pbft/pb"
+	log "github.com/sirupsen/logrus"
 )
 
 // LinearPBFTNode represents a LinearPBFT node
@@ -18,6 +21,9 @@ type LinearPBFTNode struct {
 	byzantineConfig *ByzantineConfig
 	clients         map[string]*models.Client
 	state           *ServerState
+
+	// Transport managers
+	clientTransport network.ClientAppTransport
 
 	// Component managers
 	executor    *Executor
@@ -59,12 +65,23 @@ func CreateLinearPBFTNode(selfNode *models.Node, peerNodes map[string]*models.No
 	handler := CreateProtocolHandler(selfNode.ID, serverState, serverConfig, byzantineConfig, privateKey1, privateKey2, masterPublicKey1, masterPublicKey2, peerNodes, timer, executionTriggerChannel)
 	logger := CreateLogger()
 
+	// Create client transport manager
+	clientAddresses := make(map[string]string, len(clientMap))
+	for id, client := range clientMap {
+		clientAddresses[id] = client.Address
+	}
+	clientTransport, err := networkgrpc.NewClientAppTransport(clientAddresses)
+	if err != nil {
+		log.Fatalf("failed to create client transport: %v", err)
+	}
+
 	server := &LinearPBFTNode{
 		Node:            selfNode,
 		config:          serverConfig,
 		byzantineConfig: byzantineConfig,
 		clients:         clientMap,
 		state:           serverState,
+		clientTransport: clientTransport,
 		executor:        executor,
 		handler:         handler,
 		viewchanger:     viewchanger,

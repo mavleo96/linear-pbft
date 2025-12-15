@@ -33,7 +33,7 @@ service LinearPBFTNode {
     rpc BenchmarkRPC (SignedTransactionRequest) returns (google.protobuf.Empty);
 }
 
-service LinearPBFTClientApp {
+service ClientApp {
     rpc ReceiveReply (SignedTransactionResponse) returns (google.protobuf.Empty);
 }
 

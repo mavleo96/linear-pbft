@@ -108,7 +108,7 @@ func (n *LinearPBFTNode) BenchmarkSendReply(signedRequest *pb.SignedTransactionR
 	log.Infof("Benchmark RPC: Sending response: %s", utils.LoggingString(signedResponse))
 
 	for attempt := 1; attempt <= MaxSendAttempts; attempt++ {
-		_, err := n.clients[request.Sender].Client.ReceiveReply(n.serverCtx, signedResponse)
+		err := n.clientTransport.SendReply(n.serverCtx, request.Sender, signedResponse)
 		if err == nil {
 			return
 		}

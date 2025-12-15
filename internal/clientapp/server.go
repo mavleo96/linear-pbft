@@ -9,6 +9,7 @@ import (
 
 	"github.com/mavleo96/linear-pbft/internal/crypto"
 	"github.com/mavleo96/linear-pbft/internal/models"
+	networkgrpc "github.com/mavleo96/linear-pbft/internal/network/grpc"
 	"github.com/mavleo96/linear-pbft/pb"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
@@ -20,7 +21,7 @@ type ClientAppServer struct {
 	*models.Client
 	coordinator *Coordinator
 	grpcServer  *grpc.Server
-	*pb.UnimplementedLinearPBFTClientAppServer
+	*pb.UnimplementedClientAppServer
 }
 
 // ReceiveReply receives a reply from a node and sends it to the coordinator
@@ -53,7 +54,7 @@ func (s *ClientAppServer) StartServer(mainCtx context.Context) {
 
 	// Create gRPC server and register service
 	s.grpcServer = grpc.NewServer()
-	pb.RegisterLinearPBFTClientAppServer(s.grpcServer, s)
+	pb.RegisterClientAppServer(s.grpcServer, s)
 
 	// Start coordinator before serving
 	s.coordinator.Start()
@@ -98,6 +99,16 @@ func CreateClientAppServer(mainCtx context.Context, client *models.Client, nodes
 		F:     f,
 	}
 
+	// Create node transport manager
+	nodeAddresses := make(map[string]string, len(nodes))
+	for id, node := range nodes {
+		nodeAddresses[id] = node.Address
+	}
+	nodeTransport, err := networkgrpc.NewClientTransport(nodeAddresses)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create node transport: %w", err)
+	}
+
 	resultCh := make(chan Result, 1)
 
 	state := &ClientState{
@@ -107,11 +118,12 @@ func CreateClientAppServer(mainCtx context.Context, client *models.Client, nodes
 		mutex:             sync.RWMutex{},
 	}
 	processor := &Processor{
-		clientID:   client.ID,
-		state:      state,
-		nodes:      nodeMap,
-		privateKey: privateKey,
-		resultCh:   resultCh,
+		clientID:      client.ID,
+		state:         state,
+		nodes:         nodeMap,
+		privateKey:    privateKey,
+		nodeTransport: nodeTransport,
+		resultCh:      resultCh,
 	}
 
 	collector := &ResponseCollector{
